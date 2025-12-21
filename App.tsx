@@ -30,9 +30,9 @@ const App = () => {
   const [data, setData] = useState<AppData>(() => StorageService.loadLocal());
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
+  const [syncErrorMessage, setSyncErrorMessage] = useState('');
   const [lastSyncTime, setLastSyncTime] = useState<string>('');
   
-  // Mặc định sử dụng Bucket ID của bạn nếu chưa có key nào khác
   const [syncKey, setSyncKey] = useState(() => {
     const saved = localStorage.getItem('tokymon_sync_key');
     return saved || 'NZQkBLdrxvnEEMUw928weK';
@@ -63,13 +63,14 @@ const App = () => {
       const merged = await StorageService.syncWithCloud(syncKey, targetData);
       setData(merged);
       setSyncStatus('SUCCESS');
+      setSyncErrorMessage('');
       setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
       
-      // Sau 3 giây reset trạng thái thành công
       if (!silent) setTimeout(() => setSyncStatus('IDLE'), 3000);
-    } catch (e) {
-      console.error("Lỗi đồng bộ Cloud");
+    } catch (e: any) {
+      console.error("Lỗi đồng bộ Cloud:", e);
       setSyncStatus('ERROR');
+      setSyncErrorMessage(e.message || "Lỗi không xác định");
     } finally {
       if (!silent) setIsSyncing(false);
     }
@@ -80,7 +81,7 @@ const App = () => {
       handleCloudSync(true);
       pollTimerRef.current = window.setInterval(() => {
         handleCloudSync(true);
-      }, 10000);
+      }, 15000); // Tăng lên 15 giây để tránh spam server
     }
     return () => {
       if (pollTimerRef.current) window.clearInterval(pollTimerRef.current);
@@ -267,9 +268,12 @@ const App = () => {
                     </div>
 
                     {syncStatus === 'ERROR' && (
-                       <div className="p-4 bg-rose-50 dark:bg-rose-900/30 rounded-2xl border border-rose-200 flex items-center gap-3 text-rose-600">
-                          <AlertTriangle className="w-5 h-5" />
-                          <p className="text-[10px] font-bold uppercase">Lỗi: Không thể kết nối với server KVDB. Vui lòng kiểm tra lại mã hoặc mạng.</p>
+                       <div className="p-4 bg-rose-50 dark:bg-rose-900/30 rounded-2xl border border-rose-200 space-y-2 text-rose-600">
+                          <div className="flex items-center gap-3">
+                            <AlertTriangle className="w-5 h-5 shrink-0" />
+                            <p className="text-[10px] font-bold uppercase">Lỗi kết nối Server KVDB</p>
+                          </div>
+                          <p className="text-[9px] font-medium bg-white/50 p-2 rounded-lg border border-rose-100">Chi tiết: {syncErrorMessage}</p>
                        </div>
                     )}
 
@@ -283,7 +287,7 @@ const App = () => {
                      <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
                        1. Nhập mã Bucket vào Máy tính.<br/>
                        2. Nhập cùng mã đó vào iPhone của bạn.<br/>
-                       3. Dữ liệu sẽ <strong>tự động bay qua lại</strong> mỗi khi bạn lưu giao dịch hoặc sau mỗi 10 giây.
+                       3. Dữ liệu sẽ <strong>tự động bay qua lại</strong> mỗi khi bạn lưu giao dịch hoặc sau mỗi 15 giây.
                      </p>
                   </div>
                 </div>

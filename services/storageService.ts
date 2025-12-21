@@ -66,14 +66,14 @@ export const StorageService = {
     const sanitizedId = bucketId?.trim();
     if (!sanitizedId) return localData;
     
-    const BUCKET_URL = `https://kvdb.io/buckets/${sanitizedId}/values/main`;
+    // Sử dụng URL đơn giản nhất của KVDB.io
+    const BUCKET_URL = `https://kvdb.io/${sanitizedId}/main`;
 
     try {
-      // 1. Lấy dữ liệu từ Cloud với headers sạch
+      // 1. Thử lấy dữ liệu hiện tại từ Cloud
       const response = await fetch(BUCKET_URL, {
         method: 'GET',
-        mode: 'cors',
-        headers: { 'Accept': 'application/json' }
+        mode: 'cors'
       });
 
       let remoteData: AppData | null = null;
@@ -84,19 +84,17 @@ export const StorageService = {
           try {
             remoteData = JSON.parse(text);
           } catch (pError) {
-            console.warn("Dữ liệu Cloud không đúng định dạng JSON, sẽ ghi đè bằng dữ liệu local.");
+            console.warn("Dữ liệu Cloud không hợp lệ, sẽ được ghi đè.");
           }
         }
-      } else if (response.status !== 404) {
-        throw new Error(`Server trả về lỗi: ${response.status}`);
       }
 
-      // 2. Hợp nhất dữ liệu
+      // 2. Hợp nhất dữ liệu local và cloud (ưu tiên cái mới nhất theo updatedAt)
       const merged = remoteData ? StorageService.mergeAppData(localData, remoteData) : localData;
 
-      // 3. Đẩy dữ liệu lên Cloud với Content-Type chuẩn
+      // 3. Sử dụng PUT để ghi đè dữ liệu lên Cloud (KVDB khuyến khích PUT cho việc set giá trị)
       const saveResponse = await fetch(BUCKET_URL, {
-        method: 'POST',
+        method: 'PUT',
         mode: 'cors',
         headers: {
           'Content-Type': 'application/json',
@@ -105,14 +103,13 @@ export const StorageService = {
       });
 
       if (!saveResponse.ok) {
-        const errText = await saveResponse.text();
-        throw new Error(`Ghi dữ liệu thất bại: ${saveResponse.status} - ${errText}`);
+        throw new Error(`Cloud từ chối (Mã lỗi: ${saveResponse.status})`);
       }
 
       return merged;
-    } catch (error) {
-      console.error("Lỗi kĩ thuật đồng bộ:", error);
-      throw error;
+    } catch (error: any) {
+      console.error("Lỗi đồng bộ:", error);
+      throw new Error(error.message || "Lỗi kết nối mạng");
     }
   }
 };
