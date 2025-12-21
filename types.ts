@@ -80,7 +80,7 @@ export interface Transaction {
   debtorName?: string;
   updatedAt: string;
   deletedAt?: string;
-  history?: HistoryEntry[];
+  history: HistoryEntry[]; // Bắt buộc mảng để tránh lỗi TS
 }
 
 export interface RecurringTransaction {
@@ -117,7 +117,7 @@ export interface AppData {
   auditLogs: AuditLogEntry[];
 }
 
-export const SCHEMA_VERSION = "2.1";
+export const SCHEMA_VERSION = "2.2";
 
 export const formatCurrency = (val: number, lang: Language = 'vi') => 
   new Intl.NumberFormat(lang === 'vi' ? 'vi-VN' : 'de-DE', { 

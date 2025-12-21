@@ -4,36 +4,55 @@ import { AppData, SCHEMA_VERSION, EXPENSE_CATEGORIES, Transaction, Branch, User,
 const STORAGE_KEY = 'tokymon_master_data';
 
 export const StorageService = {
-  // Hàm hợp nhất mảng dữ liệu dựa trên ID và thời gian cập nhật (updatedAt)
+  // Mã hóa chuỗi Unicode sang Base64 an toàn
+  encodeSyncCode: (data: AppData): string => {
+    try {
+      const str = JSON.stringify(data);
+      const bytes = new TextEncoder().encode(str);
+      let binString = "";
+      bytes.forEach((byte) => { binString += String.fromCharCode(byte); });
+      return btoa(binString);
+    } catch (e) {
+      console.error("Encoding error:", e);
+      return "";
+    }
+  },
+
+  // Giải mã Base64 sang đối tượng dữ liệu
+  decodeSyncCode: (code: string): AppData | null => {
+    try {
+      const binString = atob(code);
+      const bytes = Uint8Array.from(binString, (m) => m.charCodeAt(0));
+      const str = new TextDecoder().decode(bytes);
+      return JSON.parse(str);
+    } catch (e) {
+      console.error("Decoding error:", e);
+      return null;
+    }
+  },
+
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
     const map = new Map<string, T>();
-    
-    // Nạp dữ liệu hiện tại vào map
     local.forEach(item => map.set(item.id, item));
-    
-    // Hợp nhất với dữ liệu mới
     remote.forEach(remoteItem => {
       const localItem = map.get(remoteItem.id);
-      // Nếu chưa có hoặc bản ghi mới có thời gian cập nhật muộn hơn thì ghi đè
       if (!localItem || new Date(remoteItem.updatedAt) > new Date(localItem.updatedAt)) {
         map.set(remoteItem.id, remoteItem);
       }
     });
-
     return Array.from(map.values());
   },
 
-  // Hợp nhất toàn bộ dữ liệu ứng dụng
   mergeAppData: (local: AppData, remote: AppData): AppData => {
     return {
       version: SCHEMA_VERSION,
       lastSync: new Date().toISOString(),
-      transactions: StorageService.mergeArrays(local.transactions, remote.transactions),
-      branches: StorageService.mergeArrays(local.branches, remote.branches),
-      users: StorageService.mergeArrays(local.users, remote.users),
-      expenseCategories: Array.from(new Set([...local.expenseCategories, ...remote.expenseCategories])),
-      recurringExpenses: StorageService.mergeArrays(local.recurringExpenses, remote.recurringExpenses),
-      auditLogs: [...local.auditLogs, ...remote.auditLogs.filter(r => !local.auditLogs.some(l => l.id === r.id))].slice(-500)
+      transactions: StorageService.mergeArrays(local.transactions || [], remote.transactions || []),
+      branches: StorageService.mergeArrays(local.branches || [], remote.branches || []),
+      users: StorageService.mergeArrays(local.users || [], remote.users || []),
+      expenseCategories: Array.from(new Set([...(local.expenseCategories || []), ...(remote.expenseCategories || [])])),
+      recurringExpenses: StorageService.mergeArrays(local.recurringExpenses || [], remote.recurringExpenses || []),
+      auditLogs: [...(local.auditLogs || []), ...(remote.auditLogs || []).filter(r => !(local.auditLogs || []).some(l => l.id === r.id))].slice(-500)
     };
   },
 
@@ -41,7 +60,7 @@ export const StorageService = {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) {
-      console.error("Lỗi lưu trữ cục bộ:", e);
+      console.error("Local storage save error:", e);
     }
   },
 
@@ -50,6 +69,12 @@ export const StorageService = {
     if (!raw) return StorageService.getEmptyData();
     try {
       const data = JSON.parse(raw);
+      if (data.transactions) {
+        data.transactions = data.transactions.map((tx: any) => ({
+          ...tx,
+          history: tx.history || []
+        }));
+      }
       return data;
     } catch (e) {
       return StorageService.getEmptyData();
@@ -67,29 +92,23 @@ export const StorageService = {
     auditLogs: []
   }),
 
-  // Xuất dữ liệu ra file
   exportToFile: (data: AppData) => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `tokymon_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `tokymon_sync_${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
   },
 
-  // Giả lập đồng bộ Cloud (Thực tế sẽ gọi API)
-  // Để đồng bộ thực sự qua Internet, bạn cần một Database (Firebase/Supabase)
-  // Ở đây tôi cải tiến để nó chuẩn bị sẵn cấu trúc cho API thật
   syncWithCloud: async (syncKey: string, localData: AppData): Promise<AppData> => {
-    // Đây là nơi bạn sẽ gọi: fetch('https://your-api.com/sync', { method: 'POST', body: localData })
-    // Hiện tại chúng tôi vẫn dùng localStorage làm 'Cloud giả lập' để demo logic
-    await new Promise(resolve => setTimeout(resolve, 800));
-    const cloudDataRaw = localStorage.getItem(`cloud_storage_${syncKey}`);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const cloudKey = `cloud_v2_${syncKey}`;
+    const cloudDataRaw = localStorage.getItem(cloudKey);
     const cloudData: AppData = cloudDataRaw ? JSON.parse(cloudDataRaw) : StorageService.getEmptyData();
-
     const merged = StorageService.mergeAppData(localData, cloudData);
-    localStorage.setItem(`cloud_storage_${syncKey}`, JSON.stringify(merged));
+    localStorage.setItem(cloudKey, JSON.stringify(merged));
     return merged;
   }
 };
