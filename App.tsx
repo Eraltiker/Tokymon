@@ -17,7 +17,7 @@ import {
   UtensilsCrossed, LayoutDashboard, Settings, 
   Wallet, ArrowDownCircle, Sun, Moon, LogOut, 
   History as HistoryIcon, MapPin, Users, RefreshCw, Database, 
-  CheckCircle2, ChevronDown, Download, Upload, Copy, ClipboardCheck, Key, Link, AlertTriangle
+  CheckCircle2, ChevronDown, Download, Upload, Copy, ClipboardCheck, Key, Link, AlertTriangle, CloudRain, Cloud
 } from 'lucide-react';
 
 const App = () => {
@@ -30,6 +30,7 @@ const App = () => {
   // Core Data State
   const [data, setData] = useState<AppData>(() => StorageService.loadLocal());
   const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncStatus, setLastSyncStatus] = useState<string>('');
   const [syncKey, setSyncKey] = useState(() => localStorage.getItem('tokymon_sync_key') || '');
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('tokymon_user');
@@ -42,12 +43,32 @@ const App = () => {
   const [copyError, setCopyError] = useState(false);
   const [pasteInput, setPasteInput] = useState('');
   
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const syncTimerRef = useRef<number | null>(null);
+  const pollTimerRef = useRef<number | null>(null);
 
-  // Auto-save local
+  // 1. Lưu Local mỗi khi Data thay đổi
   useEffect(() => {
     StorageService.saveLocal(data);
-  }, [data]);
+    // 2. Kích hoạt Auto-Sync ngầm khi dữ liệu thay đổi (Debounced)
+    if (syncKey) {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = window.setTimeout(() => {
+        handleCloudSync(true);
+      }, 2000);
+    }
+  }, [data, syncKey]);
+
+  // 3. Cơ chế Polling - Tự động tải dữ liệu từ máy khác mỗi 30s
+  useEffect(() => {
+    if (syncKey) {
+      pollTimerRef.current = window.setInterval(() => {
+        handleCloudSync(true);
+      }, 30000);
+    }
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    };
+  }, [syncKey]);
 
   useEffect(() => {
     if (isDark) document.documentElement.classList.add('dark');
@@ -96,11 +117,18 @@ const App = () => {
     try {
       const merged = await StorageService.syncWithCloud(syncKey, data);
       setData(merged);
+      setLastSyncStatus(new Date().toLocaleTimeString());
     } catch (e) {
-      if (!silent) console.error("Sync error:", e);
+      if (!silent) alert("Lỗi kết nối đồng bộ!");
     } finally {
       if (!silent) setIsSyncing(false);
     }
+  };
+
+  const handleUpdateSyncKey = (val: string) => {
+    setSyncKey(val);
+    localStorage.setItem('tokymon_sync_key', val);
+    if (val) handleCloudSync();
   };
 
   const handleImportCode = () => {
@@ -110,53 +138,29 @@ const App = () => {
       const merged = StorageService.mergeAppData(data, decoded);
       setData(merged);
       setPasteInput('');
-      alert("Đã gộp dữ liệu từ mã Sync Chain thành công!");
+      alert("Đã gộp dữ liệu thành công!");
       addAuditLog('UPDATE', 'TRANSACTION', 'sync', 'Gộp dữ liệu qua Sync Code');
     } else {
-      alert("Mã đồng bộ không hợp lệ! Hãy đảm bảo bạn đã copy đúng toàn bộ mã.");
+      alert("Mã đồng bộ không hợp lệ!");
     }
   };
 
   const handleCopySyncCode = async () => {
     const code = StorageService.encodeSyncCode(data);
-    if (!code) {
-      setCopyError(true);
-      setTimeout(() => setCopyError(false), 3000);
-      return;
-    }
-
+    if (!code) { setCopyError(true); return; }
     try {
-      // Ưu tiên navigator.clipboard
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(code);
         setCopySuccess(true);
       } else {
-        throw new Error("Clipboard API not available");
-      }
-    } catch (err) {
-      // Fallback: execCommand('copy')
-      try {
         const textArea = document.createElement("textarea");
-        textArea.value = code;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-9999px";
-        textArea.style.top = "0";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        const successful = document.execCommand('copy');
-        document.body.removeChild(textArea);
-        if (successful) setCopySuccess(true);
-        else throw new Error("Fallback copy failed");
-      } catch (e) {
-        setCopyError(true);
-        console.error("Copy failed:", e);
+        textArea.value = code; document.body.appendChild(textArea);
+        textArea.select(); document.execCommand('copy'); document.body.removeChild(textArea);
+        setCopySuccess(true);
       }
-    }
-
-    if (copySuccess) {
       setTimeout(() => setCopySuccess(false), 2000);
-    } else if (copyError) {
+    } catch (err) {
+      setCopyError(true);
       setTimeout(() => setCopyError(false), 3000);
     }
   };
@@ -169,9 +173,10 @@ const App = () => {
 
   const handleDeleteTransaction = (id: string) => {
     if (window.confirm("Xóa giao dịch này?")) {
+      const now = new Date().toISOString();
       setData(prev => ({
         ...prev,
-        transactions: prev.transactions.map(t => t.id === id ? { ...t, deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() } : t)
+        transactions: prev.transactions.map(t => t.id === id ? { ...t, deletedAt: now, updatedAt: now } : t)
       }));
       addAuditLog('DELETE', 'TRANSACTION', id, `Xóa giao dịch`);
     }
@@ -231,6 +236,12 @@ const App = () => {
               ))}
             </div>
           </div>
+          {syncKey && (
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 rounded-full border border-emerald-100 dark:border-emerald-900/50">
+               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+               <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest">Live Sync: {lastSyncStatus || 'Active'}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -266,7 +277,7 @@ const App = () => {
               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
                 {[
                   { id: 'general', label: t('all'), icon: Settings },
-                  { id: 'sync', label: 'Sync Chain', icon: Database },
+                  { id: 'sync', label: 'Sync & Backup', icon: Database },
                   { id: 'branches', label: t('branches'), icon: MapPin },
                   { id: 'users', label: t('users'), icon: Users },
                   { id: 'audit', label: t('audit_log'), icon: HistoryIcon }
@@ -278,41 +289,72 @@ const App = () => {
               </div>
 
               {settingsSubTab === 'sync' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in zoom-in-95">
-                  {/* Sync Chain - Copy From Device */}
+                <div className="space-y-6">
+                  {/* Cloud Real-time Sync */}
                   <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border dark:border-slate-800 shadow-sm space-y-6">
-                    <div className="flex items-center gap-4">
-                      <div className="p-4 bg-indigo-50 dark:bg-indigo-950 rounded-2xl"><Link className="w-8 h-8 text-indigo-600" /></div>
-                      <div>
-                        <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none">1. Xuất mã đồng bộ</h3>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tạo mã để chuyển sang thiết bị khác</p>
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="p-4 bg-emerald-50 dark:bg-emerald-950 rounded-2xl"><Cloud className="w-8 h-8 text-emerald-600" /></div>
+                        <div>
+                          <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none">Đồng bộ đám mây (Cloud)</h3>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cập nhật dữ liệu tức thời giữa các máy</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                         <input 
+                           type="text" 
+                           value={syncKey} 
+                           onChange={e => handleUpdateSyncKey(e.target.value)}
+                           placeholder="Nhập mã Sync Key..." 
+                           className="px-4 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl font-black text-xs outline-none focus:border-emerald-500 w-full md:w-48"
+                         />
+                         <button onClick={() => handleCloudSync()} className="p-3.5 bg-emerald-600 text-white rounded-xl shadow-lg active:scale-90 transition-all"><RefreshCw className="w-5 h-5" /></button>
                       </div>
                     </div>
-                    
-                    <button 
-                      onClick={handleCopySyncCode} 
-                      className={`w-full py-8 rounded-3xl font-black uppercase text-xs tracking-widest flex flex-col items-center gap-3 transition-all active:scale-95 border-2 border-dashed ${copySuccess ? 'bg-emerald-500 border-emerald-500 text-white' : copyError ? 'bg-rose-500 border-rose-500 text-white' : 'bg-slate-50 dark:bg-slate-800 text-indigo-600 border-indigo-200 dark:border-indigo-900'}`}
-                    >
-                      {copySuccess ? <ClipboardCheck className="w-8 h-8" /> : copyError ? <AlertTriangle className="w-8 h-8" /> : <Copy className="w-8 h-8" />}
-                      {copySuccess ? "ĐÃ SAO CHÉP MÃ" : copyError ? "LỖI SAO CHÉP!" : "SAO CHÉP MÃ SYNC CHAIN"}
-                    </button>
-                    {copyError && <p className="text-[9px] text-rose-500 font-bold uppercase text-center">Trình duyệt từ chối quyền truy cập Clipboard. Hãy thử dùng Chrome/Safari hoặc xuất file JSON thay thế.</p>}
-                    <p className="text-[9px] text-slate-400 font-bold uppercase text-center leading-relaxed">Mã này chứa toàn bộ dữ liệu hiện tại của bạn (đã xử lý tiếng Việt). Hãy gửi mã này qua Zalo/Tin nhắn cho chính mình trên thiết bị iPhone/PC mới.</p>
+                    <div className="p-5 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+                       <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 leading-relaxed">
+                         <strong className="block mb-1">HƯỚNG DẪN:</strong>
+                         1. Đặt một mã bí mật bất kỳ (VD: "tokymon_vip_123") vào ô Sync Key trên máy tính.<br/>
+                         2. Nhập chính xác mã đó vào iPhone/iPad của bạn.<br/>
+                         3. Dữ liệu sẽ tự động nhảy sang nhau sau mỗi lần nhập hoặc mỗi 30 giây ngầm.
+                       </p>
+                    </div>
                   </div>
 
-                  {/* Sync Chain - Paste To Device */}
-                  <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border dark:border-slate-800 shadow-sm space-y-6">
-                    <div className="flex items-center gap-4">
-                      <div className="p-4 bg-emerald-50 dark:bg-emerald-950 rounded-2xl"><Database className="w-8 h-8 text-emerald-600" /></div>
-                      <div>
-                        <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none">2. Nhập mã đồng bộ</h3>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Gộp dữ liệu từ thiết bị cũ vào đây</p>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in zoom-in-95">
+                    {/* Sync Chain - Copy From Device */}
+                    <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border dark:border-slate-800 shadow-sm space-y-6">
+                      <div className="flex items-center gap-4">
+                        <div className="p-4 bg-indigo-50 dark:bg-indigo-950 rounded-2xl"><Link className="w-8 h-8 text-indigo-600" /></div>
+                        <div>
+                          <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none">Xuất mã (Thủ công)</h3>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dùng khi không có mạng Cloud</p>
+                        </div>
                       </div>
+                      
+                      <button 
+                        onClick={handleCopySyncCode} 
+                        className={`w-full py-8 rounded-3xl font-black uppercase text-xs tracking-widest flex flex-col items-center gap-3 transition-all active:scale-95 border-2 border-dashed ${copySuccess ? 'bg-emerald-500 border-emerald-500 text-white' : copyError ? 'bg-rose-500 border-rose-500 text-white' : 'bg-slate-50 dark:bg-slate-800 text-indigo-600 border-indigo-200 dark:border-indigo-900'}`}
+                      >
+                        {copySuccess ? <ClipboardCheck className="w-8 h-8" /> : copyError ? <AlertTriangle className="w-8 h-8" /> : <Copy className="w-8 h-8" />}
+                        {copySuccess ? "ĐÃ SAO CHÉP MÃ" : copyError ? "LỖI SAO CHÉP!" : "SAO CHÉP MÃ DỮ LIỆU"}
+                      </button>
                     </div>
 
-                    <div className="space-y-4">
-                      <textarea value={pasteInput} onChange={e => setPasteInput(e.target.value)} placeholder="Dán mã Sync Chain vào đây..." className="w-full h-32 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-transparent focus:border-indigo-500 font-mono text-[10px] outline-none dark:text-white" />
-                      <button onClick={handleImportCode} className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg hover:bg-emerald-700 active:scale-95 transition-all">GỘP DỮ LIỆU NGAY</button>
+                    {/* Sync Chain - Paste To Device */}
+                    <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border dark:border-slate-800 shadow-sm space-y-6">
+                      <div className="flex items-center gap-4">
+                        <div className="p-4 bg-amber-50 dark:bg-amber-950 rounded-2xl"><Database className="w-8 h-8 text-amber-600" /></div>
+                        <div>
+                          <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none">Nhập mã (Thủ công)</h3>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Gộp mã từ máy khác vào máy này</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <textarea value={pasteInput} onChange={e => setPasteInput(e.target.value)} placeholder="Dán mã dữ liệu vào đây..." className="w-full h-32 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-transparent focus:border-indigo-500 font-mono text-[10px] outline-none dark:text-white" />
+                        <button onClick={handleImportCode} className="w-full py-4 bg-amber-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg hover:bg-amber-700 active:scale-95 transition-all">XÁC NHẬN GỘP DỮ LIỆU</button>
+                      </div>
                     </div>
                   </div>
                 </div>

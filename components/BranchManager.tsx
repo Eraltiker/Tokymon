@@ -15,9 +15,11 @@ const BranchManager: React.FC<BranchManagerProps> = ({ branches, setBranches, on
   const [initialCash, setInitialCash] = useState('0');
   const [initialCard, setInitialCard] = useState('0');
 
+  // Chỉ hiển thị các chi nhánh chưa bị xóa mềm
+  const activeBranches = branches.filter(b => !b.deletedAt);
+
   const handleAdd = () => {
     if (!name) return;
-    // Fix: Added missing updatedAt property to satisfy Branch interface
     const newB: Branch = {
       id: Date.now().toString(),
       name,
@@ -26,16 +28,18 @@ const BranchManager: React.FC<BranchManagerProps> = ({ branches, setBranches, on
       initialCard: Number(initialCard) || 0,
       updatedAt: new Date().toISOString()
     };
-    setBranches([...branches, newB]);
+    setBranches(prev => [...prev, newB]);
     onAudit('CREATE', 'BRANCH', newB.id, `Thêm chi nhánh: ${name} (TM: ${initialCash}€, Thẻ: ${initialCard}€)`);
     setName(''); setAddress(''); setInitialCash('0'); setInitialCard('0');
   };
 
   const handleDelete = (id: string) => {
-    if (branches.length === 1) return alert("Không thể xóa chi nhánh duy nhất.");
+    if (activeBranches.length === 1) return alert("Không thể xóa chi nhánh duy nhất.");
     const b = branches.find(x => x.id === id);
     if (window.confirm(`Xóa chi nhánh ${b?.name}?`)) {
-      setBranches(branches.filter(x => x.id !== id));
+      // Chuyển sang Xóa mềm (Soft Delete) để đồng bộ lệnh xóa sang thiết bị khác
+      const now = new Date().toISOString();
+      setBranches(prev => prev.map(x => x.id === id ? { ...x, deletedAt: now, updatedAt: now } : x));
       onAudit('DELETE', 'BRANCH', id, `Xóa chi nhánh: ${b?.name}`);
     }
   };
@@ -50,23 +54,23 @@ const BranchManager: React.FC<BranchManagerProps> = ({ branches, setBranches, on
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Tên chi nhánh</label>
-            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="VD: Tokymon Berlin..." className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-slate-100 dark:border-slate-700 font-bold outline-none focus:border-indigo-500 transition-all" />
+            <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="VD: Tokymon Berlin..." className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-slate-100 dark:border-slate-700 font-bold outline-none focus:border-indigo-500 transition-all text-sm" />
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Địa chỉ</label>
-            <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="VD: Alexanderplatz..." className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-slate-100 dark:border-slate-700 font-bold outline-none focus:border-indigo-500 transition-all" />
+            <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="VD: Alexanderplatz..." className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-slate-100 dark:border-slate-700 font-bold outline-none focus:border-indigo-500 transition-all text-sm" />
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Tiền mặt ban đầu (€)</label>
             <div className="relative">
-              <input type="number" value={initialCash} onChange={e => setInitialCash(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-emerald-50/30 dark:bg-emerald-900/10 rounded-2xl border-2 border-emerald-100 dark:border-emerald-900/30 font-black text-emerald-600 outline-none focus:bg-white transition-all" />
+              <input type="number" value={initialCash} onChange={e => setInitialCash(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-emerald-50/30 dark:bg-emerald-900/10 rounded-2xl border-2 border-emerald-100 dark:border-emerald-900/30 font-black text-emerald-600 outline-none focus:bg-white transition-all text-sm" />
               <Banknote className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-500" />
             </div>
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Tiền thẻ ban đầu (€)</label>
             <div className="relative">
-              <input type="number" value={initialCard} onChange={e => setInitialCard(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-indigo-50/30 dark:bg-indigo-900/10 rounded-2xl border-2 border-indigo-100 dark:border-indigo-900/30 font-black text-indigo-600 outline-none focus:bg-white transition-all" />
+              <input type="number" value={initialCard} onChange={e => setInitialCard(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-indigo-50/30 dark:bg-indigo-900/10 rounded-2xl border-2 border-indigo-100 dark:border-indigo-900/30 font-black text-indigo-600 outline-none focus:bg-white transition-all text-sm" />
               <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-500" />
             </div>
           </div>
@@ -78,7 +82,7 @@ const BranchManager: React.FC<BranchManagerProps> = ({ branches, setBranches, on
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {branches.map(b => (
+        {activeBranches.map(b => (
           <div key={b.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border dark:border-slate-800 shadow-sm hover:border-indigo-500 transition-all group relative overflow-hidden">
             <div className="flex justify-between items-start mb-6">
               <div className="p-3.5 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl">
