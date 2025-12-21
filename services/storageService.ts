@@ -63,42 +63,56 @@ export const StorageService = {
   }),
 
   syncWithCloud: async (bucketId: string, localData: AppData): Promise<AppData> => {
-    if (!bucketId || bucketId.trim() === '') return localData;
+    const sanitizedId = bucketId?.trim();
+    if (!sanitizedId) return localData;
     
-    const BUCKET_URL = `https://kvdb.io/buckets/${bucketId.trim()}/values/main`;
+    const BUCKET_URL = `https://kvdb.io/buckets/${sanitizedId}/values/main`;
 
     try {
-      // 1. Thử lấy dữ liệu từ Cloud
-      const response = await fetch(BUCKET_URL);
+      // 1. Lấy dữ liệu từ Cloud với headers sạch
+      const response = await fetch(BUCKET_URL, {
+        method: 'GET',
+        mode: 'cors',
+        headers: { 'Accept': 'application/json' }
+      });
+
       let remoteData: AppData | null = null;
       
       if (response.ok) {
         const text = await response.text();
-        if (text) {
-          remoteData = JSON.parse(text);
+        if (text && text !== "null" && text.trim() !== "") {
+          try {
+            remoteData = JSON.parse(text);
+          } catch (pError) {
+            console.warn("Dữ liệu Cloud không đúng định dạng JSON, sẽ ghi đè bằng dữ liệu local.");
+          }
         }
       } else if (response.status !== 404) {
-        // Nếu không phải 404 và cũng không phải 200 (ví dụ 500), coi như lỗi mạng
-        throw new Error(`Cloud Error: ${response.status}`);
+        throw new Error(`Server trả về lỗi: ${response.status}`);
       }
 
-      // 2. Hợp nhất dữ liệu (Nếu cloud trống thì merged chính là local)
+      // 2. Hợp nhất dữ liệu
       const merged = remoteData ? StorageService.mergeAppData(localData, remoteData) : localData;
 
-      // 3. Đẩy bản hợp nhất lên Cloud (Cập nhật hoặc Khởi tạo lần đầu)
+      // 3. Đẩy dữ liệu lên Cloud với Content-Type chuẩn
       const saveResponse = await fetch(BUCKET_URL, {
         method: 'POST',
+        mode: 'cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(merged)
       });
 
       if (!saveResponse.ok) {
-        throw new Error("Không thể ghi dữ liệu lên Cloud");
+        const errText = await saveResponse.text();
+        throw new Error(`Ghi dữ liệu thất bại: ${saveResponse.status} - ${errText}`);
       }
 
       return merged;
     } catch (error) {
-      console.error("Lỗi đồng bộ:", error);
-      throw error; // Ném lỗi để App.tsx xử lý UI
+      console.error("Lỗi kĩ thuật đồng bộ:", error);
+      throw error;
     }
   }
 };
