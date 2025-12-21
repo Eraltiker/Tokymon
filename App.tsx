@@ -27,7 +27,6 @@ const App = () => {
   const [lang] = useState<Language>(() => (localStorage.getItem('tokymon_lang') as Language) || 'vi');
   const t = useTranslation(lang);
 
-  // Core Data State
   const [data, setData] = useState<AppData>(() => StorageService.loadLocal());
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<string>('');
@@ -37,35 +36,45 @@ const App = () => {
     return saved ? JSON.parse(saved) : null;
   });
   const [currentBranchId, setCurrentBranchId] = useState<string>(() => localStorage.getItem('tokymon_current_branch') || '');
-  
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
   
-  const syncTimerRef = useRef<number | null>(null);
   const pollTimerRef = useRef<number | null>(null);
 
-  // Đồng bộ hóa dữ liệu ngầm và lưu cục bộ
+  const handleCloudSync = useCallback(async (silent = false) => {
+    if (!syncKey) return;
+    if (!silent) setIsSyncing(true);
+    try {
+      // Logic: Gộp data local vào cloud và lấy bản mới nhất về
+      const merged = await StorageService.syncWithCloud(syncKey, data);
+      setData(merged);
+      setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    } catch (e) {
+      console.error("Sync Error", e);
+    } finally {
+      if (!silent) setIsSyncing(false);
+    }
+  }, [syncKey, data]);
+
+  // Lưu local mỗi khi data đổi
   useEffect(() => {
     StorageService.saveLocal(data);
-    if (syncKey) {
-      if (syncTimerRef.current) window.clearTimeout(syncTimerRef.current);
-      syncTimerRef.current = window.setTimeout(() => {
-        handleCloudSync(true);
-      }, 1500); // Lưu xong 1.5s là đẩy lên cloud ngay
-    }
-  }, [data, syncKey]);
+  }, [data]);
 
-  // Polling dữ liệu mới mỗi 15 giây để cập nhật tức thời từ máy khác
+  // Polling: Tự động tải dữ liệu mới từ máy khác mỗi 10 giây
   useEffect(() => {
     if (syncKey) {
+      // Sync lần đầu khi vào app
+      handleCloudSync(true);
+      
       pollTimerRef.current = window.setInterval(() => {
         handleCloudSync(true);
-      }, 15000);
+      }, 10000); // 10 giây một lần
     }
     return () => {
       if (pollTimerRef.current) window.clearInterval(pollTimerRef.current);
     };
-  }, [syncKey]);
+  }, [syncKey, handleCloudSync]);
 
   useEffect(() => {
     if (isDark) document.documentElement.classList.add('dark');
@@ -83,16 +92,6 @@ const App = () => {
     return activeBranches.filter(b => currentUser.assignedBranchIds.includes(b.id));
   }, [activeBranches, currentUser]);
 
-  useEffect(() => {
-    if (currentUser && allowedBranches.length > 0) {
-      if (!currentBranchId || !allowedBranches.some(b => b.id === currentBranchId)) {
-        const defaultId = allowedBranches[0].id;
-        setCurrentBranchId(defaultId);
-        localStorage.setItem('tokymon_current_branch', defaultId);
-      }
-    }
-  }, [currentUser, allowedBranches, currentBranchId]);
-
   const addAuditLog = useCallback((action: AuditLogEntry['action'], entityType: AuditLogEntry['entityType'], entityId: string, details: string) => {
     if (!currentUser) return;
     const newLog: AuditLogEntry = {
@@ -108,54 +107,37 @@ const App = () => {
     setData(prev => ({ ...prev, auditLogs: [newLog, ...prev.auditLogs].slice(0, 500) }));
   }, [currentUser]);
 
-  // Added missing transaction handler functions to resolve build errors.
-  const handleAddTransaction = useCallback((transaction: Transaction) => {
-    setData(prev => ({
-      ...prev,
-      transactions: [transaction, ...prev.transactions]
-    }));
-    addAuditLog('CREATE', 'TRANSACTION', transaction.id, `Thêm ${transaction.type === TransactionType.INCOME ? 'doanh thu' : 'chi phí'}: ${transaction.category} (${formatCurrency(transaction.amount, lang)})`);
-  }, [addAuditLog, lang]);
+  const handleAddTransaction = (transaction: Transaction) => {
+    setData(prev => ({ ...prev, transactions: [transaction, ...prev.transactions] }));
+    addAuditLog('CREATE', 'TRANSACTION', transaction.id, `Thêm giao dịch: ${transaction.category}`);
+    // Đẩy lên cloud ngay lập tức khi có thay đổi quan trọng
+    handleCloudSync(true);
+  };
 
-  const handleDeleteTransaction = useCallback((id: string) => {
-    const tx = data.transactions.find(t => t.id === id);
-    if (!tx) return;
-    if (window.confirm(t('confirm_delete'))) {
+  const handleDeleteTransaction = (id: string) => {
+    if (window.confirm("Xác nhận xóa?")) {
       const now = new Date().toISOString();
       setData(prev => ({
         ...prev,
         transactions: prev.transactions.map(t => t.id === id ? { ...t, deletedAt: now, updatedAt: now } : t)
       }));
-      addAuditLog('DELETE', 'TRANSACTION', id, `Xóa giao dịch: ${tx.category} (${formatCurrency(tx.amount, lang)})`);
+      addAuditLog('DELETE', 'TRANSACTION', id, `Xóa giao dịch`);
+      handleCloudSync(true);
     }
-  }, [data.transactions, addAuditLog, t, lang]);
+  };
 
-  const handleUpdateTransaction = useCallback((updated: Transaction) => {
+  const handleUpdateTransaction = (updated: Transaction) => {
     setData(prev => ({
       ...prev,
       transactions: prev.transactions.map(t => t.id === updated.id ? updated : t)
     }));
-    addAuditLog('UPDATE', 'TRANSACTION', updated.id, `Cập nhật giao dịch: ${updated.category} (${formatCurrency(updated.amount, lang)})`);
-  }, [addAuditLog, lang]);
-
-  const handleCloudSync = async (silent = false) => {
-    if (!syncKey) return;
-    if (!silent) setIsSyncing(true);
-    try {
-      const merged = await StorageService.syncWithCloud(syncKey, data);
-      setData(merged);
-      setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    } catch (e) {
-      console.error("Sync failed", e);
-    } finally {
-      if (!silent) setIsSyncing(false);
-    }
+    addAuditLog('UPDATE', 'TRANSACTION', updated.id, `Cập nhật giao dịch`);
+    handleCloudSync(true);
   };
 
   const handleUpdateSyncKey = (val: string) => {
     setSyncKey(val);
     localStorage.setItem('tokymon_sync_key', val);
-    if (val) handleCloudSync();
   };
 
   const currentBranch = activeBranches.find(b => b.id === currentBranchId);
@@ -163,48 +145,38 @@ const App = () => {
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-8">
-        <div className="w-20 h-20 bg-indigo-600 rounded-[2rem] flex items-center justify-center shadow-2xl shadow-indigo-200 dark:shadow-none mb-10 animate-bounce">
-          <UtensilsCrossed className="w-10 h-10 text-white" />
+        <div className="w-24 h-24 bg-indigo-600 rounded-[2.5rem] flex items-center justify-center shadow-2xl mb-12 animate-in zoom-in-50 duration-500">
+          <UtensilsCrossed className="w-12 h-12 text-white" />
         </div>
-        <div className="w-full max-w-sm space-y-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-black tracking-tighter dark:text-white uppercase">Tokymon</h1>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1">Hệ thống quản lý nội bộ</p>
-          </div>
-          
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            const user = activeUsers.find(u => u.username === loginForm.username && u.password === loginForm.password);
-            if (user) {
-              setCurrentUser(user);
-              localStorage.setItem('tokymon_user', JSON.stringify(user));
-              addAuditLog('LOGIN', 'USER', user.id, 'Đăng nhập thành công');
-            } else setLoginError('Thông tin đăng nhập không chính xác!');
-          }} className="space-y-4">
-            <input type="text" placeholder="Username" value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value})} className="w-full p-5 bg-white dark:bg-slate-900 rounded-3xl font-bold border-2 border-transparent focus:border-indigo-500 shadow-sm outline-none dark:text-white transition-all" />
-            <input type="password" placeholder="Password" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} className="w-full p-5 bg-white dark:bg-slate-900 rounded-3xl font-bold border-2 border-transparent focus:border-indigo-500 shadow-sm outline-none dark:text-white transition-all" />
-            {loginError && <p className="text-rose-500 text-center text-xs font-black uppercase tracking-tight">{loginError}</p>}
-            <button type="submit" className="w-full py-5 bg-indigo-600 text-white rounded-3xl font-black uppercase tracking-widest shadow-xl shadow-indigo-100 dark:shadow-none active:scale-95 transition-all">Truy cập hệ thống</button>
-          </form>
-        </div>
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          const user = activeUsers.find(u => u.username === loginForm.username && u.password === loginForm.password);
+          if (user) { setCurrentUser(user); localStorage.setItem('tokymon_user', JSON.stringify(user)); }
+          else setLoginError('Sai tài khoản hoặc mật khẩu!');
+        }} className="w-full max-w-sm space-y-4">
+          <h1 className="text-3xl font-black text-center dark:text-white uppercase mb-8">Tokymon Admin</h1>
+          <input type="text" placeholder="Username" value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value})} className="w-full p-5 bg-white dark:bg-slate-900 rounded-3xl font-bold border-2 border-transparent focus:border-indigo-500 shadow-sm outline-none dark:text-white" />
+          <input type="password" placeholder="Password" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} className="w-full p-5 bg-white dark:bg-slate-900 rounded-3xl font-bold border-2 border-transparent focus:border-indigo-500 shadow-sm outline-none dark:text-white" />
+          {loginError && <p className="text-rose-500 text-center text-xs font-bold uppercase">{loginError}</p>}
+          <button type="submit" className="w-full py-5 bg-indigo-600 text-white rounded-3xl font-black uppercase shadow-xl active:scale-95 transition-all">Đăng nhập</button>
+        </form>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors duration-300 pb-28">
-      {/* Top Header - Compact */}
-      <header className="px-6 py-4 flex items-center justify-between sticky top-0 z-[100] bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-xl">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors duration-300 pb-24 safe-area-bottom">
+      <header className="px-6 py-4 flex items-center justify-between sticky top-0 z-[100] bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-transparent dark:border-slate-800">
         <div className="flex items-center gap-3">
           <div className="relative group">
-            <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border dark:border-slate-800 cursor-pointer">
+            <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border dark:border-slate-800">
               <MapPin className="w-4 h-4 text-indigo-500" />
-              <span className="text-[11px] font-black uppercase dark:text-white truncate max-w-[100px]">{currentBranch?.name || 'Chi nhánh'}</span>
+              <span className="text-[11px] font-black uppercase dark:text-white">{currentBranch?.name || 'Chi nhánh'}</span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </div>
-            <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border dark:border-slate-800 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[200] overflow-hidden">
+            <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border dark:border-slate-800 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[200]">
               {allowedBranches.map(b => (
-                <div key={b.id} onClick={() => { setCurrentBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); }} className={`px-5 py-4 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-[10px] font-black uppercase border-l-4 transition-all ${currentBranchId === b.id ? 'border-indigo-600 text-indigo-600 bg-indigo-50/30' : 'border-transparent text-slate-500'}`}>
+                <div key={b.id} onClick={() => { setCurrentBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); }} className="px-5 py-4 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-[10px] font-black uppercase border-l-4 border-transparent hover:border-indigo-500 transition-all">
                   {b.name}
                 </div>
               ))}
@@ -214,12 +186,12 @@ const App = () => {
 
         <div className="flex items-center gap-2">
           {syncKey && (
-            <div className="flex flex-col items-end mr-2">
+            <div className="hidden md:flex flex-col items-end mr-2">
               <div className="flex items-center gap-1">
                 <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{isSyncing ? 'Syncing...' : 'Synced'}</span>
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Live Cloud Sync</span>
               </div>
-              <span className="text-[7px] font-bold text-slate-300 uppercase">{lastSyncTime}</span>
+              <span className="text-[7px] font-bold text-slate-300">Cập nhật: {lastSyncTime || '--:--'}</span>
             </div>
           )}
           <button onClick={() => setIsDark(!isDark)} className="p-3 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border dark:border-slate-800">
@@ -228,8 +200,7 @@ const App = () => {
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 px-4 md:px-8 max-w-5xl mx-auto w-full pt-2">
+      <main className="flex-1 px-4 md:px-8 max-w-5xl mx-auto w-full pt-4">
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           {activeTab === 'income' && <IncomeManager transactions={data.transactions} onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onEditTransaction={handleUpdateTransaction} branchId={currentBranchId} initialBalances={{cash: currentBranch?.initialCash || 0, card: currentBranch?.initialCard || 0}} userRole={currentUser.role} />}
           {activeTab === 'expense' && <ExpenseManager transactions={data.transactions} onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onEditTransaction={handleUpdateTransaction} expenseCategories={data.expenseCategories} branchId={currentBranchId} initialBalances={{cash: currentBranch?.initialCash || 0, card: currentBranch?.initialCard || 0}} userRole={currentUser.role} />}
@@ -239,8 +210,8 @@ const App = () => {
             <div className="space-y-6">
               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
                 {[
-                  { id: 'general', label: 'Chung', icon: Settings },
-                  { id: 'sync', label: 'Đồng bộ', icon: Database },
+                  { id: 'general', label: 'Cài đặt', icon: Settings },
+                  { id: 'sync', label: 'Sync & Cloud', icon: Cloud },
                   { id: 'branches', label: 'Chi nhánh', icon: MapPin },
                   { id: 'users', label: 'Nhân sự', icon: Users },
                   { id: 'audit', label: 'Nhật ký', icon: HistoryIcon }
@@ -251,30 +222,39 @@ const App = () => {
                 ))}
               </div>
 
-              <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border dark:border-slate-800 shadow-sm min-h-[400px]">
+              <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border dark:border-slate-800 shadow-sm">
                 {settingsSubTab === 'sync' && (
                   <div className="space-y-8 animate-in fade-in duration-300">
                     <div className="flex items-center gap-5">
-                      <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-3xl"><Cloud className="w-10 h-10 text-emerald-600" /></div>
+                      <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-3xl"><Zap className="w-10 h-10 text-indigo-600" /></div>
                       <div>
-                        <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none mb-1">Cài đặt Đám mây</h3>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Đồng bộ đa thiết bị tức thời</p>
+                        <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none mb-1">Dịch vụ đám mây</h3>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Đồng bộ iPhone và PC</p>
                       </div>
                     </div>
                     
                     <div className="space-y-4">
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest px-2">Mã Sync Key của quán</label>
-                        <input type="text" value={syncKey} onChange={e => handleUpdateSyncKey(e.target.value)} placeholder="Nhập mã bí mật..." className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-black border-2 border-transparent focus:border-indigo-500 outline-none text-sm" />
+                        <label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest px-2">Mật mã đồng bộ (Sync Key)</label>
+                        <input 
+                          type="text" 
+                          value={syncKey} 
+                          onChange={e => handleUpdateSyncKey(e.target.value)} 
+                          placeholder="Ví dụ: tokymon_berlin_secret" 
+                          className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-black border-2 border-transparent focus:border-indigo-500 outline-none text-sm" 
+                        />
+                        <p className="text-[9px] font-medium text-slate-400 px-2 italic mt-1">Lưu ý: Nhập cùng mã này trên iPhone để kết nối dữ liệu.</p>
                       </div>
-                      <button onClick={() => handleCloudSync()} className="w-full py-5 bg-emerald-600 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-xl flex items-center justify-center gap-3">
-                        <Zap className="w-5 h-5" /> Đồng bộ ngay bây giờ
+                      <button onClick={() => handleCloudSync()} className="w-full py-5 bg-indigo-600 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all">
+                        <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /> Đồng bộ thủ công ngay
                       </button>
                     </div>
 
-                    <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
-                       <h4 className="text-[11px] font-black text-slate-800 dark:text-white uppercase mb-3 flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-500" /> An toàn dữ liệu</h4>
-                       <p className="text-[11px] text-slate-500 leading-relaxed font-medium">Khi nhập cùng một mã <strong>Sync Key</strong> trên nhiều iPhone/PC, dữ liệu sẽ tự động gộp lại và cập nhật lẫn nhau sau mỗi 15 giây. Bạn không bao giờ sợ mất dữ liệu khi đổi máy.</p>
+                    <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-indigo-100 dark:border-slate-700">
+                       <h4 className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase mb-3 flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> Trạng thái</h4>
+                       <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
+                         Hệ thống đang chạy chế độ <strong>Auto-Polling (10s)</strong>. Mọi thay đổi trên máy tính sẽ xuất hiện trên iPhone của bạn sau vài giây.
+                       </p>
                     </div>
                   </div>
                 )}
@@ -289,9 +269,9 @@ const App = () => {
                 )}
                 {settingsSubTab === 'audit' && (
                   <div className="space-y-4">
-                    <h3 className="text-xs font-black uppercase text-slate-400 mb-4 px-2">Nhật ký hệ thống mới nhất</h3>
-                    <div className="space-y-3">
-                      {data.auditLogs.slice(0, 30).map(log => (
+                    <h3 className="text-xs font-black uppercase text-slate-400 mb-4 px-2">Nhật ký hoạt động</h3>
+                    <div className="space-y-3 overflow-y-auto max-h-[400px]">
+                      {data.auditLogs.slice().reverse().map(log => (
                         <div key={log.id} className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border dark:border-slate-700">
                           <div className="flex justify-between items-start mb-1">
                             <span className="text-[10px] font-black text-indigo-500 uppercase">{log.username}</span>
@@ -305,32 +285,31 @@ const App = () => {
                 )}
               </div>
               
-              <button onClick={() => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); }} className="w-full py-5 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[2rem] font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border border-rose-100 dark:border-rose-900/30">
-                <LogOut className="w-4 h-4" /> Đăng xuất khỏi thiết bị
+              <button onClick={() => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); }} className="w-full py-5 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[2rem] font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border border-rose-100 dark:border-rose-900/30 active:scale-95">
+                <LogOut className="w-4 h-4" /> Đăng xuất
               </button>
             </div>
           )}
         </div>
       </main>
 
-      {/* Bottom Navigation - Fixed for Mobile */}
-      <nav className="fixed bottom-0 left-0 right-0 h-24 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border-t dark:border-slate-800 flex items-center justify-around px-6 pb-6 z-[200]">
+      <nav className="fixed bottom-0 left-0 right-0 h-24 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border-t dark:border-slate-800 flex items-center justify-around px-6 pb-8 z-[200]">
         {[
-          { id: 'income', label: 'Thu', icon: Wallet },
-          { id: 'expense', label: 'Chi', icon: ArrowDownCircle },
-          { id: 'stats', label: 'Báo cáo', icon: LayoutDashboard },
-          { id: 'settings', label: 'Cài đặt', icon: Settings }
+          { id: 'income', label: 'Doanh Thu', icon: Wallet },
+          { id: 'expense', label: 'Chi Phí', icon: ArrowDownCircle },
+          { id: 'stats', label: 'Báo Cáo', icon: LayoutDashboard },
+          { id: 'settings', label: 'Cài Đặt', icon: Settings }
         ].map(tab => (
           <button 
             key={tab.id} 
             onClick={() => setActiveTab(tab.id as any)} 
             className={`flex flex-col items-center gap-1.5 transition-all relative ${activeTab === tab.id ? 'text-indigo-600 scale-110' : 'text-slate-400'}`}
           >
-            <div className={`p-2 rounded-2xl transition-all ${activeTab === tab.id ? 'bg-indigo-50 dark:bg-indigo-900/30 shadow-sm' : ''}`}>
+            <div className={`p-2 rounded-2xl transition-all ${activeTab === tab.id ? 'bg-indigo-50 dark:bg-indigo-900/30' : ''}`}>
               <tab.icon className={`w-6 h-6 ${activeTab === tab.id ? 'stroke-[3]' : 'stroke-[2]'}`} />
             </div>
             <span className={`text-[9px] font-black uppercase tracking-tighter ${activeTab === tab.id ? 'opacity-100' : 'opacity-60'}`}>{tab.label}</span>
-            {activeTab === tab.id && <div className="absolute -bottom-2 w-1 h-1 bg-indigo-600 rounded-full" />}
+            {activeTab === tab.id && <div className="absolute -bottom-2 w-1.5 h-1.5 bg-indigo-600 rounded-full" />}
           </button>
         ))}
       </nav>

@@ -178,7 +178,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, initialBalances, la
         <div className="space-y-6 animate-in fade-in duration-500">
           <div className="grid grid-cols-1 gap-4">
             {/* Primary Revenue Card */}
-            <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-2xl shadow-indigo-200 dark:shadow-none relative overflow-hidden group">
+            <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden group">
                <div className="relative z-10 flex flex-col gap-8">
                  <div className="flex justify-between items-start">
                    <div>
@@ -201,7 +201,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, initialBalances, la
                     </div>
                  </div>
                </div>
-               <Banknote className="absolute -right-6 -bottom-6 w-40 h-40 text-white/10 -rotate-12 group-hover:rotate-0 transition-transform duration-700" />
+               <Banknote className="absolute -right-6 -bottom-6 w-40 h-40 text-white/10 -rotate-12" />
             </div>
 
             {/* Profit Card */}
@@ -217,7 +217,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, initialBalances, la
             </div>
           </div>
 
-          {/* AI Section Mobile */}
+          {/* AI Section */}
           <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden">
              <div className="relative z-10 space-y-6">
                 <div className="flex items-center gap-4">
@@ -234,7 +234,6 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, initialBalances, la
                   </button>
                 )}
              </div>
-             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl" />
           </div>
 
           {/* Chart Section */}
@@ -292,26 +291,19 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, initialBalances, la
             </div>
           ) : (
             <>
-               <div className="bg-emerald-600 rounded-[2.5rem] p-8 text-white shadow-xl shadow-emerald-100 dark:shadow-none flex items-center justify-between">
+               <div className="bg-emerald-600 rounded-[2.5rem] p-8 text-white shadow-xl flex items-center justify-between">
                   <div>
                     <p className="text-[11px] font-black uppercase tracking-widest opacity-60 mb-1">Tiền mặt tại quán</p>
                     <h2 className="text-4xl font-black">{formatCurrency(assetStats.cash)}</h2>
                   </div>
                   <Banknote className="w-10 h-10 opacity-30" />
                </div>
-               <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-xl shadow-indigo-100 dark:shadow-none flex items-center justify-between">
+               <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-xl flex items-center justify-between">
                   <div>
                     <p className="text-[11px] font-black uppercase tracking-widest opacity-60 mb-1">Số dư ngân hàng</p>
                     <h2 className="text-4xl font-black">{formatCurrency(assetStats.bank)}</h2>
                   </div>
                   <CreditCard className="w-10 h-10 opacity-30" />
-               </div>
-               <div className="p-8 bg-slate-900 rounded-[2.5rem] text-white flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] font-black uppercase tracking-widest opacity-40 mb-1">Tổng tài sản ròng</p>
-                    <h2 className="text-3xl font-black text-amber-400">{formatCurrency(assetStats.total)}</h2>
-                  </div>
-                  <Wallet className="w-8 h-8 opacity-20" />
                </div>
             </>
           )}
@@ -320,7 +312,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, initialBalances, la
 
       {activeTab === 'DEBT' && (
         <div className="space-y-6 animate-in fade-in duration-300">
-           <div className="bg-rose-600 rounded-[2.5rem] p-8 text-white shadow-xl shadow-rose-100 dark:shadow-none flex items-center justify-between">
+           <div className="bg-rose-600 rounded-[2.5rem] p-8 text-white shadow-xl flex items-center justify-between">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-widest opacity-60 mb-1">Công nợ NCC</p>
                 <h2 className="text-4xl font-black">{formatCurrency(stats.totalDebt)}</h2>
@@ -341,20 +333,8 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, initialBalances, la
                    </div>
                 </div>
               ))}
-              {monthTransactions.filter(tx => tx.type === TransactionType.EXPENSE && tx.isPaid === false).length === 0 && (
-                <div className="py-20 text-center">
-                   <p className="text-[11px] font-black text-slate-300 uppercase tracking-widest">Tuyệt vời! Không có nợ tồn đọng.</p>
-                </div>
-              )}
            </div>
         </div>
-      )}
-
-      {/* Manual Export for Admin */}
-      {(userRole === UserRole.SUPER_ADMIN || userRole === UserRole.ADMIN) && (
-        <button onClick={handleExport} className="w-full py-5 bg-white dark:bg-slate-900 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-all active:scale-95 mt-10">
-          <Download className="w-4 h-4" /> Xuất Excel báo cáo chi tiết
-        </button>
       )}
     </div>
   );

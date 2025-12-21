@@ -4,34 +4,13 @@ import { AppData, SCHEMA_VERSION, EXPENSE_CATEGORIES, Transaction, Branch, User,
 const STORAGE_KEY = 'tokymon_master_data';
 
 export const StorageService = {
-  encodeSyncCode: (data: AppData): string => {
-    try {
-      const str = JSON.stringify(data);
-      const bytes = new TextEncoder().encode(str);
-      let binString = "";
-      bytes.forEach((byte) => { binString += String.fromCharCode(byte); });
-      return btoa(binString);
-    } catch (e) {
-      return "";
-    }
-  },
-
-  decodeSyncCode: (code: string): AppData | null => {
-    try {
-      const binString = atob(code);
-      const bytes = Uint8Array.from(binString, (m) => m.charCodeAt(0));
-      const str = new TextDecoder().decode(bytes);
-      return JSON.parse(str);
-    } catch (e) {
-      return null;
-    }
-  },
-
+  // Thuật toán Merge: So sánh updatedAt để giữ lại bản ghi mới nhất
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
     const map = new Map<string, T>();
     (local || []).forEach(item => map.set(item.id, item));
     (remote || []).forEach(remoteItem => {
       const localItem = map.get(remoteItem.id);
+      // Nếu không có local hoặc remote mới hơn thì lấy remote
       if (!localItem || new Date(remoteItem.updatedAt) > new Date(localItem.updatedAt)) {
         map.set(remoteItem.id, remoteItem);
       }
@@ -40,24 +19,17 @@ export const StorageService = {
   },
 
   mergeAppData: (local: AppData, remote: AppData): AppData => {
-    // Đảm bảo các mảng luôn tồn tại để tránh lỗi
-    const mergedTransactions = StorageService.mergeArrays(local.transactions || [], remote.transactions || []);
-    const mergedBranches = StorageService.mergeArrays(local.branches || [], remote.branches || []);
-    const mergedUsers = StorageService.mergeArrays(local.users || [], remote.users || []);
-    const mergedRecurring = StorageService.mergeArrays(local.recurringExpenses || [], remote.recurringExpenses || []);
-    
-    // Gộp danh mục (vì là mảng string đơn giản, ta gộp và loại bỏ trùng lặp)
-    const mergedCategories = Array.from(new Set([...(local.expenseCategories || []), ...(remote.expenseCategories || [])]));
-
     return {
       version: SCHEMA_VERSION,
       lastSync: new Date().toISOString(),
-      transactions: mergedTransactions,
-      branches: mergedBranches,
-      users: mergedUsers,
-      expenseCategories: mergedCategories,
-      recurringExpenses: mergedRecurring,
-      auditLogs: [...(local.auditLogs || []), ...(remote.auditLogs || []).filter(r => !(local.auditLogs || []).some(l => l.id === r.id))].slice(-500)
+      transactions: StorageService.mergeArrays(local.transactions || [], remote.transactions || []),
+      branches: StorageService.mergeArrays(local.branches || [], remote.branches || []),
+      users: StorageService.mergeArrays(local.users || [], remote.users || []),
+      expenseCategories: Array.from(new Set([...(local.expenseCategories || []), ...(remote.expenseCategories || [])])),
+      recurringExpenses: StorageService.mergeArrays(local.recurringExpenses || [], remote.recurringExpenses || []),
+      auditLogs: [...(local.auditLogs || []), ...(remote.auditLogs || [])]
+        .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i) // Loại bỏ log trùng
+        .slice(-500)
     };
   },
 
@@ -72,11 +44,9 @@ export const StorageService = {
     if (!raw) return StorageService.getEmptyData();
     try {
       const data = JSON.parse(raw);
-      // Đảm bảo dữ liệu cũ vẫn tương thích
       return {
         ...StorageService.getEmptyData(),
-        ...data,
-        transactions: (data.transactions || []).map((tx: any) => ({ ...tx, history: tx.history || [] }))
+        ...data
       };
     } catch (e) {
       return StorageService.getEmptyData();
@@ -94,17 +64,36 @@ export const StorageService = {
     auditLogs: []
   }),
 
+  // KẾT NỐI KVDB.IO
   syncWithCloud: async (syncKey: string, localData: AppData): Promise<AppData> => {
-    // Giả lập gọi API lên Cloud Server
-    const cloudKey = `tokymon_cloud_v3_${syncKey}`;
-    const cloudDataRaw = localStorage.getItem(cloudKey);
-    const cloudData: AppData = cloudDataRaw ? JSON.parse(cloudDataRaw) : StorageService.getEmptyData();
+    if (!syncKey) return localData;
     
-    // Thuật toán Merge 2 chiều
-    const merged = StorageService.mergeAppData(localData, cloudData);
-    
-    // Cập nhật ngược lại Cloud
-    localStorage.setItem(cloudKey, JSON.stringify(merged));
-    return merged;
+    // Tạo mã định danh an toàn từ Sync Key
+    const safeKey = syncKey.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const BUCKET_URL = `https://kvdb.io/buckets/toky_${safeKey}/values/main`;
+
+    try {
+      // 1. Tải bản mới nhất từ Cloud
+      const response = await fetch(BUCKET_URL);
+      let remoteData: AppData | null = null;
+      
+      if (response.ok) {
+        remoteData = await response.json();
+      }
+
+      // 2. Hợp nhất dữ liệu (Dữ liệu nào mới hơn sẽ thắng)
+      const merged = remoteData ? StorageService.mergeAppData(localData, remoteData) : localData;
+
+      // 3. Đẩy bản hợp nhất lên lại Cloud
+      await fetch(BUCKET_URL, {
+        method: 'POST',
+        body: JSON.stringify(merged)
+      });
+
+      return merged;
+    } catch (error) {
+      console.warn("Cloud Sync Error - Switching to Local Mode", error);
+      return localData;
+    }
   }
 };
