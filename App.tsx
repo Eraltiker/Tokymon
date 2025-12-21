@@ -40,7 +40,7 @@ const App = () => {
   const [loginError, setLoginError] = useState('');
   
   const pollTimerRef = useRef<number | null>(null);
-  const dataRef = useRef(data); // Dùng ref để tránh stale closures khi polling
+  const dataRef = useRef(data);
 
   useEffect(() => {
     dataRef.current = data;
@@ -56,13 +56,12 @@ const App = () => {
       setData(merged);
       setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     } catch (e) {
-      console.error("Lỗi đồng bộ Cloud");
+      console.error("Lỗi đồng bộ");
     } finally {
       if (!silent) setIsSyncing(false);
     }
   }, [syncKey]);
 
-  // Polling: Tự động tải dữ liệu mới mỗi 10 giây
   useEffect(() => {
     if (syncKey) {
       handleCloudSync(true);
@@ -159,23 +158,23 @@ const App = () => {
           <input type="text" placeholder="Username" value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value})} className="w-full p-5 bg-white dark:bg-slate-900 rounded-3xl font-bold border-2 border-transparent focus:border-indigo-500 shadow-sm outline-none dark:text-white" />
           <input type="password" placeholder="Password" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} className="w-full p-5 bg-white dark:bg-slate-900 rounded-3xl font-bold border-2 border-transparent focus:border-indigo-500 shadow-sm outline-none dark:text-white" />
           {loginError && <p className="text-rose-500 text-center text-xs font-bold uppercase">{loginError}</p>}
-          <button type="submit" className="w-full py-5 bg-indigo-600 text-white rounded-3xl font-black uppercase shadow-xl active:scale-95 transition-all">Đăng nhập hệ thống</button>
+          <button type="submit" className="w-full py-5 bg-indigo-600 text-white rounded-3xl font-black uppercase shadow-xl active:scale-95 transition-all">Đăng nhập</button>
         </form>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors duration-300 pb-24">
-      <header className="px-6 py-4 flex items-center justify-between sticky top-0 z-[100] bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-xl border-b dark:border-slate-800/50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col transition-colors duration-300 pb-24">
+      <header className="px-6 py-4 flex items-center justify-between sticky top-0 z-[100] bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-xl border-b dark:border-slate-800/50">
         <div className="flex items-center gap-3">
           <div className="relative group">
-            <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border dark:border-slate-800">
+            <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border dark:border-slate-700">
               <MapPin className="w-4 h-4 text-indigo-500" />
               <span className="text-[11px] font-black uppercase dark:text-white">{currentBranch?.name || 'Chọn cơ sở'}</span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </div>
-            <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border dark:border-slate-800 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[200]">
+            <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[200]">
               {allowedBranches.map(b => (
                 <div key={b.id} onClick={() => { setCurrentBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); }} className="px-5 py-4 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-[10px] font-black uppercase border-l-4 border-transparent hover:border-indigo-500 transition-all">
                   {b.name}
@@ -187,7 +186,7 @@ const App = () => {
 
         <div className="flex items-center gap-2">
           {syncKey ? (
-            <div className="flex items-center gap-3 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-2xl border dark:border-slate-800">
+            <div className="flex items-center gap-3 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-2xl border dark:border-slate-700">
                <div className="flex flex-col items-end">
                   <span className="text-[7px] font-black text-slate-400 uppercase leading-none">Cloud Sync</span>
                   <span className="text-[9px] font-black text-slate-900 dark:text-white leading-none mt-1">{lastSyncTime || 'Sẵn sàng'}</span>
@@ -197,10 +196,10 @@ const App = () => {
           ) : (
             <div className="flex items-center gap-2 text-rose-500 bg-rose-50 dark:bg-rose-900/20 px-3 py-1.5 rounded-2xl">
                <WifiOff className="w-4 h-4" />
-               <span className="text-[8px] font-black uppercase">No Sync</span>
+               <span className="text-[8px] font-black uppercase">Chưa kết nối</span>
             </div>
           )}
-          <button onClick={() => setIsDark(!isDark)} className="p-3 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border dark:border-slate-800">
+          <button onClick={() => setIsDark(!isDark)} className="p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border dark:border-slate-700">
             {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
           </button>
         </div>
@@ -216,49 +215,49 @@ const App = () => {
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
               {[
                 { id: 'general', label: 'Cài đặt', icon: Settings },
-                { id: 'sync', label: 'Đồng bộ', icon: Cloud },
+                { id: 'sync', label: 'Kết nối Cloud', icon: Cloud },
                 { id: 'branches', label: 'Cơ sở', icon: MapPin },
                 { id: 'users', label: 'Nhân sự', icon: Users },
                 { id: 'audit', label: 'Nhật ký', icon: HistoryIcon }
               ].map(sub => (
-                <button key={sub.id} onClick={() => setSettingsSubTab(sub.id as any)} style={{ display: (sub.id === 'branches' || sub.id === 'users') && (currentUser.role !== UserRole.SUPER_ADMIN) ? 'none' : 'flex' }} className={`px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 shrink-0 ${settingsSubTab === sub.id ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500'}`}>
+                <button key={sub.id} onClick={() => setSettingsSubTab(sub.id as any)} style={{ display: (sub.id === 'branches' || sub.id === 'users') && (currentUser.role !== UserRole.SUPER_ADMIN) ? 'none' : 'flex' }} className={`px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 shrink-0 ${settingsSubTab === sub.id ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'}`}>
                   <sub.icon className="w-4 h-4" /> {sub.label}
                 </button>
               ))}
             </div>
 
-            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border dark:border-slate-800 shadow-sm">
+            <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-6 border dark:border-slate-700 shadow-sm">
               {settingsSubTab === 'sync' && (
                 <div className="space-y-8 animate-in fade-in duration-300">
                   <div className="flex items-center gap-5">
                     <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-3xl"><Zap className="w-10 h-10 text-indigo-600" /></div>
                     <div>
-                      <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none mb-1">Thiết lập Đám mây</h3>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kết nối iPhone và Máy tính</p>
+                      <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none mb-1">Kết nối KVDB.io</h3>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Đồng bộ dữ liệu đa thiết bị</p>
                     </div>
                   </div>
                   
                   <div className="space-y-5">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest px-2">Chìa khóa đồng bộ (Sync Key)</label>
+                      <label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest px-2">KVDB Bucket ID</label>
                       <input 
                         type="text" 
                         value={syncKey} 
                         onChange={e => handleUpdateSyncKey(e.target.value)} 
-                        placeholder="VD: tokymon_2024_bi_mat" 
-                        className="w-full p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl font-black border-2 border-transparent focus:border-indigo-500 outline-none text-sm transition-all" 
+                        placeholder="Dán mã NZQkBL... vào đây" 
+                        className="w-full p-5 bg-slate-50 dark:bg-slate-900 rounded-3xl font-black border-2 border-transparent focus:border-indigo-500 outline-none text-sm transition-all dark:text-white" 
                       />
-                      <p className="text-[9px] font-medium text-slate-400 px-2 italic">Hãy giữ mã này bí mật. Nhập cùng mã này trên các thiết bị để dùng chung dữ liệu.</p>
+                      <p className="text-[9px] font-medium text-slate-400 px-2 italic">Dán mã <strong>NZQkBLdrxvnEEMUw928weK</strong> để bắt đầu sử dụng bucket của bạn.</p>
                     </div>
-                    <button onClick={() => handleCloudSync()} className="w-full py-5 bg-slate-900 dark:bg-indigo-600 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all">
-                      <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /> Làm mới dữ liệu từ Cloud
+                    <button onClick={() => handleCloudSync()} className="w-full py-5 bg-indigo-600 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all">
+                      <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /> Đồng bộ dữ liệu ngay
                     </button>
                   </div>
 
-                  <div className="p-6 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-indigo-100 dark:border-slate-700">
+                  <div className="p-6 bg-slate-50 dark:bg-slate-900 rounded-3xl border border-indigo-100 dark:border-slate-700">
                      <h4 className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase mb-3 flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> Trạng thái</h4>
                      <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
-                       Dữ liệu sẽ tự động đồng bộ mỗi 10 giây. Bạn có thể yên tâm nhập liệu trên iPhone, dữ liệu sẽ tự động "bay" về máy tính của bạn ngay lập tức.
+                       Phần mềm sẽ tự động đồng bộ mỗi 10 giây. Sau khi nhập mã vào iPhone, bạn chỉ cần nhập liệu, dữ liệu sẽ tự động xuất hiện trên Máy tính và ngược lại.
                      </p>
                   </div>
                 </div>
@@ -274,15 +273,15 @@ const App = () => {
               )}
               {settingsSubTab === 'audit' && (
                 <div className="space-y-4">
-                  <h3 className="text-xs font-black uppercase text-slate-400 mb-4 px-2">Lịch sử hoạt động nhân sự</h3>
+                  <h3 className="text-xs font-black uppercase text-slate-400 mb-4 px-2">Nhật ký hoạt động</h3>
                   <div className="space-y-3 overflow-y-auto max-h-[400px] no-scrollbar">
                     {data.auditLogs.slice().reverse().map(log => (
-                      <div key={log.id} className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border dark:border-slate-700">
+                      <div key={log.id} className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border dark:border-slate-700">
                         <div className="flex justify-between items-start mb-1">
                           <span className="text-[10px] font-black text-indigo-500 uppercase">{log.username}</span>
                           <span className="text-[8px] font-bold text-slate-400">{new Date(log.timestamp).toLocaleTimeString()}</span>
                         </div>
-                        <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{log.details}</p>
+                        <p className="text-[11px] font-bold text-slate-700 dark:text-white">{log.details}</p>
                       </div>
                     ))}
                   </div>
@@ -291,16 +290,16 @@ const App = () => {
             </div>
             
             <button onClick={() => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); }} className="w-full py-5 bg-rose-50 dark:bg-rose-900/20 text-rose-600 rounded-[2rem] font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border border-rose-100 dark:border-rose-900/30 active:scale-95">
-              <LogOut className="w-4 h-4" /> Đăng xuất khỏi hệ thống
+              <LogOut className="w-4 h-4" /> Đăng xuất
             </button>
           </div>
         )}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 h-24 bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border-t dark:border-slate-800 flex items-center justify-around px-6 pb-8 z-[200]">
+      <nav className="fixed bottom-0 left-0 right-0 h-24 bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl border-t dark:border-slate-700 flex items-center justify-around px-6 pb-8 z-[200]">
         {[
-          { id: 'income', label: 'Thu Nhập', icon: Wallet },
-          { id: 'expense', label: 'Chi Tiêu', icon: ArrowDownCircle },
+          { id: 'income', label: 'Doanh Thu', icon: Wallet },
+          { id: 'expense', label: 'Chi Phí', icon: ArrowDownCircle },
           { id: 'stats', label: 'Báo Cáo', icon: LayoutDashboard },
           { id: 'settings', label: 'Cài Đặt', icon: Settings }
         ].map(tab => (

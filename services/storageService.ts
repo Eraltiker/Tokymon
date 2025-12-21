@@ -62,21 +62,26 @@ export const StorageService = {
     auditLogs: []
   }),
 
-  syncWithCloud: async (syncKey: string, localData: AppData): Promise<AppData> => {
-    if (!syncKey) return localData;
-    const safeKey = syncKey.toLowerCase().replace(/[^a-z0-9]/g, '_');
-    const BUCKET_URL = `https://kvdb.io/buckets/toky_${safeKey}/values/main`;
+  // KẾT NỐI VỚI BUCKET ID CỦA NGƯỜI DÙNG
+  syncWithCloud: async (bucketId: string, localData: AppData): Promise<AppData> => {
+    if (!bucketId) return localData;
+    
+    // Sử dụng trực tiếp Bucket ID người dùng cung cấp
+    // URL chuẩn của KVDB.io: https://kvdb.io/buckets/[BUCKET_ID]/values/[KEY]
+    const BUCKET_URL = `https://kvdb.io/buckets/${bucketId}/values/main`;
 
     try {
       const response = await fetch(BUCKET_URL);
       let remoteData: AppData | null = null;
+      
       if (response.ok) {
         remoteData = await response.json();
       }
 
+      // Hợp nhất dữ liệu local và cloud
       const merged = remoteData ? StorageService.mergeAppData(localData, remoteData) : localData;
 
-      // Chỉ đẩy lên nếu thực sự có Internet
+      // Lưu lại bản đã hợp nhất lên Cloud
       await fetch(BUCKET_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -85,7 +90,7 @@ export const StorageService = {
 
       return merged;
     } catch (error) {
-      console.warn("Mạng không ổn định - Đang chạy chế độ Offline", error);
+      console.warn("Cloud Sync Error - Sử dụng dữ liệu cục bộ", error);
       return localData;
     }
   }
