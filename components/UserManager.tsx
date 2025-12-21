@@ -8,9 +8,10 @@ interface UserManagerProps {
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   branches: Branch[];
   onAudit: any;
+  currentUserId?: string; // Bổ sung để ngăn tự xóa chính mình
 }
 
-const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, onAudit }) => {
+const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, onAudit, currentUserId }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>(UserRole.MANAGER);
@@ -70,43 +71,58 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
       : selectedBranchIds;
 
     if (editingUserId) {
-      // Chế độ Cập nhật
-      const updatedUsers = users.map(u => 
-        u.id === editingUserId 
-          ? { ...u, username, password, role, assignedBranchIds: assignedIds } 
-          : u
-      );
-      setUsers(updatedUsers);
-      onAudit('UPDATE', 'USER', editingUserId, `Cập nhật User: ${username}, Quyền: ${role}, Chi nhánh: ${assignedIds.length}`);
+      // Chế độ Cập nhật - Sử dụng functional update để tránh stale state
+      setUsers(prevUsers => {
+        const updated = prevUsers.map(u => 
+          u.id === editingUserId 
+            ? { ...u, username, password, role, assignedBranchIds: assignedIds } 
+            : u
+        );
+        onAudit('UPDATE', 'USER', editingUserId, `Cập nhật User: ${username}, Quyền: ${role}, Chi nhánh: ${assignedIds.length}`);
+        return updated;
+      });
       setEditingUserId(null);
     } else {
       // Chế độ Thêm mới
+      const newId = Date.now().toString();
       const newU: User = {
-        id: Date.now().toString(),
+        id: newId,
         username,
         password,
         role,
         assignedBranchIds: assignedIds
       };
-      setUsers([...users, newU]);
-      onAudit('CREATE', 'USER', newU.id, `Thêm User: ${username} với quyền ${role}, gán ${newU.assignedBranchIds.length} chi nhánh`);
+      setUsers(prevUsers => {
+        onAudit('CREATE', 'USER', newId, `Thêm User: ${username} với quyền ${role}, gán ${assignedIds.length} chi nhánh`);
+        return [...prevUsers, newU];
+      });
     }
     
     clearForm();
   };
 
   const handleDelete = (id: string) => {
-    const u = users.find(x => x.id === id);
-    if (!u) return;
+    const userToDelete = users.find(x => x.id === id);
+    if (!userToDelete) return;
     
-    if (u.username === 'admin') {
+    if (userToDelete.username === 'admin') {
       alert("Không thể xóa tài khoản admin hệ thống!");
       return;
     }
 
-    if (window.confirm(`Bạn có chắc muốn xóa user "${u.username}"?`)) {
-      setUsers(users.filter(x => x.id !== id));
-      onAudit('DELETE', 'USER', id, `Xóa User: ${u.username}`);
+    if (id === currentUserId) {
+      alert("Bạn không thể tự xóa tài khoản của chính mình khi đang đăng nhập!");
+      return;
+    }
+
+    if (window.confirm(`Bạn có chắc muốn xóa vĩnh viễn user "${userToDelete.username}"?`)) {
+      // Sử dụng functional update để đảm bảo xóa thành công
+      setUsers(prevUsers => {
+        const filtered = prevUsers.filter(x => x.id !== id);
+        onAudit('DELETE', 'USER', id, `Xóa User: ${userToDelete.username}`);
+        return filtered;
+      });
+      
       if (editingUserId === id) clearForm();
     }
   };
@@ -269,7 +285,7 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
                       >
                         <Edit3 className="w-5 h-5" />
                       </button>
-                      {u.username !== 'admin' && (
+                      {u.username !== 'admin' && u.id !== currentUserId && (
                         <button 
                           onClick={() => handleDelete(u.id)} 
                           className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all"

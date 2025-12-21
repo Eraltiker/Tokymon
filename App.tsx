@@ -373,7 +373,13 @@ const App = () => {
                 <BranchManager branches={branches} setBranches={setBranches} onAudit={addAuditLog} />
               )}
               {settingsSubTab === 'users' && currentUser.role === UserRole.SUPER_ADMIN && (
-                <UserManager users={users} setUsers={setUsers} branches={branches} onAudit={addAuditLog} />
+                <UserManager 
+                  users={users} 
+                  setUsers={setUsers} 
+                  branches={branches} 
+                  onAudit={addAuditLog} 
+                  currentUserId={currentUser.id}
+                />
               )}
 
               {settingsSubTab === 'security' && (
