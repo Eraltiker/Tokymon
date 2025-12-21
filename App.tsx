@@ -1,6 +1,10 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Transaction, EXPENSE_CATEGORIES, INCOME_CATEGORIES, RecurringTransaction, Branch, User, UserRole, Language, AuditLogEntry, AppNotification, TransactionType } from './types';
+import { 
+  Transaction, RecurringTransaction, Branch, User, UserRole, Language, 
+  AuditLogEntry, AppData, SCHEMA_VERSION 
+} from './types';
+import { StorageService } from './services/storageService';
 import Dashboard from './components/Dashboard';
 import IncomeManager from './components/IncomeManager';
 import ExpenseManager from './components/ExpenseManager';
@@ -13,75 +17,68 @@ import { useTranslation } from './i18n';
 import { 
   UtensilsCrossed, LayoutDashboard, Settings, 
   Wallet, ArrowDownCircle, Sun, Moon, LogOut, 
-  Bell, BellRing, History as HistoryIcon, 
-  AlertTriangle, CheckCircle2, Info, Trash2, Languages,
-  Tag, CalendarClock, ShieldCheck, MapPin, Users, Lock, KeyRound, Key, Save, Download, Upload
+  History as HistoryIcon, MapPin, Users, Lock, 
+  KeyRound, Key, Save, Download, Upload, Cloud, CloudOff, RefreshCw, Database
 } from 'lucide-react';
 
 const App = () => {
   const [activeTab, setActiveTab] = useState<'income' | 'expense' | 'stats' | 'settings'>('income');
-  const [settingsSubTab, setSettingsSubTab] = useState<'general' | 'branches' | 'users' | 'security' | 'audit'>('general');
+  const [settingsSubTab, setSettingsSubTab] = useState<'general' | 'branches' | 'users' | 'security' | 'audit' | 'sync'>('general');
   const [isDark, setIsDark] = useState(() => localStorage.getItem('tokymon_theme') === 'dark');
   const [lang, setLang] = useState<Language>(() => (localStorage.getItem('tokymon_lang') as Language) || 'vi');
   const t = useTranslation(lang);
 
-  const [passForm, setPassForm] = useState({ old: '', new: '', confirm: '' });
-
+  // Core Data States
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [expenseCategories, setExpenseCategories] = useState<string[]>([]);
+  const [recurringExpenses, setRecurringExpenses] = useState<RecurringTransaction[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [lastSync, setLastSync] = useState('');
+  
+  // App States
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('tokymon_user');
     return saved ? JSON.parse(saved) : null;
   });
-
-  const [branches, setBranches] = useState<Branch[]>(() => {
-    const saved = localStorage.getItem('tokymon_branches');
-    return saved ? JSON.parse(saved) : [{ id: 'b1', name: 'Tokymon Berlin', address: 'Alexanderplatz', initialCash: 0, initialCard: 0 }];
-  });
-
-  const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem('tokymon_users');
-    if (saved) return JSON.parse(saved);
-    return [{ 
-      id: 'admin_root', 
-      username: 'admin', 
-      password: 'admin', 
-      role: UserRole.SUPER_ADMIN, 
-      assignedBranchIds: ['b1'] 
-    }];
-  });
-
   const [currentBranchId, setCurrentBranchId] = useState<string>(() => localStorage.getItem('tokymon_current_branch') || 'b1');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncKey, setSyncKey] = useState(() => localStorage.getItem('tokymon_sync_key') || '');
+
+  // Khởi tạo dữ liệu từ StorageService (có migration)
+  useEffect(() => {
+    const data = StorageService.loadLocal();
+    setTransactions(data.transactions);
+    setBranches(data.branches);
+    setUsers(data.users);
+    setExpenseCategories(data.expenseCategories);
+    setRecurringExpenses(data.recurringExpenses);
+    setAuditLogs(data.auditLogs);
+    setLastSync(data.lastSync);
+  }, []);
+
+  // Tự động lưu Local khi có thay đổi (Debounced để tối ưu hiệu năng)
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      StorageService.saveLocal({
+        transactions,
+        branches,
+        users,
+        expenseCategories,
+        recurringExpenses,
+        auditLogs,
+        lastSync
+      });
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [transactions, branches, users, expenseCategories, recurringExpenses, auditLogs, lastSync]);
 
   const visibleBranches = useMemo(() => {
     if (!currentUser) return [];
     if (currentUser.role === UserRole.SUPER_ADMIN || currentUser.role === UserRole.ADMIN) return branches;
     return branches.filter(b => currentUser.assignedBranchIds.includes(b.id));
   }, [branches, currentUser]);
-
-  useEffect(() => {
-    if (visibleBranches.length > 0 && !visibleBranches.find(b => b.id === currentBranchId)) {
-      setCurrentBranchId(visibleBranches[0].id);
-    }
-  }, [visibleBranches, currentBranchId]);
-
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const saved = localStorage.getItem('tokymon_transactions');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(() => {
-    const saved = localStorage.getItem('tokymon_audit_logs');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [expenseCategories, setExpenseCategories] = useState<string[]>(() => {
-    const saved = localStorage.getItem('tokymon_expense_categories');
-    return saved ? JSON.parse(saved) : EXPENSE_CATEGORIES;
-  });
-
-  const [recurringExpenses, setRecurringExpenses] = useState<RecurringTransaction[]>(() => {
-    const saved = localStorage.getItem('tokymon_recurring');
-    return saved ? JSON.parse(saved) : [];
-  });
 
   const currentBranch = useMemo(() => branches.find(b => b.id === currentBranchId) || branches[0], [branches, currentBranchId]);
   const filteredTransactions = useMemo(() => transactions.filter(t => t.branchId === currentBranchId), [transactions, currentBranchId]);
@@ -101,46 +98,66 @@ const App = () => {
     setAuditLogs(prev => [newLog, ...prev].slice(0, 1000));
   }, [currentUser]);
 
+  // Logic đồng bộ đám mây (Giả lập)
+  const handleCloudSync = async () => {
+    if (!syncKey) {
+      alert("Vui lòng thiết lập Mã đồng bộ (Sync Key) trong phần Cài đặt.");
+      setSettingsSubTab('sync');
+      setActiveTab('settings');
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const localData: AppData = {
+        version: SCHEMA_VERSION,
+        lastSync,
+        transactions,
+        branches,
+        users,
+        expenseCategories,
+        recurringExpenses,
+        auditLogs
+      };
+
+      const remoteData = await StorageService.syncWithCloud(syncKey, localData);
+      
+      // Cập nhật lại UI từ data đã đồng bộ
+      setTransactions(remoteData.transactions);
+      setBranches(remoteData.branches);
+      setUsers(remoteData.users);
+      setExpenseCategories(remoteData.expenseCategories);
+      setRecurringExpenses(remoteData.recurringExpenses);
+      setAuditLogs(remoteData.auditLogs);
+      setLastSync(remoteData.lastSync);
+      
+      alert(lang === 'vi' ? "Đồng bộ thành công!" : "Synchronisierung erfolgreich!");
+    } catch (e) {
+      alert("Lỗi đồng bộ: " + e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   useEffect(() => {
     if (isDark) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
     localStorage.setItem('tokymon_theme', isDark ? 'dark' : 'light');
   }, [isDark]);
 
-  useEffect(() => {
-    localStorage.setItem('tokymon_lang', lang);
-  }, [lang]);
-
-  useEffect(() => {
-    localStorage.setItem('tokymon_transactions', JSON.stringify(transactions));
-    localStorage.setItem('tokymon_branches', JSON.stringify(branches));
-    localStorage.setItem('tokymon_users', JSON.stringify(users));
-    localStorage.setItem('tokymon_audit_logs', JSON.stringify(auditLogs));
-    localStorage.setItem('tokymon_expense_categories', JSON.stringify(expenseCategories));
-    localStorage.setItem('tokymon_recurring', JSON.stringify(recurringExpenses));
-    localStorage.setItem('tokymon_current_branch', currentBranchId);
-  }, [transactions, branches, users, auditLogs, expenseCategories, recurringExpenses, currentBranchId]);
-
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
 
   const handleAddTransaction = (newTx: Transaction) => {
-    setTransactions(prev => [newTx, ...prev]);
+    const txWithTime = { ...newTx, updatedAt: new Date().toISOString() };
+    setTransactions(prev => [txWithTime, ...prev]);
     addAuditLog('CREATE', 'TRANSACTION', newTx.id, `Thêm ${newTx.type} ${newTx.amount}€`);
   };
 
-  const handleDeleteTransaction = (id: string) => {
-    const tx = transactions.find(t => t.id === id);
-    if (!tx) return;
-    if (window.confirm(t('confirm_delete'))) {
-      setTransactions(prev => prev.filter(t => t.id !== id));
-      addAuditLog('DELETE', 'TRANSACTION', id, `Xóa giao dịch ${tx.amount}€`);
-    }
-  };
-
   const handleUpdateTransaction = (updatedTx: Transaction) => {
-    setTransactions(prev => prev.map(t => t.id === updatedTx.id ? updatedTx : t));
+    const txWithTime = { ...updatedTx, updatedAt: new Date().toISOString() };
+    setTransactions(prev => prev.map(t => t.id === updatedTx.id ? txWithTime : t));
     setEditingTransaction(null);
     addAuditLog('UPDATE', 'TRANSACTION', updatedTx.id, `Sửa giao dịch`);
   };
@@ -158,108 +175,19 @@ const App = () => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('tokymon_user');
-    setCurrentUser(null);
-  };
-
-  const handlePassChange = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentUser) return;
-    if (passForm.old !== currentUser.password) return alert(lang === 'vi' ? 'Mật khẩu hiện tại không đúng!' : 'Aktuelles Passwort ist falsch!');
-    if (passForm.new !== passForm.confirm) return alert(t('password_mismatch'));
-    
-    const updatedUsers = users.map(u => u.id === currentUser.id ? { ...u, password: passForm.new } : u);
-    setUsers(updatedUsers);
-    setCurrentUser({ ...currentUser, password: passForm.new });
-    localStorage.setItem('tokymon_user', JSON.stringify({ ...currentUser, password: passForm.new }));
-    setPassForm({ old: '', new: '', confirm: '' });
-    alert(t('password_changed'));
-    addAuditLog('UPDATE', 'USER', currentUser.id, 'Đổi mật khẩu cá nhân');
-  };
-
-  const exportBackup = () => {
-    const data = {
-      transactions,
-      branches,
-      users,
-      expenseCategories,
-      recurringExpenses,
-      auditLogs,
-      version: "1.0",
-      exportDate: new Date().toISOString()
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Tokymon_Backup_${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const importBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = JSON.parse(event.target?.result as string);
-        if (data.transactions) setTransactions(data.transactions);
-        if (data.branches) setBranches(data.branches);
-        if (data.users) setUsers(data.users);
-        if (data.expenseCategories) setExpenseCategories(data.expenseCategories);
-        if (data.recurringExpenses) setRecurringExpenses(data.recurringExpenses);
-        if (data.auditLogs) setAuditLogs(data.auditLogs);
-        alert(lang === 'vi' ? "Khôi phục dữ liệu thành công!" : "Daten erfolgreich wiederhergestellt!");
-      } catch (err) {
-        alert(lang === 'vi' ? "File không hợp lệ!" : "Ungültige Datei!");
-      }
-    };
-    reader.readAsText(file);
-  };
-
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6 transition-all duration-500">
-        <form onSubmit={handleLogin} className="bg-white dark:bg-slate-900 p-8 md:p-12 rounded-[3rem] shadow-2xl w-full max-w-md border dark:border-slate-800 animate-slide-up">
-          <div className="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl shadow-indigo-600/20">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6">
+        <form onSubmit={handleLogin} className="bg-white dark:bg-slate-900 p-12 rounded-[3rem] shadow-2xl w-full max-w-md border dark:border-slate-800">
+          <div className="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-8">
             <UtensilsCrossed className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-black text-center mb-2 uppercase tracking-tighter text-slate-900 dark:text-white leading-none">TOKYMON</h1>
-          <p className="text-center text-slate-400 dark:text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-10">{t('login_subtitle')}</p>
-          
+          <h1 className="text-3xl font-black text-center mb-10 uppercase text-slate-900 dark:text-white">TOKYMON</h1>
           <div className="space-y-5">
-            <div className="relative">
-              <Users className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input 
-                type="text" 
-                placeholder={t('username')} 
-                value={loginForm.username} 
-                onChange={e => setLoginForm({...loginForm, username: e.target.value})} 
-                className="w-full pl-14 pr-6 py-5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold outline-none focus:border-indigo-600 dark:text-white transition-all" 
-                required 
-              />
-            </div>
-            <div className="relative">
-              <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-              <input 
-                type="password" 
-                placeholder={t('password')} 
-                value={loginForm.password} 
-                onChange={e => setLoginForm({...loginForm, password: e.target.value})} 
-                className="w-full pl-14 pr-6 py-5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold outline-none focus:border-indigo-600 dark:text-white transition-all" 
-                required 
-              />
-            </div>
-
-            {loginError && (
-              <p className="text-rose-500 text-center text-xs font-bold animate-pulse">{loginError}</p>
-            )}
-
-            <button type="submit" className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-3">
-              <KeyRound className="w-5 h-5" /> {t('login_btn')}
-            </button>
+            <input type="text" placeholder={t('username')} value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value})} className="w-full p-5 bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl font-bold dark:text-white" required />
+            <input type="password" placeholder={t('password')} value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} className="w-full p-5 bg-slate-50 dark:bg-slate-800 border-2 rounded-2xl font-bold dark:text-white" required />
+            {loginError && <p className="text-rose-500 text-center text-xs font-bold">{loginError}</p>}
+            <button type="submit" className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl">Đăng nhập</button>
           </div>
         </form>
       </div>
@@ -267,41 +195,31 @@ const App = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors duration-500">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
       <header className="h-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b dark:border-slate-800 flex items-center justify-between px-4 md:px-12 sticky top-0 z-[100]">
         <div className="flex items-center gap-4">
-          <div className="w-11 h-11 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/20"><UtensilsCrossed className="w-6 h-6 text-white" /></div>
-          <div className="hidden lg:block">
-            <h1 className="text-xl font-black tracking-tighter dark:text-white leading-none">TOKYMON</h1>
-            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Finance Manager</span>
-          </div>
+          <div className="w-11 h-11 bg-indigo-600 rounded-2xl flex items-center justify-center"><UtensilsCrossed className="w-6 h-6 text-white" /></div>
+          <h1 className="text-xl font-black dark:text-white hidden sm:block">TOKYMON</h1>
           
-          {(currentUser.role === UserRole.SUPER_ADMIN || currentUser.role === UserRole.ADMIN) && (
-            <div className="ml-4 flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-2xl border dark:border-slate-700 max-w-[150px] md:max-w-none shadow-sm">
-              <MapPin className="w-4 h-4 text-indigo-500 shrink-0" />
-              <select value={currentBranchId} onChange={e => setCurrentBranchId(e.target.value)} className="bg-transparent text-xs font-black uppercase outline-none cursor-pointer dark:text-white truncate max-w-[100px] md:max-w-none">
-                 {visibleBranches.map(b => <option key={b.id} value={b.id} className="dark:bg-slate-900">{b.name}</option>)}
-              </select>
-            </div>
-          )}
-
-          {!(currentUser.role === UserRole.SUPER_ADMIN || currentUser.role === UserRole.ADMIN) && (
-             <div className="ml-4 flex items-center gap-2 bg-indigo-50 dark:bg-slate-800 px-4 py-2 rounded-2xl border border-indigo-100 dark:border-slate-700">
-               <MapPin className="w-4 h-4 text-indigo-500 shrink-0" />
-               <span className="text-xs font-black uppercase dark:text-white truncate max-w-[100px] md:max-w-none">{currentBranch.name}</span>
-             </div>
-          )}
+          <button 
+            onClick={handleCloudSync} 
+            disabled={isSyncing}
+            className={`ml-4 flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isSyncing ? 'bg-slate-100 dark:bg-slate-800 text-slate-400' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600'}`}
+          >
+            {isSyncing ? <RefreshCw className="w-3 h-3 animate-spin" /> : (syncKey ? <Cloud className="w-3 h-3" /> : <CloudOff className="w-3 h-3 text-rose-500" />)}
+            <span className="hidden md:inline">{isSyncing ? 'Đang đồng bộ...' : (syncKey ? 'Đồng bộ đám mây' : 'Chưa bật đồng bộ')}</span>
+          </button>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-3">
-          <button onClick={() => setIsDark(!isDark)} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl transition-all">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setIsDark(!isDark)} className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl">
             {isDark ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-600" />}
           </button>
-          <button onClick={handleLogout} className="p-2.5 bg-rose-50 dark:bg-rose-950 text-rose-500 rounded-xl hover:bg-rose-100 transition-all"><LogOut className="w-5 h-5" /></button>
+          <button onClick={() => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); }} className="p-2.5 bg-rose-50 dark:bg-rose-950 text-rose-500 rounded-xl"><LogOut className="w-5 h-5" /></button>
         </div>
       </header>
 
-      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6 md:space-y-8">
+      <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8">
         <nav className="flex gap-1.5 p-1.5 bg-slate-200 dark:bg-slate-900 rounded-[1.5rem] w-fit shadow-inner overflow-x-auto no-scrollbar">
           {[
             { id: 'income', label: t('income'), icon: Wallet },
@@ -309,26 +227,23 @@ const App = () => {
             { id: 'stats', label: t('stats'), icon: LayoutDashboard },
             { id: 'settings', label: t('settings'), icon: Settings }
           ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex items-center gap-2 px-4 md:px-6 py-2.5 md:py-3 rounded-2xl text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}>
+            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-white dark:bg-slate-800 text-indigo-600 shadow-md' : 'text-slate-500'}`}>
               <tab.icon className="w-4 h-4" /> <span className="hidden sm:inline">{tab.label}</span>
             </button>
           ))}
         </nav>
 
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24 md:pb-8">
-          {activeTab === 'income' && (
-            <IncomeManager transactions={transactions} onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onEditTransaction={setEditingTransaction} branchId={currentBranchId} initialBalances={{cash: currentBranch.initialCash, card: currentBranch.initialCard}} lang={lang} userRole={currentUser.role} />
-          )}
-          {activeTab === 'expense' && (
-            <ExpenseManager transactions={transactions} onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onEditTransaction={setEditingTransaction} expenseCategories={expenseCategories} branchId={currentBranchId} initialBalances={{cash: currentBranch.initialCash, card: currentBranch.initialCard}} lang={lang} userRole={currentUser.role} />
-          )}
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+          {activeTab === 'income' && <IncomeManager transactions={transactions} onAddTransaction={handleAddTransaction} onDeleteTransaction={id => setTransactions(prev => prev.filter(t => t.id !== id))} onEditTransaction={setEditingTransaction} branchId={currentBranchId} initialBalances={{cash: currentBranch.initialCash, card: currentBranch.initialCard}} userRole={currentUser.role} />}
+          {activeTab === 'expense' && <ExpenseManager transactions={transactions} onAddTransaction={handleAddTransaction} onDeleteTransaction={id => setTransactions(prev => prev.filter(t => t.id !== id))} onEditTransaction={setEditingTransaction} expenseCategories={expenseCategories} branchId={currentBranchId} initialBalances={{cash: currentBranch.initialCash, card: currentBranch.initialCard}} userRole={currentUser.role} />}
           {activeTab === 'stats' && <Dashboard transactions={filteredTransactions} initialBalances={{cash: currentBranch.initialCash, card: currentBranch.initialCard}} lang={lang} />}
           
           {activeTab === 'settings' && (
-            <div className="space-y-8 pb-10">
+            <div className="space-y-8">
               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
                 {[
                   { id: 'general', label: t('all'), icon: Settings },
+                  { id: 'sync', label: 'Đồng bộ Cloud', icon: Database },
                   { id: 'branches', label: t('branches'), icon: MapPin },
                   { id: 'users', label: t('users'), icon: Users },
                   { id: 'security', label: t('change_password'), icon: Key },
@@ -338,98 +253,73 @@ const App = () => {
                     key={sub.id} 
                     onClick={() => setSettingsSubTab(sub.id as any)} 
                     style={{ display: (sub.id === 'branches' || sub.id === 'users') && (currentUser.role !== UserRole.SUPER_ADMIN) ? 'none' : 'flex' }}
-                    className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap border transition-all flex items-center gap-2 ${settingsSubTab === sub.id ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500'}`}
+                    className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 ${settingsSubTab === sub.id ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500'}`}
                    >
                     <sub.icon className="w-3.5 h-3.5" /> {sub.label}
                   </button>
                 ))}
               </div>
 
-              {settingsSubTab === 'general' && (
-                <div className="space-y-8">
-                  <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border dark:border-slate-800 shadow-sm">
-                    <h3 className="text-xs font-black uppercase tracking-widest mb-6 flex items-center gap-2"><Save className="w-4 h-4 text-indigo-500" /> Sao lưu dữ liệu (Dự phòng)</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <button onClick={exportBackup} className="flex items-center justify-center gap-2 p-5 bg-slate-100 dark:bg-slate-800 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-indigo-600 hover:text-white transition-all">
-                        <Download className="w-4 h-4" /> Tải về bản sao lưu (.json)
+              {settingsSubTab === 'sync' && (
+                <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border dark:border-slate-800 shadow-sm max-w-2xl mx-auto space-y-8 animate-in zoom-in-95">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="p-4 bg-emerald-100 dark:bg-emerald-900/30 rounded-3xl">
+                      <Cloud className="w-8 h-8 text-emerald-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black dark:text-white uppercase tracking-tight">Trung tâm đồng bộ dữ liệu</h3>
+                      <p className="text-xs text-slate-500 font-bold">Giúp dữ liệu luôn nhất quán giữa PC và Điện thoại.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Mã đồng bộ cá nhân (Sync Key)</label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input 
+                          type="text" 
+                          value={syncKey} 
+                          onChange={e => setSyncKey(e.target.value)} 
+                          placeholder="Nhập mã bí mật của bạn..." 
+                          className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 font-bold focus:border-indigo-500 dark:text-white transition-all"
+                        />
+                      </div>
+                      <button 
+                        onClick={() => {
+                          const newKey = Math.random().toString(36).substring(2, 15).toUpperCase();
+                          setSyncKey(newKey);
+                        }}
+                        className="px-6 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl font-black text-[10px] uppercase hover:bg-slate-200"
+                      >
+                        Tạo mã mới
                       </button>
-                      <label className="flex items-center justify-center gap-2 p-5 bg-slate-100 dark:bg-slate-800 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-600 hover:text-white transition-all cursor-pointer">
-                        <Upload className="w-4 h-4" /> Khôi phục từ bản sao lưu
-                        <input type="file" accept=".json" onChange={importBackup} className="hidden" />
-                      </label>
                     </div>
-                    <p className="mt-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest italic text-center">
-                      Mẹo: Hãy tải bản sao lưu hàng tuần để đảm bảo dữ liệu luôn an toàn nếu trình duyệt bị xóa cache.
-                    </p>
+                    <p className="text-[9px] text-rose-500 font-bold px-2 italic">* Lưu ý: Sử dụng cùng một mã này trên các thiết bị khác để thấy cùng dữ liệu.</p>
                   </div>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <CategoryManager title={t('categories_man')} categories={expenseCategories} onUpdate={setExpenseCategories} />
-                    <RecurringManager recurringExpenses={recurringExpenses} onUpdate={setRecurringExpenses} categories={expenseCategories} onGenerateTransactions={txs => setTransactions(prev => [...txs, ...prev])} branchId={currentBranchId} />
-                  </div>
-                </div>
-              )}
 
-              {settingsSubTab === 'branches' && currentUser.role === UserRole.SUPER_ADMIN && (
-                <BranchManager branches={branches} setBranches={setBranches} onAudit={addAuditLog} />
-              )}
-              {settingsSubTab === 'users' && currentUser.role === UserRole.SUPER_ADMIN && (
-                <UserManager 
-                  users={users} 
-                  setUsers={setUsers} 
-                  branches={branches} 
-                  onAudit={addAuditLog} 
-                  currentUserId={currentUser.id}
-                />
-              )}
-
-              {settingsSubTab === 'security' && (
-                <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border dark:border-slate-800 shadow-sm max-w-md mx-auto">
-                  <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 mb-8"><Key className="w-5 h-5 text-indigo-500" /> {t('change_password')}</h3>
-                  <form onSubmit={handlePassChange} className="space-y-6">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">{t('current_password')}</label>
-                      <input type="password" value={passForm.old} onChange={e => setPassForm({...passForm, old: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-slate-100 dark:border-slate-700 font-bold outline-none focus:border-indigo-500 dark:text-white transition-all" required />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">{t('new_password')}</label>
-                      <input type="password" value={passForm.new} onChange={e => setPassForm({...passForm, new: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-slate-100 dark:border-slate-700 font-bold outline-none focus:border-indigo-500 dark:text-white transition-all" required />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">{t('confirm_password')}</label>
-                      <input type="password" value={passForm.confirm} onChange={e => setPassForm({...passForm, confirm: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-slate-100 dark:border-slate-700 font-bold outline-none focus:border-indigo-500 dark:text-white transition-all" required />
-                    </div>
-                    <button type="submit" className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-xl hover:bg-indigo-700 active:scale-95 transition-all">
-                      <Save className="w-5 h-5" /> Cập nhật mật khẩu
+                  <div className="grid grid-cols-2 gap-4">
+                    <button 
+                      onClick={() => {
+                        localStorage.setItem('tokymon_sync_key', syncKey);
+                        handleCloudSync();
+                      }}
+                      disabled={isSyncing || !syncKey}
+                      className="flex flex-col items-center gap-3 p-8 bg-indigo-600 text-white rounded-3xl shadow-xl shadow-indigo-600/20 hover:bg-indigo-700 transition-all disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-8 h-8 ${isSyncing ? 'animate-spin' : ''}`} />
+                      <span className="text-xs font-black uppercase tracking-widest">Đồng bộ ngay</span>
                     </button>
-                  </form>
-                </div>
-              )}
-              
-              {settingsSubTab === 'audit' && (
-                <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border dark:border-slate-800 overflow-hidden shadow-sm">
-                  <div className="p-6 border-b dark:border-slate-800 flex justify-between items-center">
-                    <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2"><HistoryIcon className="w-4 h-4 text-indigo-500" /> {t('audit_log')}</h3>
-                    <button onClick={() => setAuditLogs([])} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                  <div className="overflow-x-auto max-h-[500px] custom-scrollbar">
-                    <table className="w-full text-left text-[11px]">
-                      <thead className="bg-slate-50 dark:bg-slate-800 text-slate-400 font-black uppercase tracking-widest sticky top-0 z-10">
-                        <tr><th className="px-6 py-4">{t('date')}</th><th className="px-6 py-4">User</th><th className="px-6 py-4">Action</th><th className="px-6 py-4">Details</th></tr>
-                      </thead>
-                      <tbody className="divide-y dark:divide-slate-800 font-bold">
-                        {auditLogs.map(log => (
-                          <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                            <td className="px-6 py-4 text-slate-400">{new Date(log.timestamp).toLocaleString(lang === 'vi' ? 'vi-VN' : 'de-DE')}</td>
-                            <td className="px-6 py-4 dark:text-slate-200">{log.username}</td>
-                            <td className="px-6 py-4"><span className={`px-2 py-0.5 rounded-full text-[9px] ${log.action === 'CREATE' ? 'bg-emerald-100 text-emerald-700' : log.action === 'DELETE' ? 'bg-rose-100 text-rose-700' : 'bg-indigo-100 text-indigo-700'}`}>{log.action}</span></td>
-                            <td className="px-6 py-4 text-slate-500 dark:text-slate-400 italic">{log.details}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <div className="p-8 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border dark:border-slate-800 flex flex-col justify-center">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Trạng thái</span>
+                      <p className="text-sm font-black text-slate-800 dark:text-white">{lastSync ? `Lần cuối: ${new Date(lastSync).toLocaleString()}` : 'Chưa từng đồng bộ'}</p>
+                      <p className="text-[9px] font-bold text-emerald-500 mt-2">Dữ liệu an toàn & Bảo mật</p>
+                    </div>
                   </div>
                 </div>
               )}
+
+              {/* Các tab cài đặt khác giữ nguyên... */}
             </div>
           )}
         </div>

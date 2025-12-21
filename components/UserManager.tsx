@@ -75,7 +75,8 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
       setUsers(prevUsers => {
         const updated = prevUsers.map(u => 
           u.id === editingUserId 
-            ? { ...u, username, password, role, assignedBranchIds: assignedIds } 
+            // Fix: ensure updatedAt is refreshed on update
+            ? { ...u, username, password, role, assignedBranchIds: assignedIds, updatedAt: new Date().toISOString() } 
             : u
         );
         onAudit('UPDATE', 'USER', editingUserId, `Cập nhật User: ${username}, Quyền: ${role}, Chi nhánh: ${assignedIds.length}`);
@@ -85,12 +86,14 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
     } else {
       // Chế độ Thêm mới
       const newId = Date.now().toString();
+      // Fix: Added missing updatedAt property to satisfy User interface
       const newU: User = {
         id: newId,
         username,
         password,
         role,
-        assignedBranchIds: assignedIds
+        assignedBranchIds: assignedIds,
+        updatedAt: new Date().toISOString()
       };
       setUsers(prevUsers => {
         onAudit('CREATE', 'USER', newId, `Thêm User: ${username} với quyền ${role}, gán ${assignedIds.length} chi nhánh`);

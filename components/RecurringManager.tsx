@@ -21,7 +21,7 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringExpenses, 
   const handleAdd = () => {
     if (!amount || !category || !day) return;
     
-    // Fix: included branchId to satisfy RecurringTransaction interface
+    // Fix: Added missing updatedAt property to satisfy RecurringTransaction interface
     const newItem: RecurringTransaction = {
       id: Date.now().toString(),
       branchId: branchId,
@@ -29,7 +29,8 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringExpenses, 
       category,
       expenseSource: source,
       dayOfMonth: Number(day),
-      note
+      note,
+      updatedAt: new Date().toISOString()
     };
 
     onUpdate([...recurringExpenses, newItem]);
@@ -48,6 +49,7 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringExpenses, 
     const monthStr = `${currentYear}-${(currentMonth + 1).toString().padStart(2, '0')}`;
 
     if (window.confirm(`Bạn có muốn tạo ${recurringExpenses.length} khoản chi phí định kỳ cho tháng ${monthStr} không?`)) {
+      // Fix: Added missing updatedAt property to satisfy Transaction interface
       const newTxs: Transaction[] = recurringExpenses.map(r => ({
         id: `rec_${Date.now()}_${r.id}`,
         branchId: r.branchId, // Use the stored branchId
@@ -57,7 +59,8 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringExpenses, 
         type: TransactionType.EXPENSE,
         expenseSource: r.expenseSource,
         note: `[Định kỳ] ${r.note}`,
-        isRecurring: true
+        isRecurring: true,
+        updatedAt: new Date().toISOString()
       }));
       onGenerateTransactions(newTxs);
     }

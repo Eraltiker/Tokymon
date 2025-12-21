@@ -4,6 +4,11 @@ export enum TransactionType {
   EXPENSE = 'EXPENSE'
 }
 
+// Fix: Export EXPENSE_CATEGORIES constant for use in Gemini service and storage initialization
+export const EXPENSE_CATEGORIES = [
+  'Tiền nhà / Điện', 'Rác', 'Lương công nhân', 'Nguyên liệu', 'Thuế', 'Bonus', 'Gutschein', 'Sai', 'Nợ / Tiền ứng', 'Chi phí khác', 'Bảo hiểm'
+];
+
 export enum ExpenseSource {
   SHOP_CASH = 'SHOP_CASH',
   WALLET = 'WALLET',
@@ -31,6 +36,7 @@ export interface Branch {
   address: string;
   initialCash: number;
   initialCard: number;
+  updatedAt: string; // Thêm để đồng bộ
 }
 
 export interface User {
@@ -39,12 +45,13 @@ export interface User {
   password: string;
   role: UserRole;
   assignedBranchIds: string[];
+  updatedAt: string; // Thêm để đồng bộ
 }
 
 export interface IncomeBreakdown {
   cash: number;
   card: number;
-  delivery?: number; // Đánh dấu là optional và sẽ không dùng trong UI mới
+  delivery?: number;
 }
 
 export interface HistoryEntry {
@@ -71,9 +78,9 @@ export interface Transaction {
   history?: HistoryEntry[];
   isPaid?: boolean; 
   debtorName?: string;
+  updatedAt: string; // Thêm để đồng bộ
 }
 
-// Add missing RecurringTransaction interface for monthly scheduled expenses
 export interface RecurringTransaction {
   id: string;
   branchId: string;
@@ -82,15 +89,7 @@ export interface RecurringTransaction {
   expenseSource: ExpenseSource;
   dayOfMonth: number;
   note: string;
-}
-
-// Add missing AppNotification interface for system alerts
-export interface AppNotification {
-  id: string;
-  type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';
-  message: string;
-  timestamp: string;
-  read: boolean;
+  updatedAt: string;
 }
 
 export interface AuditLogEntry {
@@ -104,24 +103,19 @@ export interface AuditLogEntry {
   details: string;
 }
 
-export const INCOME_CATEGORIES = [
-  'Doanh thu ngày',
-  'Khác'
-];
+// Cấu trúc dữ liệu tổng quát để đồng bộ
+export interface AppData {
+  version: string;
+  lastSync: string;
+  transactions: Transaction[];
+  branches: Branch[];
+  users: User[];
+  expenseCategories: string[];
+  recurringExpenses: RecurringTransaction[];
+  auditLogs: AuditLogEntry[];
+}
 
-export const EXPENSE_CATEGORIES = [
-  'Tiền nhà / Điện',
-  'Rác',
-  'Lương công nhân',
-  'Nguyên liệu',
-  'Thuế',
-  'Bonus',
-  'Gutschein',
-  'Sai',
-  'Nợ / Tiền ứng',
-  'Chi phí khác',
-  'Bảo hiểm'
-];
+export const SCHEMA_VERSION = "2.0"; // Version mới hỗ trợ đồng bộ
 
 export const formatCurrency = (val: number, lang: Language = 'vi') => 
   new Intl.NumberFormat(lang === 'vi' ? 'vi-VN' : 'de-DE', { 

@@ -17,12 +17,14 @@ const BranchManager: React.FC<BranchManagerProps> = ({ branches, setBranches, on
 
   const handleAdd = () => {
     if (!name) return;
+    // Fix: Added missing updatedAt property to satisfy Branch interface
     const newB: Branch = {
       id: Date.now().toString(),
       name,
       address,
       initialCash: Number(initialCash) || 0,
-      initialCard: Number(initialCard) || 0
+      initialCard: Number(initialCard) || 0,
+      updatedAt: new Date().toISOString()
     };
     setBranches([...branches, newB]);
     onAudit('CREATE', 'BRANCH', newB.id, `Thêm chi nhánh: ${name} (TM: ${initialCash}€, Thẻ: ${initialCard}€)`);
