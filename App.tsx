@@ -17,7 +17,7 @@ import {
   UtensilsCrossed, LayoutDashboard, Settings, 
   Wallet, ArrowDownCircle, Sun, Moon, LogOut, 
   History as HistoryIcon, MapPin, Users, RefreshCw, Database, 
-  ChevronDown, Cloud, Zap, ShieldCheck, CreditCard, Wifi, WifiOff
+  ChevronDown, Cloud, Zap, ShieldCheck, CreditCard, Wifi, WifiOff, AlertTriangle
 } from 'lucide-react';
 
 const App = () => {
@@ -29,8 +29,15 @@ const App = () => {
 
   const [data, setData] = useState<AppData>(() => StorageService.loadLocal());
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
   const [lastSyncTime, setLastSyncTime] = useState<string>('');
-  const [syncKey, setSyncKey] = useState(() => localStorage.getItem('tokymon_sync_key') || '');
+  
+  // Mặc định sử dụng Bucket ID của bạn nếu chưa có key nào khác
+  const [syncKey, setSyncKey] = useState(() => {
+    const saved = localStorage.getItem('tokymon_sync_key');
+    return saved || 'NZQkBLdrxvnEEMUw928weK';
+  });
+
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('tokymon_user');
     return saved ? JSON.parse(saved) : null;
@@ -48,15 +55,21 @@ const App = () => {
   }, [data]);
 
   const handleCloudSync = useCallback(async (silent = false, specificData?: AppData) => {
-    if (!syncKey) return;
+    if (!syncKey || syncKey.trim() === '') return;
     if (!silent) setIsSyncing(true);
+    
     try {
       const targetData = specificData || dataRef.current;
       const merged = await StorageService.syncWithCloud(syncKey, targetData);
       setData(merged);
+      setSyncStatus('SUCCESS');
       setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      
+      // Sau 3 giây reset trạng thái thành công
+      if (!silent) setTimeout(() => setSyncStatus('IDLE'), 3000);
     } catch (e) {
-      console.error("Lỗi đồng bộ");
+      console.error("Lỗi đồng bộ Cloud");
+      setSyncStatus('ERROR');
     } finally {
       if (!silent) setIsSyncing(false);
     }
@@ -186,12 +199,12 @@ const App = () => {
 
         <div className="flex items-center gap-2">
           {syncKey ? (
-            <div className="flex items-center gap-3 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-2xl border dark:border-slate-700">
+            <div className={`flex items-center gap-3 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-2xl border ${syncStatus === 'ERROR' ? 'border-rose-500' : 'dark:border-slate-700'}`}>
                <div className="flex flex-col items-end">
-                  <span className="text-[7px] font-black text-slate-400 uppercase leading-none">Cloud Sync</span>
-                  <span className="text-[9px] font-black text-slate-900 dark:text-white leading-none mt-1">{lastSyncTime || 'Sẵn sàng'}</span>
+                  <span className="text-[7px] font-black text-slate-400 uppercase leading-none">Cloud Status</span>
+                  <span className={`text-[9px] font-black leading-none mt-1 ${syncStatus === 'ERROR' ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>{syncStatus === 'ERROR' ? 'Lỗi kết nối' : (lastSyncTime || 'Sẵn sàng')}</span>
                </div>
-               <div className={`w-2.5 h-2.5 rounded-full ${isSyncing ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`} />
+               <div className={`w-2.5 h-2.5 rounded-full ${isSyncing ? 'bg-amber-500 animate-pulse' : syncStatus === 'ERROR' ? 'bg-rose-500' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`} />
             </div>
           ) : (
             <div className="flex items-center gap-2 text-rose-500 bg-rose-50 dark:bg-rose-900/20 px-3 py-1.5 rounded-2xl">
@@ -232,8 +245,8 @@ const App = () => {
                   <div className="flex items-center gap-5">
                     <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-3xl"><Zap className="w-10 h-10 text-indigo-600" /></div>
                     <div>
-                      <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none mb-1">Kết nối KVDB.io</h3>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Đồng bộ dữ liệu đa thiết bị</p>
+                      <h3 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none mb-1">Cấu hình Cloud</h3>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Đồng bộ iPhone & Máy tính</p>
                     </div>
                   </div>
                   
@@ -244,20 +257,33 @@ const App = () => {
                         type="text" 
                         value={syncKey} 
                         onChange={e => handleUpdateSyncKey(e.target.value)} 
-                        placeholder="Dán mã NZQkBL... vào đây" 
+                        placeholder="VD: NZQkBL..." 
                         className="w-full p-5 bg-slate-50 dark:bg-slate-900 rounded-3xl font-black border-2 border-transparent focus:border-indigo-500 outline-none text-sm transition-all dark:text-white" 
                       />
-                      <p className="text-[9px] font-medium text-slate-400 px-2 italic">Dán mã <strong>NZQkBLdrxvnEEMUw928weK</strong> để bắt đầu sử dụng bucket của bạn.</p>
+                      <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-100 dark:border-amber-900/30 flex items-center gap-3">
+                         <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                         <p className="text-[9px] font-medium text-amber-700 dark:text-amber-400">Hiện đang sử dụng mã: <strong>{syncKey}</strong>. Hãy dán mã này vào mọi thiết bị bạn muốn dùng chung dữ liệu.</p>
+                      </div>
                     </div>
-                    <button onClick={() => handleCloudSync()} className="w-full py-5 bg-indigo-600 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all">
-                      <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /> Đồng bộ dữ liệu ngay
+
+                    {syncStatus === 'ERROR' && (
+                       <div className="p-4 bg-rose-50 dark:bg-rose-900/30 rounded-2xl border border-rose-200 flex items-center gap-3 text-rose-600">
+                          <AlertTriangle className="w-5 h-5" />
+                          <p className="text-[10px] font-bold uppercase">Lỗi: Không thể kết nối với server KVDB. Vui lòng kiểm tra lại mã hoặc mạng.</p>
+                       </div>
+                    )}
+
+                    <button onClick={() => handleCloudSync()} disabled={isSyncing} className="w-full py-5 bg-indigo-600 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50">
+                      <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /> {isSyncing ? 'Đang kết nối...' : 'Kiểm tra & Đồng bộ ngay'}
                     </button>
                   </div>
 
                   <div className="p-6 bg-slate-50 dark:bg-slate-900 rounded-3xl border border-indigo-100 dark:border-slate-700">
-                     <h4 className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase mb-3 flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> Trạng thái</h4>
+                     <h4 className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase mb-3 flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> Hướng dẫn đồng bộ</h4>
                      <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
-                       Phần mềm sẽ tự động đồng bộ mỗi 10 giây. Sau khi nhập mã vào iPhone, bạn chỉ cần nhập liệu, dữ liệu sẽ tự động xuất hiện trên Máy tính và ngược lại.
+                       1. Nhập mã Bucket vào Máy tính.<br/>
+                       2. Nhập cùng mã đó vào iPhone của bạn.<br/>
+                       3. Dữ liệu sẽ <strong>tự động bay qua lại</strong> mỗi khi bạn lưu giao dịch hoặc sau mỗi 10 giây.
                      </p>
                   </div>
                 </div>

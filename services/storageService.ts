@@ -62,36 +62,43 @@ export const StorageService = {
     auditLogs: []
   }),
 
-  // KẾT NỐI VỚI BUCKET ID CỦA NGƯỜI DÙNG
   syncWithCloud: async (bucketId: string, localData: AppData): Promise<AppData> => {
-    if (!bucketId) return localData;
+    if (!bucketId || bucketId.trim() === '') return localData;
     
-    // Sử dụng trực tiếp Bucket ID người dùng cung cấp
-    // URL chuẩn của KVDB.io: https://kvdb.io/buckets/[BUCKET_ID]/values/[KEY]
-    const BUCKET_URL = `https://kvdb.io/buckets/${bucketId}/values/main`;
+    const BUCKET_URL = `https://kvdb.io/buckets/${bucketId.trim()}/values/main`;
 
     try {
+      // 1. Thử lấy dữ liệu từ Cloud
       const response = await fetch(BUCKET_URL);
       let remoteData: AppData | null = null;
       
       if (response.ok) {
-        remoteData = await response.json();
+        const text = await response.text();
+        if (text) {
+          remoteData = JSON.parse(text);
+        }
+      } else if (response.status !== 404) {
+        // Nếu không phải 404 và cũng không phải 200 (ví dụ 500), coi như lỗi mạng
+        throw new Error(`Cloud Error: ${response.status}`);
       }
 
-      // Hợp nhất dữ liệu local và cloud
+      // 2. Hợp nhất dữ liệu (Nếu cloud trống thì merged chính là local)
       const merged = remoteData ? StorageService.mergeAppData(localData, remoteData) : localData;
 
-      // Lưu lại bản đã hợp nhất lên Cloud
-      await fetch(BUCKET_URL, {
+      // 3. Đẩy bản hợp nhất lên Cloud (Cập nhật hoặc Khởi tạo lần đầu)
+      const saveResponse = await fetch(BUCKET_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(merged)
       });
 
+      if (!saveResponse.ok) {
+        throw new Error("Không thể ghi dữ liệu lên Cloud");
+      }
+
       return merged;
     } catch (error) {
-      console.warn("Cloud Sync Error - Sử dụng dữ liệu cục bộ", error);
-      return localData;
+      console.error("Lỗi đồng bộ:", error);
+      throw error; // Ném lỗi để App.tsx xử lý UI
     }
   }
 };
