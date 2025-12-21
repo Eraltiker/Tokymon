@@ -7,7 +7,7 @@ import {
   PlusCircle, Save, Euro, CreditCard, Smartphone,
   ChevronLeft, ChevronRight, Store, Wallet, Camera, Loader2,
   CheckCircle2, CalendarClock, Edit3,
-  CalendarDays, ChevronDown
+  CalendarDays, ChevronDown, Tag
 } from 'lucide-react';
 
 interface TransactionFormProps {
@@ -138,181 +138,151 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   };
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-xl border dark:border-slate-800 flex flex-col h-full transition-all overflow-hidden relative">
+    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl border dark:border-slate-800 flex flex-col h-full transition-all relative overflow-hidden">
       {isScanning && (
-        <div className="absolute inset-0 z-50 bg-indigo-600/90 backdrop-blur-sm flex flex-col items-center justify-center text-white p-4 text-center">
-          <Loader2 className="w-12 h-12 animate-spin mb-4" />
-          <p className="text-xs font-black uppercase tracking-widest">AI đang quét hóa đơn...</p>
+        <div className="absolute inset-0 z-50 bg-indigo-600/90 backdrop-blur-md flex flex-col items-center justify-center text-white p-6 text-center">
+          <Loader2 className="w-16 h-16 animate-spin mb-6" />
+          <p className="text-[12px] font-black uppercase tracking-[0.3em]">AI Tokymon đang quét hóa đơn...</p>
         </div>
       )}
 
-      <div className={`px-6 py-4 flex items-center justify-between border-b dark:border-slate-800 ${type === TransactionType.INCOME ? 'bg-indigo-50/40' : 'bg-rose-50/40'}`}>
-        <div className="flex items-center gap-3">
-          <div className={`p-2.5 rounded-2xl ${type === TransactionType.INCOME ? 'bg-indigo-600' : 'bg-rose-500'} text-white shadow-lg`}>
-            {type === TransactionType.INCOME ? <PlusCircle className="w-5 h-5" /> : <Euro className="w-5 h-5" />}
-          </div>
-          <span className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-white leading-none">
-            {type === TransactionType.INCOME ? t('income') : t('expense')}
-          </span>
+      {/* Mobile-Friendly Header for Form */}
+      <div className={`px-6 pt-10 pb-6 flex items-center justify-between ${type === TransactionType.INCOME ? 'bg-indigo-50/50 dark:bg-indigo-950/20' : 'bg-rose-50/50 dark:bg-rose-950/20'}`}>
+        <div>
+          <h2 className="text-2xl font-black uppercase tracking-tight dark:text-white leading-none mb-1">{type === TransactionType.INCOME ? 'Nhập Doanh Thu' : 'Nhập Chi Phí'}</h2>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Chi nhánh {branchId}</p>
         </div>
-        
         {type === TransactionType.EXPENSE && (
-           <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-full text-[10px] font-black uppercase shadow-lg active:scale-95 transition-all">
-             <Camera className="w-4 h-4" /> <span>AI Scan</span>
-           </button>
+          <button type="button" onClick={() => fileInputRef.current?.click()} className="p-4 bg-indigo-600 text-white rounded-2xl shadow-xl shadow-indigo-200 dark:shadow-none active:scale-95 transition-all">
+            <Camera className="w-6 h-6" />
+          </button>
         )}
         <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" capture="environment" className="hidden" />
       </div>
       
-      <form onSubmit={handleSubmit} className="p-6 flex-1 overflow-y-auto custom-scrollbar space-y-6">
-        <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-inner">
-          <div className="flex items-center gap-2 mb-3 px-1">
+      <form onSubmit={handleSubmit} className="p-6 space-y-8 flex-1 overflow-y-auto no-scrollbar pb-10">
+        {/* Date Stepper Section */}
+        <div className="bg-slate-50 dark:bg-slate-800/40 p-5 rounded-[2rem] border dark:border-slate-800 shadow-inner">
+          <div className="flex items-center gap-2 mb-4 px-1">
             <CalendarDays className="w-4 h-4 text-indigo-500" />
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Ngày giao dịch</label>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ngày hạch toán</span>
           </div>
-
           <div className="flex items-center gap-3">
-            <button type="button" onClick={() => adjustDate(-1)} className="p-4 bg-white dark:bg-slate-900 rounded-2xl text-slate-500 border dark:border-slate-700 shadow-sm active:scale-90 transition-all">
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-
-            <div 
-              onClick={() => dateInputRef.current?.showPicker()}
-              className="relative flex-1 flex flex-col justify-center items-center p-3 bg-white dark:bg-slate-900 rounded-2xl border-2 border-slate-100 dark:border-slate-700 hover:border-indigo-500 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
-            >
-              <span className="text-[15px] font-black text-slate-900 dark:text-white leading-none">
-                {formatDateDisplay(date)}
-              </span>
-              <span className="text-[8px] font-bold text-slate-400 uppercase mt-1.5 tracking-tighter">Nhấn để chọn lịch</span>
-              <input 
-                type="date" 
-                ref={dateInputRef}
-                value={date} 
-                onChange={e => setDate(e.target.value)} 
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
-              />
+            <button type="button" onClick={() => adjustDate(-1)} className="flex-1 py-4 bg-white dark:bg-slate-900 rounded-2xl text-slate-400 shadow-sm active:scale-95 transition-all flex justify-center border dark:border-slate-700"><ChevronLeft className="w-6 h-6" /></button>
+            <div onClick={() => dateInputRef.current?.showPicker()} className="flex-[2] py-4 bg-white dark:bg-slate-900 rounded-2xl shadow-sm text-center border-2 border-transparent hover:border-indigo-500 transition-all cursor-pointer">
+              <span className="text-[14px] font-black dark:text-white uppercase leading-none">{formatDateDisplay(date)}</span>
+              <input type="date" ref={dateInputRef} value={date} onChange={e => setDate(e.target.value)} className="absolute opacity-0 pointer-events-none" />
             </div>
-
-            <button type="button" onClick={() => adjustDate(1)} className="p-4 bg-white dark:bg-slate-900 rounded-2xl text-slate-500 border dark:border-slate-700 shadow-sm active:scale-90 transition-all">
-              <ChevronRight className="w-6 h-6" />
-            </button>
+            <button type="button" onClick={() => adjustDate(1)} className="flex-1 py-4 bg-white dark:bg-slate-900 rounded-2xl text-slate-400 shadow-sm active:scale-95 transition-all flex justify-center border dark:border-slate-700"><ChevronRight className="w-6 h-6" /></button>
           </div>
         </div>
 
         {type === TransactionType.INCOME ? (
-          <div className="space-y-5">
+          <div className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-400 uppercase px-1 tracking-widest">{t('kasse_input')}</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 leading-none">Doanh thu tại quán (€)</label>
               <div className="relative">
-                <input type="number" inputMode="decimal" value={kasseInput} onChange={(e) => setKasseInput(e.target.value)} placeholder="0.00" className="w-full pl-14 pr-6 py-5 bg-white dark:bg-slate-800 border-2 border-indigo-50 dark:border-slate-700 rounded-3xl font-black text-4xl text-slate-900 dark:text-white outline-none focus:border-indigo-600 shadow-sm" required />
-                <Store className="absolute left-5 top-1/2 -translate-y-1/2 w-7 h-7 text-indigo-400" />
+                <input type="number" inputMode="decimal" value={kasseInput} onChange={(e) => setKasseInput(e.target.value)} placeholder="0.00" className="w-full px-6 py-8 bg-white dark:bg-slate-900 border-2 border-indigo-500/10 dark:border-slate-800 rounded-[2rem] font-black text-5xl text-indigo-600 outline-none focus:bg-indigo-50 dark:focus:bg-indigo-900/10 transition-all text-center" required />
               </div>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase px-1 tracking-widest leading-none">{t('app_input')}</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">Delivery App</label>
                 <div className="relative">
-                  <input type="number" inputMode="decimal" value={appInput} onChange={(e) => setAppInput(e.target.value)} placeholder="0" className="w-full pl-10 pr-4 py-4 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-black text-lg text-orange-500 outline-none focus:border-orange-500 shadow-sm" />
-                  <Smartphone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-400" />
+                  <input type="number" inputMode="decimal" value={appInput} onChange={(e) => setAppInput(e.target.value)} placeholder="0" className="w-full pl-12 pr-4 py-5 bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-2xl font-black text-xl text-orange-500 outline-none" />
+                  <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-orange-400" />
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase px-1 tracking-widest leading-none">{t('card_total_input')}</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2">Tổng Tiền Thẻ</label>
                 <div className="relative">
-                  <input type="number" inputMode="decimal" value={cardTotalInput} onChange={(e) => setCardTotalInput(e.target.value)} placeholder="0" className="w-full pl-10 pr-4 py-4 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-black text-lg text-indigo-600 outline-none focus:border-indigo-600 shadow-sm" />
-                  <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
+                  <input type="number" inputMode="decimal" value={cardTotalInput} onChange={(e) => setCardTotalInput(e.target.value)} placeholder="0" className="w-full pl-12 pr-4 py-5 bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-2xl font-black text-xl text-indigo-600 outline-none" />
+                  <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-400" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-slate-900 p-6 rounded-[2.5rem] flex justify-between items-center shadow-2xl relative overflow-hidden border border-slate-800">
+            <div className="bg-slate-900 rounded-[2.5rem] p-8 flex justify-between items-center text-white shadow-2xl relative overflow-hidden">
                <div className="relative z-10">
-                 <span className="text-[11px] font-black text-slate-500 uppercase block tracking-widest mb-1">CẦN RÚT TM</span>
-                 <span className="text-4xl font-black text-amber-400 leading-none">{formatCurrency(calculatedCash)}</span>
+                 <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Cần rút Tiền Mặt</p>
+                 <h3 className="text-3xl font-black text-amber-400 leading-none">{formatCurrency(calculatedCash)}</h3>
                </div>
                <div className="relative z-10 text-right">
-                  <span className="text-[10px] font-black text-slate-500 uppercase block tracking-widest mb-1 leading-none">TỔNG THU</span>
-                  <span className="text-lg font-black text-emerald-400 leading-none">{formatCurrency(totalRevenue)}</span>
+                 <p className="text-[8px] font-black uppercase tracking-widest opacity-40 mb-1">Doanh thu tổng</p>
+                 <h4 className="text-sm font-black text-emerald-400 leading-none">{formatCurrency(totalRevenue)}</h4>
                </div>
-               <Wallet className="absolute right-[-20px] bottom-[-20px] w-28 h-28 opacity-10 rotate-12 text-white" />
+               <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full -mr-10 -mt-10 blur-2xl" />
             </div>
           </div>
         ) : (
-          <div className="space-y-5">
+          <div className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-400 uppercase px-1 tracking-widest leading-none">{t('amount')} (€)</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 leading-none">Số tiền chi ra (€)</label>
               <div className="relative">
-                <input type="number" inputMode="decimal" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} className="w-full pl-14 pr-6 py-5 bg-white dark:bg-slate-800 border-2 border-rose-50 dark:border-slate-700 rounded-3xl font-black text-4xl text-rose-500 outline-none focus:border-rose-600 shadow-sm" required />
-                <Euro className="absolute left-5 top-1/2 -translate-y-1/2 w-7 h-7 text-rose-400" />
+                <input type="number" inputMode="decimal" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} className="w-full px-6 py-8 bg-white dark:bg-slate-900 border-2 border-rose-500/10 dark:border-slate-800 rounded-[2rem] font-black text-5xl text-rose-600 outline-none focus:bg-rose-50 dark:focus:bg-rose-900/10 transition-all text-center" required />
               </div>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
-              <button type="button" onClick={() => setIsPaid(true)} className={`py-5 rounded-2xl text-xs font-black uppercase flex items-center justify-center gap-2 border-2 transition-all active:scale-95 ${isPaid ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800'}`}>
-                <CheckCircle2 className="w-4 h-4" /> Trả ngay
+              <button type="button" onClick={() => setIsPaid(true)} className={`py-5 rounded-2xl text-[11px] font-black uppercase flex items-center justify-center gap-2 border-2 transition-all active:scale-95 ${isPaid ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800'}`}>
+                <CheckCircle2 className="w-4 h-4" /> Đã thanh toán
               </button>
-              <button type="button" onClick={() => setIsPaid(false)} className={`py-5 rounded-2xl text-xs font-black uppercase flex items-center justify-center gap-2 border-2 transition-all active:scale-95 ${!isPaid ? 'bg-amber-500 border-amber-500 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800'}`}>
-                <CalendarClock className="w-4 h-4" /> Ghi nợ
+              <button type="button" onClick={() => setIsPaid(false)} className={`py-5 rounded-2xl text-[11px] font-black uppercase flex items-center justify-center gap-2 border-2 transition-all active:scale-95 ${!isPaid ? 'bg-amber-500 border-amber-500 text-white shadow-lg' : 'bg-white dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800'}`}>
+                <CalendarClock className="w-4 h-4" /> Ghi nợ lại
               </button>
             </div>
 
             <div className="space-y-4">
               {!isPaid ? (
                 <div className="relative">
-                  <input type="text" value={debtorName} onChange={e => setDebtorName(e.target.value)} placeholder="Tên chủ nợ / NCC..." className="w-full pl-5 pr-5 py-5 bg-white dark:bg-slate-800 border-2 border-amber-100 dark:border-slate-700 rounded-2xl font-black text-sm outline-none focus:border-amber-500 shadow-sm" required />
+                  <input type="text" value={debtorName} onChange={e => setDebtorName(e.target.value)} placeholder="Tên chủ nợ / NCC..." className="w-full p-5 bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-2xl font-black text-sm outline-none" required />
                 </div>
               ) : (
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { id: ExpenseSource.SHOP_CASH, label: 'Laden', icon: Store },
+                    { id: ExpenseSource.SHOP_CASH, label: 'Quán', icon: Store },
                     { id: ExpenseSource.WALLET, label: 'Ví Tổng', icon: Wallet },
-                    { id: ExpenseSource.CARD, label: 'Bank', icon: CreditCard }
+                    { id: ExpenseSource.CARD, label: 'Thẻ', icon: CreditCard }
                   ].map((s) => (
-                    <button key={s.id} type="button" onClick={() => setExpenseSource(s.id)} className={`py-4 rounded-2xl border-2 text-[10px] font-black uppercase tracking-widest flex flex-col items-center gap-2 transition-all active:scale-95 ${expenseSource === s.id ? `bg-indigo-600 border-indigo-600 text-white shadow-md` : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400'}`}>
-                      <s.icon className="w-5 h-5" />
-                      {s.label}
+                    <button key={s.id} type="button" onClick={() => setExpenseSource(s.id)} className={`py-4 rounded-2xl border-2 text-[10px] font-black uppercase flex flex-col items-center gap-2 transition-all active:scale-95 ${expenseSource === s.id ? `bg-indigo-600 border-indigo-600 text-white shadow-md` : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400'}`}>
+                      <s.icon className="w-5 h-5" /> {s.label}
                     </button>
                   ))}
                 </div>
               )}
               <div className="relative">
-                <select value={expenseCategory} onChange={e => setExpenseCategory(e.target.value)} className="w-full px-5 py-4 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-black text-sm outline-none appearance-none cursor-pointer">
+                <select value={expenseCategory} onChange={e => setExpenseCategory(e.target.value)} className="w-full px-6 py-5 bg-white dark:bg-slate-900 border dark:border-slate-800 rounded-2xl font-black text-sm outline-none appearance-none">
                   {expenseCategories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                   <ChevronDown className="w-6 h-6" />
-                </div>
+                <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-400 pointer-events-none" />
               </div>
             </div>
           </div>
         )}
 
-        <div className="relative flex items-center bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl p-4 shadow-sm">
-          <input 
-            type="text" 
-            value={note} 
-            onChange={e => setNote(e.target.value)} 
-            placeholder="Ghi chú thêm nội dung..." 
-            className="w-full px-2 bg-transparent text-sm font-bold text-slate-800 dark:text-white outline-none placeholder:text-slate-300" 
-          />
-          <Edit3 className="w-5 h-5 text-slate-200 shrink-0" />
+        <div className="relative">
+          <input type="text" value={note} onChange={e => setNote(e.target.value)} placeholder="Thêm ghi chú nội dung..." className="w-full p-5 bg-slate-50 dark:bg-slate-800/40 border dark:border-slate-800 rounded-2xl text-xs font-bold outline-none italic" />
+          <Edit3 className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" />
         </div>
 
         {isDuplicateDate && (
-           <p className="text-[10px] font-black text-rose-500 uppercase text-center tracking-widest animate-pulse p-4 bg-rose-50 dark:bg-rose-900/20 rounded-2xl border border-rose-100 dark:border-rose-900/50 leading-none">{t('duplicate_revenue')}</p>
+           <div className="p-5 bg-rose-50 dark:bg-rose-900/20 rounded-2xl border border-rose-100 dark:border-rose-900/50 flex items-center gap-3 animate-pulse">
+              <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
+              <p className="text-[10px] font-black text-rose-600 uppercase tracking-tight">Cảnh báo: Ngày này đã có dữ liệu doanh thu!</p>
+           </div>
         )}
 
-        <button 
-          type="submit" 
-          disabled={isDuplicateDate || isScanning}
-          className={`w-full py-6 rounded-3xl font-black uppercase tracking-[0.2em] text-[13px] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3 ${isDuplicateDate || isScanning ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-indigo-600 text-white shadow-indigo-600/30 hover:bg-indigo-700'}`}
-        >
-          <Save className="w-7 h-7" /> <span>{t('save')}</span>
+        <button type="submit" disabled={isDuplicateDate || isScanning} className={`w-full py-6 rounded-3xl font-black uppercase tracking-[0.4em] text-[15px] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-4 ${isDuplicateDate || isScanning ? 'bg-slate-100 text-slate-300' : 'bg-indigo-600 text-white shadow-indigo-600/30'}`}>
+          <Save className="w-8 h-8" /> {t('save')}
         </button>
       </form>
     </div>
   );
 };
+
+const AlertCircle = ({ className }: { className?: string }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+);
 
 export default TransactionForm;
