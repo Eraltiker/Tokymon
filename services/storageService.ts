@@ -4,19 +4,36 @@ import { AppData, SCHEMA_VERSION, EXPENSE_CATEGORIES, Transaction, Branch, User,
 const STORAGE_KEY = 'tokymon_master_data';
 
 export const StorageService = {
+  // Hàm gộp mảng dựa trên ID và thời gian cập nhật mới nhất
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
     const map = new Map<string, T>();
-    (local || []).forEach(item => map.set(item.id, item));
+    
+    // Nạp dữ liệu local vào map
+    (local || []).forEach(item => {
+      if (item && item.id) map.set(item.id, item);
+    });
+
+    // Duyệt dữ liệu remote, nếu remote mới hơn hoặc local chưa có thì ghi đè
     (remote || []).forEach(remoteItem => {
+      if (!remoteItem || !remoteItem.id) return;
+      
       const localItem = map.get(remoteItem.id);
-      if (!localItem || new Date(remoteItem.updatedAt) > new Date(localItem.updatedAt)) {
+      if (!localItem) {
         map.set(remoteItem.id, remoteItem);
+      } else {
+        const localTime = new Date(localItem.updatedAt || 0).getTime();
+        const remoteTime = new Date(remoteItem.updatedAt || 0).getTime();
+        if (remoteTime > localTime) {
+          map.set(remoteItem.id, remoteItem);
+        }
       }
     });
+
     return Array.from(map.values());
   },
 
   mergeAppData: (local: AppData, remote: AppData): AppData => {
+    // Đảm bảo các mảng không bị undefined trước khi gộp
     return {
       version: SCHEMA_VERSION,
       lastSync: new Date().toISOString(),
@@ -34,7 +51,9 @@ export const StorageService = {
   saveLocal: (data: AppData) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch (e) {}
+    } catch (e) {
+      console.error("Lưu LocalStorage thất bại", e);
+    }
   },
 
   loadLocal: (): AppData => {
@@ -66,50 +85,47 @@ export const StorageService = {
     const sanitizedId = bucketId?.trim();
     if (!sanitizedId) return localData;
     
-    // Sử dụng URL đơn giản nhất của KVDB.io
     const BUCKET_URL = `https://kvdb.io/${sanitizedId}/main`;
 
     try {
-      // 1. Thử lấy dữ liệu hiện tại từ Cloud
+      // 1. Thử lấy dữ liệu từ Cloud
       const response = await fetch(BUCKET_URL, {
         method: 'GET',
-        mode: 'cors'
+        mode: 'cors',
+        headers: { 'Accept': 'application/json' }
       });
 
       let remoteData: AppData | null = null;
-      
       if (response.ok) {
         const text = await response.text();
         if (text && text !== "null" && text.trim() !== "") {
           try {
             remoteData = JSON.parse(text);
           } catch (pError) {
-            console.warn("Dữ liệu Cloud không hợp lệ, sẽ được ghi đè.");
+            console.warn("Dữ liệu Cloud bị lỗi định dạng, sẽ khởi tạo lại.");
           }
         }
       }
 
-      // 2. Hợp nhất dữ liệu local và cloud (ưu tiên cái mới nhất theo updatedAt)
+      // 2. Gộp dữ liệu
       const merged = remoteData ? StorageService.mergeAppData(localData, remoteData) : localData;
 
-      // 3. Sử dụng PUT để ghi đè dữ liệu lên Cloud (KVDB khuyến khích PUT cho việc set giá trị)
+      // 3. Đẩy dữ liệu lên Cloud
       const saveResponse = await fetch(BUCKET_URL, {
         method: 'PUT',
         mode: 'cors',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(merged)
       });
 
       if (!saveResponse.ok) {
-        throw new Error(`Cloud từ chối (Mã lỗi: ${saveResponse.status})`);
+        throw new Error(`Cloud không phản hồi (${saveResponse.status})`);
       }
 
       return merged;
     } catch (error: any) {
-      console.error("Lỗi đồng bộ:", error);
-      throw new Error(error.message || "Lỗi kết nối mạng");
+      console.error("Lỗi kĩ thuật đồng bộ:", error);
+      throw error;
     }
   }
 };

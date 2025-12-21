@@ -54,6 +54,7 @@ const App = () => {
     StorageService.saveLocal(data);
   }, [data]);
 
+  // Hàm đồng bộ trung tâm
   const handleCloudSync = useCallback(async (silent = false, specificData?: AppData) => {
     if (!syncKey || syncKey.trim() === '') return;
     if (!silent) setIsSyncing(true);
@@ -70,7 +71,7 @@ const App = () => {
     } catch (e: any) {
       console.error("Lỗi đồng bộ Cloud:", e);
       setSyncStatus('ERROR');
-      setSyncErrorMessage(e.message || "Lỗi không xác định");
+      setSyncErrorMessage(e.message || "Lỗi mạng/Bucket ID");
     } finally {
       if (!silent) setIsSyncing(false);
     }
@@ -81,7 +82,7 @@ const App = () => {
       handleCloudSync(true);
       pollTimerRef.current = window.setInterval(() => {
         handleCloudSync(true);
-      }, 15000); // Tăng lên 15 giây để tránh spam server
+      }, 15000);
     }
     return () => {
       if (pollTimerRef.current) window.clearInterval(pollTimerRef.current);
@@ -119,6 +120,7 @@ const App = () => {
     setData(prev => ({ ...prev, auditLogs: [newLog, ...prev.auditLogs].slice(0, 500) }));
   }, [currentUser]);
 
+  // Các hàm thay đổi dữ liệu kèm lệnh đồng bộ Cloud
   const handleAddTransaction = (transaction: Transaction) => {
     const newData = { ...data, transactions: [transaction, ...data.transactions] };
     setData(newData);
@@ -146,6 +148,20 @@ const App = () => {
     };
     setData(newData);
     addAuditLog('UPDATE', 'TRANSACTION', updated.id, `Cập nhật giao dịch`);
+    handleCloudSync(true, newData);
+  };
+
+  const handleUpdateBranches = (bs: Branch[] | ((prev: Branch[]) => Branch[])) => {
+    const newBranches = typeof bs === 'function' ? bs(data.branches) : bs;
+    const newData = { ...data, branches: newBranches };
+    setData(newData);
+    handleCloudSync(true, newData);
+  };
+
+  const handleUpdateUsers = (us: User[] | ((prev: User[]) => User[])) => {
+    const newUsers = typeof us === 'function' ? us(data.users) : us;
+    const newData = { ...data, users: newUsers };
+    setData(newData);
     handleCloudSync(true, newData);
   };
 
@@ -199,20 +215,13 @@ const App = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          {syncKey ? (
-            <div className={`flex items-center gap-3 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-2xl border ${syncStatus === 'ERROR' ? 'border-rose-500' : 'dark:border-slate-700'}`}>
-               <div className="flex flex-col items-end">
-                  <span className="text-[7px] font-black text-slate-400 uppercase leading-none">Cloud Status</span>
-                  <span className={`text-[9px] font-black leading-none mt-1 ${syncStatus === 'ERROR' ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>{syncStatus === 'ERROR' ? 'Lỗi kết nối' : (lastSyncTime || 'Sẵn sàng')}</span>
-               </div>
-               <div className={`w-2.5 h-2.5 rounded-full ${isSyncing ? 'bg-amber-500 animate-pulse' : syncStatus === 'ERROR' ? 'bg-rose-500' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`} />
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-rose-500 bg-rose-50 dark:bg-rose-900/20 px-3 py-1.5 rounded-2xl">
-               <WifiOff className="w-4 h-4" />
-               <span className="text-[8px] font-black uppercase">Chưa kết nối</span>
-            </div>
-          )}
+          <div className={`flex items-center gap-3 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-2xl border ${syncStatus === 'ERROR' ? 'border-rose-500' : 'dark:border-slate-700'}`}>
+             <div className="flex flex-col items-end">
+                <span className="text-[7px] font-black text-slate-400 uppercase leading-none">Cloud Status</span>
+                <span className={`text-[9px] font-black leading-none mt-1 ${syncStatus === 'ERROR' ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}>{syncStatus === 'ERROR' ? 'Lỗi kết nối' : (lastSyncTime || 'Sẵn sàng')}</span>
+             </div>
+             <div className={`w-2.5 h-2.5 rounded-full ${isSyncing ? 'bg-amber-500 animate-pulse' : syncStatus === 'ERROR' ? 'bg-rose-500' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`} />
+          </div>
           <button onClick={() => setIsDark(!isDark)} className="p-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border dark:border-slate-700">
             {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
           </button>
@@ -261,44 +270,39 @@ const App = () => {
                         placeholder="VD: NZQkBL..." 
                         className="w-full p-5 bg-slate-50 dark:bg-slate-900 rounded-3xl font-black border-2 border-transparent focus:border-indigo-500 outline-none text-sm transition-all dark:text-white" 
                       />
-                      <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-100 dark:border-amber-900/30 flex items-center gap-3">
-                         <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
-                         <p className="text-[9px] font-medium text-amber-700 dark:text-amber-400">Hiện đang sử dụng mã: <strong>{syncKey}</strong>. Hãy dán mã này vào mọi thiết bị bạn muốn dùng chung dữ liệu.</p>
-                      </div>
                     </div>
 
                     {syncStatus === 'ERROR' && (
                        <div className="p-4 bg-rose-50 dark:bg-rose-900/30 rounded-2xl border border-rose-200 space-y-2 text-rose-600">
-                          <div className="flex items-center gap-3">
-                            <AlertTriangle className="w-5 h-5 shrink-0" />
-                            <p className="text-[10px] font-bold uppercase">Lỗi kết nối Server KVDB</p>
-                          </div>
-                          <p className="text-[9px] font-medium bg-white/50 p-2 rounded-lg border border-rose-100">Chi tiết: {syncErrorMessage}</p>
+                          <p className="text-[10px] font-bold uppercase">Lỗi kết nối Server: {syncErrorMessage}</p>
                        </div>
                     )}
 
                     <button onClick={() => handleCloudSync()} disabled={isSyncing} className="w-full py-5 bg-indigo-600 text-white rounded-3xl font-black uppercase text-xs tracking-[0.2em] shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50">
-                      <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /> {isSyncing ? 'Đang kết nối...' : 'Kiểm tra & Đồng bộ ngay'}
+                      <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /> {isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ lại Cloud'}
                     </button>
-                  </div>
-
-                  <div className="p-6 bg-slate-50 dark:bg-slate-900 rounded-3xl border border-indigo-100 dark:border-slate-700">
-                     <h4 className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase mb-3 flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> Hướng dẫn đồng bộ</h4>
-                     <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
-                       1. Nhập mã Bucket vào Máy tính.<br/>
-                       2. Nhập cùng mã đó vào iPhone của bạn.<br/>
-                       3. Dữ liệu sẽ <strong>tự động bay qua lại</strong> mỗi khi bạn lưu giao dịch hoặc sau mỗi 15 giây.
-                     </p>
                   </div>
                 </div>
               )}
 
-              {settingsSubTab === 'branches' && <BranchManager branches={data.branches} setBranches={(bs: any) => setData(prev => ({ ...prev, branches: typeof bs === 'function' ? bs(prev.branches) : bs }))} onAudit={addAuditLog} />}
-              {settingsSubTab === 'users' && <UserManager users={data.users} setUsers={(us: any) => setData(prev => ({ ...prev, users: typeof us === 'function' ? us(prev.users) : us }))} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} />}
+              {settingsSubTab === 'branches' && <BranchManager branches={data.branches} setBranches={handleUpdateBranches} onAudit={addAuditLog} />}
+              {settingsSubTab === 'users' && <UserManager users={data.users} setUsers={handleUpdateUsers} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} />}
               {settingsSubTab === 'general' && (
                 <div className="space-y-8">
-                  <CategoryManager title="Hạng mục Chi phí" categories={data.expenseCategories} onUpdate={(cats) => setData(prev => ({ ...prev, expenseCategories: cats }))} />
-                  <RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} onUpdate={(recs) => setData(prev => ({ ...prev, recurringExpenses: recs }))} categories={data.expenseCategories} onGenerateTransactions={txs => setData(prev => ({ ...prev, transactions: [...txs, ...prev.transactions] }))} branchId={currentBranchId} />
+                  <CategoryManager title="Hạng mục Chi phí" categories={data.expenseCategories} onUpdate={(cats) => {
+                    const newData = { ...data, expenseCategories: cats };
+                    setData(newData);
+                    handleCloudSync(true, newData);
+                  }} />
+                  <RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} onUpdate={(recs) => {
+                    const newData = { ...data, recurringExpenses: recs };
+                    setData(newData);
+                    handleCloudSync(true, newData);
+                  }} categories={data.expenseCategories} onGenerateTransactions={txs => {
+                    const newData = { ...data, transactions: [...txs, ...data.transactions] };
+                    setData(newData);
+                    handleCloudSync(true, newData);
+                  }} branchId={currentBranchId} />
                 </div>
               )}
               {settingsSubTab === 'audit' && (
