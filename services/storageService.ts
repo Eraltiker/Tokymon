@@ -4,13 +4,11 @@ import { AppData, SCHEMA_VERSION, EXPENSE_CATEGORIES, Transaction, Branch, User,
 const STORAGE_KEY = 'tokymon_master_data';
 
 export const StorageService = {
-  // Thuật toán Merge: So sánh updatedAt để giữ lại bản ghi mới nhất
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
     const map = new Map<string, T>();
     (local || []).forEach(item => map.set(item.id, item));
     (remote || []).forEach(remoteItem => {
       const localItem = map.get(remoteItem.id);
-      // Nếu không có local hoặc remote mới hơn thì lấy remote
       if (!localItem || new Date(remoteItem.updatedAt) > new Date(localItem.updatedAt)) {
         map.set(remoteItem.id, remoteItem);
       }
@@ -28,7 +26,7 @@ export const StorageService = {
       expenseCategories: Array.from(new Set([...(local.expenseCategories || []), ...(remote.expenseCategories || [])])),
       recurringExpenses: StorageService.mergeArrays(local.recurringExpenses || [], remote.recurringExpenses || []),
       auditLogs: [...(local.auditLogs || []), ...(remote.auditLogs || [])]
-        .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i) // Loại bỏ log trùng
+        .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)
         .slice(-500)
     };
   },
@@ -64,35 +62,30 @@ export const StorageService = {
     auditLogs: []
   }),
 
-  // KẾT NỐI KVDB.IO
   syncWithCloud: async (syncKey: string, localData: AppData): Promise<AppData> => {
     if (!syncKey) return localData;
-    
-    // Tạo mã định danh an toàn từ Sync Key
     const safeKey = syncKey.toLowerCase().replace(/[^a-z0-9]/g, '_');
     const BUCKET_URL = `https://kvdb.io/buckets/toky_${safeKey}/values/main`;
 
     try {
-      // 1. Tải bản mới nhất từ Cloud
       const response = await fetch(BUCKET_URL);
       let remoteData: AppData | null = null;
-      
       if (response.ok) {
         remoteData = await response.json();
       }
 
-      // 2. Hợp nhất dữ liệu (Dữ liệu nào mới hơn sẽ thắng)
       const merged = remoteData ? StorageService.mergeAppData(localData, remoteData) : localData;
 
-      // 3. Đẩy bản hợp nhất lên lại Cloud
+      // Chỉ đẩy lên nếu thực sự có Internet
       await fetch(BUCKET_URL, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(merged)
       });
 
       return merged;
     } catch (error) {
-      console.warn("Cloud Sync Error - Switching to Local Mode", error);
+      console.warn("Mạng không ổn định - Đang chạy chế độ Offline", error);
       return localData;
     }
   }
