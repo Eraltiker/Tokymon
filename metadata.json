@@ -1,0 +1,7 @@
+{
+  "name": "Tokymon",
+  "description": "Ứng dụng quản lý doanh thu và chi phí chuyên nghiệp cho nhà hàng Tokymon, tích hợp AI phân tích tài chính.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
