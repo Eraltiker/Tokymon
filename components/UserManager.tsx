@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { User, UserRole, Branch } from '../types';
-import { Plus, Trash2, Users, Shield, ShieldCheck, ShieldAlert, KeyRound, Eye, EyeOff, MapPin, CheckSquare, Square } from 'lucide-react';
+import { Plus, Trash2, Users, Shield, ShieldCheck, ShieldAlert, KeyRound, Eye, EyeOff, MapPin, CheckSquare, Square, Edit3, X } from 'lucide-react';
 
 interface UserManagerProps {
   users: User[];
@@ -16,6 +16,7 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
   const [role, setRole] = useState<UserRole>(UserRole.MANAGER);
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
 
   const togglePassword = (id: string) => {
     setShowPasswords(prev => ({ ...prev, [id]: !prev[id] }));
@@ -29,13 +30,32 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
     );
   };
 
-  const handleAdd = () => {
+  const clearForm = () => {
+    setUsername('');
+    setPassword('');
+    setRole(UserRole.MANAGER);
+    setSelectedBranchIds([]);
+    setEditingUserId(null);
+  };
+
+  const startEdit = (user: User) => {
+    setEditingUserId(user.id);
+    setUsername(user.username);
+    setPassword(user.password);
+    setRole(user.role);
+    setSelectedBranchIds(user.assignedBranchIds);
+    // Cuộn lên đầu form để người dùng thấy
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSubmit = () => {
     if (!username || !password) {
       alert("Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu!");
       return;
     }
     
-    if (users.some(u => u.username === username)) {
+    // Kiểm tra trùng username (trừ trường hợp đang sửa chính nó)
+    if (users.some(u => u.username === username && u.id !== editingUserId)) {
       alert("Tên đăng nhập đã tồn tại!");
       return;
     }
@@ -45,22 +65,34 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
       return;
     }
 
-    const newU: User = {
-      id: Date.now().toString(),
-      username,
-      password,
-      role,
-      // Super Admin và Admin luôn có quyền với tất cả chi nhánh
-      assignedBranchIds: (role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN) 
-        ? branches.map(b => b.id) 
-        : selectedBranchIds
-    };
+    const assignedIds = (role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN) 
+      ? branches.map(b => b.id) 
+      : selectedBranchIds;
+
+    if (editingUserId) {
+      // Chế độ Cập nhật
+      const updatedUsers = users.map(u => 
+        u.id === editingUserId 
+          ? { ...u, username, password, role, assignedBranchIds: assignedIds } 
+          : u
+      );
+      setUsers(updatedUsers);
+      onAudit('UPDATE', 'USER', editingUserId, `Cập nhật User: ${username}, Quyền: ${role}, Chi nhánh: ${assignedIds.length}`);
+      setEditingUserId(null);
+    } else {
+      // Chế độ Thêm mới
+      const newU: User = {
+        id: Date.now().toString(),
+        username,
+        password,
+        role,
+        assignedBranchIds: assignedIds
+      };
+      setUsers([...users, newU]);
+      onAudit('CREATE', 'USER', newU.id, `Thêm User: ${username} với quyền ${role}, gán ${newU.assignedBranchIds.length} chi nhánh`);
+    }
     
-    setUsers([...users, newU]);
-    onAudit('CREATE', 'USER', newU.id, `Thêm User: ${username} với quyền ${role}, gán ${newU.assignedBranchIds.length} chi nhánh`);
-    setUsername('');
-    setPassword('');
-    setSelectedBranchIds([]);
+    clearForm();
   };
 
   const handleDelete = (id: string) => {
@@ -75,15 +107,27 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
     if (window.confirm(`Bạn có chắc muốn xóa user "${u.username}"?`)) {
       setUsers(users.filter(x => x.id !== id));
       onAudit('DELETE', 'USER', id, `Xóa User: ${u.username}`);
+      if (editingUserId === id) clearForm();
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[2.5rem] border dark:border-slate-800 shadow-sm animate-in fade-in slide-in-from-top-4">
-        <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 mb-8">
-          <Users className="w-5 h-5 text-indigo-500" /> Quản trị & Phân quyền Chi nhánh
-        </h3>
+      <div className={`bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[2.5rem] border-2 shadow-sm transition-all duration-300 ${editingUserId ? 'border-indigo-500 shadow-indigo-100 dark:shadow-none' : 'dark:border-slate-800 border-slate-100'}`}>
+        <div className="flex justify-between items-center mb-8">
+          <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
+            <Users className={`w-5 h-5 ${editingUserId ? 'text-indigo-600' : 'text-indigo-500'}`} /> 
+            {editingUserId ? `Đang chỉnh sửa: ${username}` : 'Quản trị & Phân quyền Chi nhánh'}
+          </h3>
+          {editingUserId && (
+            <button 
+              onClick={clearForm}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-slate-200 transition-all"
+            >
+              <X className="w-3.5 h-3.5" /> Hủy chỉnh sửa
+            </button>
+          )}
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
           <div className="space-y-1.5">
@@ -148,10 +192,11 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
         )}
 
         <button 
-          onClick={handleAdd} 
-          className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-xl hover:bg-indigo-700 active:scale-[0.98] transition-all"
+          onClick={handleSubmit} 
+          className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-xl active:scale-[0.98] transition-all ${editingUserId ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
         >
-          <Plus className="w-5 h-5" /> Lưu & Tạo nhân viên
+          {editingUserId ? <Edit3 className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+          {editingUserId ? 'Cập nhật nhân viên' : 'Lưu & Tạo nhân viên'}
         </button>
       </div>
 
@@ -169,10 +214,10 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
             </thead>
             <tbody className="divide-y dark:divide-slate-800">
               {users.map(u => (
-                <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
+                <tr key={u.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group ${editingUserId === u.id ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''}`}>
                   <td className="px-8 py-5">
                     <div className="flex flex-col">
-                      <span className="font-black text-slate-800 dark:text-white text-sm uppercase">{u.username}</span>
+                      <span className={`font-black text-sm uppercase ${editingUserId === u.id ? 'text-indigo-600' : 'text-slate-800 dark:text-white'}`}>{u.username}</span>
                       <span className="text-[9px] text-slate-400 font-bold uppercase mt-1">ID: {u.id.slice(-6)}</span>
                     </div>
                   </td>
@@ -216,11 +261,24 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
                     </div>
                   </td>
                   <td className="px-8 py-5 text-center">
-                     {u.username !== 'admin' && (
-                       <button onClick={() => handleDelete(u.id)} className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all">
-                         <Trash2 className="w-5 h-5" />
-                       </button>
-                     )}
+                    <div className="flex items-center justify-center gap-1">
+                      <button 
+                        onClick={() => startEdit(u)} 
+                        className="p-3 text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all"
+                        title="Sửa quyền hạn"
+                      >
+                        <Edit3 className="w-5 h-5" />
+                      </button>
+                      {u.username !== 'admin' && (
+                        <button 
+                          onClick={() => handleDelete(u.id)} 
+                          className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all"
+                          title="Xóa tài khoản"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
