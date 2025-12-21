@@ -4,7 +4,6 @@ export enum TransactionType {
   EXPENSE = 'EXPENSE'
 }
 
-// Fix: Export EXPENSE_CATEGORIES constant for use in Gemini service and storage initialization
 export const EXPENSE_CATEGORIES = [
   'Tiền nhà / Điện', 'Rác', 'Lương công nhân', 'Nguyên liệu', 'Thuế', 'Bonus', 'Gutschein', 'Sai', 'Nợ / Tiền ứng', 'Chi phí khác', 'Bảo hiểm'
 ];
@@ -36,7 +35,8 @@ export interface Branch {
   address: string;
   initialCash: number;
   initialCard: number;
-  updatedAt: string; // Thêm để đồng bộ
+  updatedAt: string;
+  deletedAt?: string; // Quan trọng để đồng bộ lệnh xóa
 }
 
 export interface User {
@@ -45,23 +45,14 @@ export interface User {
   password: string;
   role: UserRole;
   assignedBranchIds: string[];
-  updatedAt: string; // Thêm để đồng bộ
+  updatedAt: string;
+  deletedAt?: string;
 }
 
 export interface IncomeBreakdown {
   cash: number;
   card: number;
   delivery?: number;
-}
-
-export interface HistoryEntry {
-  timestamp: string;
-  amount: number;
-  category: string;
-  note: string;
-  incomeBreakdown?: IncomeBreakdown;
-  expenseSource?: ExpenseSource;
-  isPaid?: boolean;
 }
 
 export interface Transaction {
@@ -75,10 +66,10 @@ export interface Transaction {
   incomeBreakdown?: IncomeBreakdown;
   expenseSource?: ExpenseSource;
   isRecurring?: boolean;
-  history?: HistoryEntry[];
   isPaid?: boolean; 
   debtorName?: string;
-  updatedAt: string; // Thêm để đồng bộ
+  updatedAt: string;
+  deletedAt?: string; // Quan trọng để đồng bộ lệnh xóa
 }
 
 export interface RecurringTransaction {
@@ -90,6 +81,7 @@ export interface RecurringTransaction {
   dayOfMonth: number;
   note: string;
   updatedAt: string;
+  deletedAt?: string;
 }
 
 export interface AuditLogEntry {
@@ -103,7 +95,6 @@ export interface AuditLogEntry {
   details: string;
 }
 
-// Cấu trúc dữ liệu tổng quát để đồng bộ
 export interface AppData {
   version: string;
   lastSync: string;
@@ -115,7 +106,7 @@ export interface AppData {
   auditLogs: AuditLogEntry[];
 }
 
-export const SCHEMA_VERSION = "2.0"; // Version mới hỗ trợ đồng bộ
+export const SCHEMA_VERSION = "2.1";
 
 export const formatCurrency = (val: number, lang: Language = 'vi') => 
   new Intl.NumberFormat(lang === 'vi' ? 'vi-VN' : 'de-DE', { 

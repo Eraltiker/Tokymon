@@ -2,9 +2,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Transaction, TransactionType, Language, EXPENSE_CATEGORIES } from "../types";
 
+/**
+ * Analyze financial transactions using Gemini 3
+ */
 export const analyzeFinances = async (transactions: Transaction[], lang: Language = 'vi'): Promise<string> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) return lang === 'vi' ? "Vui lòng cấu hình API Key." : "Bitte konfigurieren Sie den API Key.";
   if (transactions.length === 0) return lang === 'vi' ? "Chưa có dữ liệu giao dịch." : "Keine Transaktionsdaten vorhanden.";
 
   const totalIncome = transactions.filter(t => t.type === TransactionType.INCOME).reduce((sum, t) => sum + t.amount, 0);
@@ -25,11 +26,13 @@ export const analyzeFinances = async (transactions: Transaction[], lang: Languag
   `;
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    // Fix: Using named parameter for API key and process.env.API_KEY directly
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
     });
+    // Fix: Access .text property directly as per latest guidelines
     return response.text || "Error.";
   } catch (error) {
     console.error("Gemini Error:", error);
@@ -37,10 +40,10 @@ export const analyzeFinances = async (transactions: Transaction[], lang: Languag
   }
 };
 
+/**
+ * Scan a receipt image using Gemini 3 vision capabilities
+ */
 export const scanReceipt = async (base64Image: string, mimeType: string): Promise<any> => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("API Key missing");
-
   const prompt = `Bạn là một trợ lý kế toán cho nhà hàng Tokymon. Hãy phân tích ảnh hóa đơn này.
   Trích xuất các thông tin sau vào JSON:
   - amount: tổng số tiền phải thanh toán (chỉ lấy số)
@@ -51,7 +54,8 @@ export const scanReceipt = async (base64Image: string, mimeType: string): Promis
   Lưu ý: Nếu hóa đơn bằng tiếng Đức, hãy hiểu các từ như 'Summe', 'Gesamtbetrag' là tổng tiền. Nếu không tìm thấy ngày, hãy lấy ngày hôm nay.`;
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
+    // Fix: Using named parameter for API key and process.env.API_KEY directly
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
@@ -80,6 +84,7 @@ export const scanReceipt = async (base64Image: string, mimeType: string): Promis
       }
     });
 
+    // Fix: Access .text property directly as per latest guidelines
     return JSON.parse(response.text || "{}");
   } catch (error) {
     console.error("OCR Error:", error);
