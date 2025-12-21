@@ -68,7 +68,6 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden h-full flex flex-col animate-in fade-in slide-in-from-right-4 transition-colors duration-300">
-      
       <div className="p-6 md:p-8 border-b border-slate-50 dark:border-slate-800 space-y-5 flex-shrink-0">
         <div className="flex justify-between items-center">
           <div>
@@ -136,10 +135,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
         ) : (
           <div className="space-y-3 mt-4">
             {filteredTransactions.map(t => (
-              <div 
-                key={t.id} 
-                className="bg-white dark:bg-slate-800/40 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group flex flex-col gap-4"
-              >
+              <div key={t.id} className="bg-white dark:bg-slate-800/40 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group flex flex-col gap-4">
                 <div className="flex justify-between items-start gap-4">
                   <div className="flex gap-4 min-w-0">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shrink-0 ${t.type === TransactionType.INCOME ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>

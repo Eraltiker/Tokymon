@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Transaction, TransactionType, UserRole } from '../types';
 import TransactionForm from './TransactionForm';
@@ -16,7 +17,7 @@ interface ExpenseManagerProps {
 }
 
 const ExpenseManager: React.FC<ExpenseManagerProps> = ({ transactions, onAddTransaction, onDeleteTransaction, onEditTransaction, expenseCategories, branchId, initialBalances, userRole, lang }) => {
-  const expenseTransactions = transactions.filter(t => t.type === TransactionType.EXPENSE);
+  const expenseTransactions = transactions.filter(t => t.type === TransactionType.EXPENSE && t.branchId === branchId);
   const isViewer = userRole === UserRole.VIEWER;
 
   return (

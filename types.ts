@@ -36,7 +36,7 @@ export interface Branch {
   initialCash: number;
   initialCard: number;
   updatedAt: string;
-  deletedAt?: string; // Quan trọng để đồng bộ lệnh xóa
+  deletedAt?: string;
 }
 
 export interface User {
@@ -79,8 +79,8 @@ export interface Transaction {
   isPaid?: boolean; 
   debtorName?: string;
   updatedAt: string;
-  deletedAt?: string; // Quan trọng để đồng bộ lệnh xóa
-  history?: HistoryEntry[]; // Thêm để lưu vết lịch sử chỉnh sửa
+  deletedAt?: string;
+  history?: HistoryEntry[];
 }
 
 export interface RecurringTransaction {

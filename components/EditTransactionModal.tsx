@@ -86,7 +86,6 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({ transaction
     <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
       <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl relative z-[201] overflow-hidden flex flex-col max-h-[95vh] animate-in slide-in-from-bottom-20 duration-500">
-        
         <div className="px-6 py-5 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
           <div>
             <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tighter text-base">Cập nhật thông tin</h3>
@@ -96,8 +95,6 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({ transaction
         </div>
 
         <div className="p-6 overflow-y-auto no-scrollbar space-y-6">
-          
-          {/* Optimized Date Picker Section for Modal */}
           <div className="bg-slate-100/50 dark:bg-slate-800/30 p-4 rounded-3xl border border-slate-100 dark:border-slate-800/50 space-y-3">
              <div className="flex items-center justify-between">
                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">

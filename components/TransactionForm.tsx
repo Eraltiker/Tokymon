@@ -78,21 +78,26 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
     e.preventDefault();
     if (isDuplicateDate) return;
 
+    const commonData = {
+      id: Date.now().toString(),
+      branchId,
+      date,
+      note,
+      updatedAt: new Date().toISOString()
+    };
+
     if (type === TransactionType.EXPENSE) {
       const amount = Number(expenseAmount);
       if (!amount || amount <= 0) return;
       onAddTransaction({
-        id: Date.now().toString(),
-        branchId,
+        ...commonData,
         type: TransactionType.EXPENSE,
         amount,
         category: expenseCategory,
         expenseSource: isPaid ? expenseSource : undefined,
-        date,
-        note,
         isPaid,
         debtorName: isPaid ? undefined : debtorName,
-        updatedAt: new Date().toISOString()
+        history: []
       });
       setExpenseAmount(''); setDebtorName(''); setNote('');
     } else {
@@ -101,15 +106,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
       const cardTotal = Number(cardTotalInput) || 0;
       if (kasse + app <= 0) return;
       onAddTransaction({
-        id: Date.now().toString(),
-        branchId,
+        ...commonData,
         type: TransactionType.INCOME,
         amount: kasse + app,
         category: 'Doanh thu ngày',
-        date,
-        note,
         incomeBreakdown: { cash: calculatedCash, card: cardTotal, delivery: app },
-        updatedAt: new Date().toISOString()
+        history: []
       });
       setKasseInput(''); setAppInput(''); setCardTotalInput(''); setNote('');
     }
@@ -164,8 +166,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
       </div>
       
       <form onSubmit={handleSubmit} className="p-6 flex-1 overflow-y-auto custom-scrollbar space-y-6">
-        
-        {/* Date Selector Section */}
         <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-inner">
           <div className="flex items-center gap-2 mb-3 px-1">
             <CalendarDays className="w-4 h-4 text-indigo-500" />

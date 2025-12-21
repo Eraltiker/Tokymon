@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Transaction, TransactionType, UserRole } from '../types';
 import TransactionForm from './TransactionForm';
@@ -15,7 +16,7 @@ interface IncomeManagerProps {
 }
 
 const IncomeManager: React.FC<IncomeManagerProps> = ({ transactions, onAddTransaction, onDeleteTransaction, onEditTransaction, branchId, initialBalances, userRole, lang }) => {
-  const incomeTransactions = transactions.filter(t => t.type === TransactionType.INCOME);
+  const incomeTransactions = transactions.filter(t => t.type === TransactionType.INCOME && t.branchId === branchId);
   const isViewer = userRole === UserRole.VIEWER;
 
   return (
