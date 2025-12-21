@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { Transaction, TransactionType, formatCurrency } from '../types';
+import { Transaction, TransactionType, formatCurrency, HistoryEntry } from '../types';
 import { X, Save, Euro, ChevronLeft, ChevronRight, Store, CreditCard, Edit3, Smartphone, Calendar, CalendarDays } from 'lucide-react';
 
 interface EditTransactionModalProps {
@@ -45,13 +45,14 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({ transaction
 
   const handleSave = () => {
     let finalAmount = 0;
-    const historyEntry = {
+    const historyEntry: HistoryEntry = {
       timestamp: new Date().toISOString(),
       amount: transaction.amount,
       category: transaction.category,
       note: transaction.note,
       incomeBreakdown: transaction.incomeBreakdown,
-      expenseSource: transaction.expenseSource
+      expenseSource: transaction.expenseSource,
+      isPaid: transaction.isPaid
     };
 
     const updated: Transaction = {
@@ -59,7 +60,8 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({ transaction
       note,
       date,
       category,
-      history: [...(transaction.history || []), historyEntry]
+      history: [...(transaction.history || []), historyEntry],
+      updatedAt: new Date().toISOString()
     };
 
     if (transaction.type === TransactionType.INCOME) {

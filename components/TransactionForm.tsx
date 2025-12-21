@@ -91,7 +91,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         date,
         note,
         isPaid,
-        debtorName: isPaid ? undefined : debtorName
+        debtorName: isPaid ? undefined : debtorName,
+        updatedAt: new Date().toISOString()
       });
       setExpenseAmount(''); setDebtorName(''); setNote('');
     } else {
@@ -107,7 +108,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         category: 'Doanh thu ngày',
         date,
         note,
-        incomeBreakdown: { cash: calculatedCash, card: cardTotal, delivery: app }
+        incomeBreakdown: { cash: calculatedCash, card: cardTotal, delivery: app },
+        updatedAt: new Date().toISOString()
       });
       setKasseInput(''); setAppInput(''); setCardTotalInput(''); setNote('');
     }

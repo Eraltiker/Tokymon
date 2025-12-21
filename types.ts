@@ -55,6 +55,16 @@ export interface IncomeBreakdown {
   delivery?: number;
 }
 
+export interface HistoryEntry {
+  timestamp: string;
+  amount: number;
+  category: string;
+  note: string;
+  incomeBreakdown?: IncomeBreakdown;
+  expenseSource?: ExpenseSource;
+  isPaid?: boolean;
+}
+
 export interface Transaction {
   id: string;
   branchId: string;
@@ -70,6 +80,7 @@ export interface Transaction {
   debtorName?: string;
   updatedAt: string;
   deletedAt?: string; // Quan trọng để đồng bộ lệnh xóa
+  history?: HistoryEntry[]; // Thêm để lưu vết lịch sử chỉnh sửa
 }
 
 export interface RecurringTransaction {
