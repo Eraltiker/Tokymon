@@ -4,51 +4,52 @@ import { AppData, SCHEMA_VERSION, EXPENSE_CATEGORIES, Transaction, Branch, User,
 const STORAGE_KEY = 'tokymon_master_data';
 
 export const StorageService = {
-  // Hàm hợp nhất mảng dữ liệu dựa trên ID và updatedAt
+  // Hàm hợp nhất mảng dữ liệu dựa trên ID và thời gian cập nhật (updatedAt)
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
     const map = new Map<string, T>();
     
-    // Đưa dữ liệu local vào map
+    // Nạp dữ liệu hiện tại vào map
     local.forEach(item => map.set(item.id, item));
     
-    // Hợp nhất với dữ liệu remote
+    // Hợp nhất với dữ liệu mới
     remote.forEach(remoteItem => {
       const localItem = map.get(remoteItem.id);
+      // Nếu chưa có hoặc bản ghi mới có thời gian cập nhật muộn hơn thì ghi đè
       if (!localItem || new Date(remoteItem.updatedAt) > new Date(localItem.updatedAt)) {
         map.set(remoteItem.id, remoteItem);
       }
     });
 
-    // Chuyển lại thành mảng và lọc bỏ những bản ghi đã bị xóa (deletedAt)
-    // Nhưng vẫn giữ lại trong quá trình sync để các máy khác biết đường mà xóa
     return Array.from(map.values());
   },
 
-  saveLocal: (data: Partial<AppData>) => {
+  // Hợp nhất toàn bộ dữ liệu ứng dụng
+  mergeAppData: (local: AppData, remote: AppData): AppData => {
+    return {
+      version: SCHEMA_VERSION,
+      lastSync: new Date().toISOString(),
+      transactions: StorageService.mergeArrays(local.transactions, remote.transactions),
+      branches: StorageService.mergeArrays(local.branches, remote.branches),
+      users: StorageService.mergeArrays(local.users, remote.users),
+      expenseCategories: Array.from(new Set([...local.expenseCategories, ...remote.expenseCategories])),
+      recurringExpenses: StorageService.mergeArrays(local.recurringExpenses, remote.recurringExpenses),
+      auditLogs: [...local.auditLogs, ...remote.auditLogs.filter(r => !local.auditLogs.some(l => l.id === r.id))].slice(-500)
+    };
+  },
+
+  saveLocal: (data: AppData) => {
     try {
-      const existing = StorageService.loadLocal();
-      const updated: AppData = {
-        ...existing,
-        ...data,
-        version: SCHEMA_VERSION,
-        lastSync: data.lastSync || existing.lastSync || new Date().toISOString()
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) {
-      console.error("Storage Error:", e);
+      console.error("Lỗi lưu trữ cục bộ:", e);
     }
   },
 
   loadLocal: (): AppData => {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return StorageService.getEmptyData();
-
     try {
       const data = JSON.parse(raw);
-      if (data.version !== SCHEMA_VERSION) {
-        // Tự động nâng cấp cấu trúc dữ liệu nếu version cũ
-        data.version = SCHEMA_VERSION;
-      }
       return data;
     } catch (e) {
       return StorageService.getEmptyData();
@@ -66,31 +67,29 @@ export const StorageService = {
     auditLogs: []
   }),
 
-  // Hàm đồng bộ thực sự: Merge chứ không Overwrite
-  syncWithCloud: async (syncKey: string, localData: AppData): Promise<AppData> => {
-    // Trong thực tế, đây sẽ là API call tới một database tập trung (Firebase/Supabase/Custom API)
-    // Ở bản demo này, chúng ta giả lập việc lấy dữ liệu từ Cloud (đã được merge từ các máy khác)
-    await new Promise(resolve => setTimeout(resolve, 1000));
+  // Xuất dữ liệu ra file
+  exportToFile: (data: AppData) => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tokymon_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
 
-    const cloudDataRaw = localStorage.getItem(`cloud_sync_${syncKey}`);
+  // Giả lập đồng bộ Cloud (Thực tế sẽ gọi API)
+  // Để đồng bộ thực sự qua Internet, bạn cần một Database (Firebase/Supabase)
+  // Ở đây tôi cải tiến để nó chuẩn bị sẵn cấu trúc cho API thật
+  syncWithCloud: async (syncKey: string, localData: AppData): Promise<AppData> => {
+    // Đây là nơi bạn sẽ gọi: fetch('https://your-api.com/sync', { method: 'POST', body: localData })
+    // Hiện tại chúng tôi vẫn dùng localStorage làm 'Cloud giả lập' để demo logic
+    await new Promise(resolve => setTimeout(resolve, 800));
+    const cloudDataRaw = localStorage.getItem(`cloud_storage_${syncKey}`);
     const cloudData: AppData = cloudDataRaw ? JSON.parse(cloudDataRaw) : StorageService.getEmptyData();
 
-    // THUẬT TOÁN HỢP NHẤT (SMART MERGE)
-    const mergedData: AppData = {
-      ...localData,
-      version: SCHEMA_VERSION,
-      lastSync: new Date().toISOString(),
-      transactions: StorageService.mergeArrays(localData.transactions, cloudData.transactions),
-      branches: StorageService.mergeArrays(localData.branches, cloudData.branches),
-      users: StorageService.mergeArrays(localData.users, cloudData.users),
-      recurringExpenses: StorageService.mergeArrays(localData.recurringExpenses, cloudData.recurringExpenses),
-      // Audit logs thường chỉ append
-      auditLogs: [...localData.auditLogs, ...cloudData.auditLogs.filter(cl => !localData.auditLogs.some(ll => ll.id === cl.id))].slice(-1000)
-    };
-
-    // Lưu ngược lại Cloud giả lập
-    localStorage.setItem(`cloud_sync_${syncKey}`, JSON.stringify(mergedData));
-    
-    return mergedData;
+    const merged = StorageService.mergeAppData(localData, cloudData);
+    localStorage.setItem(`cloud_storage_${syncKey}`, JSON.stringify(merged));
+    return merged;
   }
 };

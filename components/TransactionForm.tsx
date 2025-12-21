@@ -6,7 +6,7 @@ import { useTranslation } from '../i18n';
 import { 
   PlusCircle, Save, Euro, CreditCard, Smartphone,
   ChevronLeft, ChevronRight, Store, Wallet, Camera, Loader2,
-  CheckCircle2, CalendarClock, Edit3, Calendar,
+  CheckCircle2, CalendarClock, Edit3,
   CalendarDays, ChevronDown
 } from 'lucide-react';
 
@@ -20,7 +20,7 @@ interface TransactionFormProps {
   lang?: Language;
 }
 
-const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, expenseCategories, fixedType, branchId, initialBalances, transactions, lang = 'vi' }) => {
+const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, expenseCategories, fixedType, branchId, transactions, lang = 'vi' }) => {
   const t = useTranslation(lang as Language);
   const [type] = useState<TransactionType>(fixedType || TransactionType.INCOME);
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -45,7 +45,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
 
   const isDuplicateDate = useMemo(() => {
     if (type !== TransactionType.INCOME) return false;
-    return transactions.some(tx => tx.type === TransactionType.INCOME && tx.date === date && tx.branchId === branchId);
+    return transactions.some(tx => tx.type === TransactionType.INCOME && tx.date === date && tx.branchId === branchId && !tx.deletedAt);
   }, [date, transactions, type, branchId]);
 
   useEffect(() => {
@@ -83,7 +83,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
       branchId,
       date,
       note,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      history: []
     };
 
     if (type === TransactionType.EXPENSE) {
@@ -97,7 +98,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         expenseSource: isPaid ? expenseSource : undefined,
         isPaid,
         debtorName: isPaid ? undefined : debtorName,
-        history: []
       });
       setExpenseAmount(''); setDebtorName(''); setNote('');
     } else {
@@ -111,7 +111,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         amount: kasse + app,
         category: 'Doanh thu ngày',
         incomeBreakdown: { cash: calculatedCash, card: cardTotal, delivery: app },
-        history: []
       });
       setKasseInput(''); setAppInput(''); setCardTotalInput(''); setNote('');
     }
@@ -152,7 +151,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
           <div className={`p-2.5 rounded-2xl ${type === TransactionType.INCOME ? 'bg-indigo-600' : 'bg-rose-500'} text-white shadow-lg`}>
             {type === TransactionType.INCOME ? <PlusCircle className="w-5 h-5" /> : <Euro className="w-5 h-5" />}
           </div>
-          <span className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-white">
+          <span className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-white leading-none">
             {type === TransactionType.INCOME ? t('income') : t('expense')}
           </span>
         </div>
@@ -169,7 +168,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-inner">
           <div className="flex items-center gap-2 mb-3 px-1">
             <CalendarDays className="w-4 h-4 text-indigo-500" />
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ngày giao dịch</label>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Ngày giao dịch</label>
           </div>
 
           <div className="flex items-center gap-3">
@@ -212,14 +211,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase px-1 tracking-widest">{t('app_input')}</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase px-1 tracking-widest leading-none">{t('app_input')}</label>
                 <div className="relative">
                   <input type="number" inputMode="decimal" value={appInput} onChange={(e) => setAppInput(e.target.value)} placeholder="0" className="w-full pl-10 pr-4 py-4 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-black text-lg text-orange-500 outline-none focus:border-orange-500 shadow-sm" />
                   <Smartphone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-400" />
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase px-1 tracking-widest">{t('card_total_input')}</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase px-1 tracking-widest leading-none">{t('card_total_input')}</label>
                 <div className="relative">
                   <input type="number" inputMode="decimal" value={cardTotalInput} onChange={(e) => setCardTotalInput(e.target.value)} placeholder="0" className="w-full pl-10 pr-4 py-4 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-2xl font-black text-lg text-indigo-600 outline-none focus:border-indigo-600 shadow-sm" />
                   <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400" />
@@ -233,7 +232,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
                  <span className="text-4xl font-black text-amber-400 leading-none">{formatCurrency(calculatedCash)}</span>
                </div>
                <div className="relative z-10 text-right">
-                  <span className="text-[10px] font-black text-slate-500 uppercase block tracking-widest mb-1">TỔNG THU</span>
+                  <span className="text-[10px] font-black text-slate-500 uppercase block tracking-widest mb-1 leading-none">TỔNG THU</span>
                   <span className="text-lg font-black text-emerald-400 leading-none">{formatCurrency(totalRevenue)}</span>
                </div>
                <Wallet className="absolute right-[-20px] bottom-[-20px] w-28 h-28 opacity-10 rotate-12 text-white" />
@@ -242,7 +241,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         ) : (
           <div className="space-y-5">
             <div className="space-y-2">
-              <label className="text-[11px] font-black text-slate-400 uppercase px-1 tracking-widest">{t('amount')} (€)</label>
+              <label className="text-[11px] font-black text-slate-400 uppercase px-1 tracking-widest leading-none">{t('amount')} (€)</label>
               <div className="relative">
                 <input type="number" inputMode="decimal" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} className="w-full pl-14 pr-6 py-5 bg-white dark:bg-slate-800 border-2 border-rose-50 dark:border-slate-700 rounded-3xl font-black text-4xl text-rose-500 outline-none focus:border-rose-600 shadow-sm" required />
                 <Euro className="absolute left-5 top-1/2 -translate-y-1/2 w-7 h-7 text-rose-400" />
@@ -301,7 +300,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         </div>
 
         {isDuplicateDate && (
-           <p className="text-[10px] font-black text-rose-500 uppercase text-center tracking-widest animate-pulse p-4 bg-rose-50 dark:bg-rose-900/20 rounded-2xl border border-rose-100 dark:border-rose-900/50">{t('duplicate_revenue')}</p>
+           <p className="text-[10px] font-black text-rose-500 uppercase text-center tracking-widest animate-pulse p-4 bg-rose-50 dark:bg-rose-900/20 rounded-2xl border border-rose-100 dark:border-rose-900/50 leading-none">{t('duplicate_revenue')}</p>
         )}
 
         <button 
