@@ -12,7 +12,9 @@ import {
   AlertCircle, TrendingUp, Banknote,
   TrendingDown, CreditCard, Wallet, History,
   Sparkles, Loader2, MessageSquare, Calendar,
-  PieChart as PieChartIcon, Table as TableIcon, Layers
+  PieChart as PieChartIcon, Table as TableIcon, Layers,
+  Receipt, ArrowUpRight, ArrowDownRight,
+  ShieldCheck, RefreshCw
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -69,22 +71,16 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, initialBalances, la
     return { totalIn, totalOut, totalDebt, cashIn, cardIn, profit: totalIn - totalOut };
   }, [monthTransactions]);
 
-  const prevStats = useMemo(() => {
-    let totalIn = 0, profit = 0;
-    prevMonthTransactions.forEach(tx => {
-      if (tx.type === TransactionType.INCOME) totalIn += tx.amount || 0;
-      else profit -= tx.amount || 0;
-    });
-    return { totalIn, profit: totalIn + profit };
-  }, [prevMonthTransactions]);
-
   const growth = useMemo(() => {
+    let prevIn = 0, prevOut = 0;
+    prevMonthTransactions.forEach(tx => {
+      if (tx.type === TransactionType.INCOME) prevIn += tx.amount || 0;
+      else prevOut += tx.amount || 0;
+    });
+    const prevProfit = prevIn - prevOut;
     const calc = (cur: number, prev: number) => prev === 0 ? (cur > 0 ? 100 : 0) : ((cur - prev) / prev) * 100;
-    return {
-      revenue: calc(stats.totalIn, prevStats.totalIn),
-      profit: calc(stats.profit, prevStats.profit)
-    };
-  }, [stats, prevStats]);
+    return { revenue: calc(stats.totalIn, prevIn), profit: calc(stats.profit, prevProfit) };
+  }, [stats, prevMonthTransactions]);
 
   const dailyData = useMemo(() => {
     const dayMap: Record<string, any> = {};
@@ -131,25 +127,17 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, initialBalances, la
     }
   };
 
-  const handleExport = () => {
-    const ws = XLSX.utils.json_to_sheet(dailyData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Report");
-    XLSX.writeFile(wb, `Report_${currentMonth}.xlsx`);
-  };
-
   return (
-    <div className="space-y-6 pb-10">
-      {/* Date Picker Mobile */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-3 border dark:border-slate-800 shadow-sm flex items-center justify-between">
+    <div className="space-y-5 pb-6">
+      <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl rounded-2xl p-2 border dark:border-slate-800 shadow-sm flex items-center justify-between">
         <button onClick={() => {
           const [y, m] = currentMonth.split('-').map(Number);
           const d = new Date(y, m - 2);
           setCurrentMonth(`${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`);
-        }} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl active:scale-90 transition-all"><ChevronLeft className="w-5 h-5 text-slate-400" /></button>
+        }} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl active:scale-90 transition-all text-slate-400"><ChevronLeft className="w-4 h-4" /></button>
         
         <div className="flex flex-col items-center">
-          <span className="text-[12px] font-black uppercase tracking-[0.2em] text-indigo-600">Tháng {currentMonth.split('-')[1]} • {currentMonth.split('-')[0]}</span>
+          <span className="text-[11px] font-black uppercase tracking-wider text-indigo-600">Tháng {currentMonth.split('-')[1]} • {currentMonth.split('-')[0]}</span>
           <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{viewMode === 'ALL' ? 'Toàn hệ thống' : (allowedBranches.find(b => b.id === currentBranchId)?.name)}</span>
         </div>
 
@@ -157,99 +145,103 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, initialBalances, la
           const [y, m] = currentMonth.split('-').map(Number);
           const d = new Date(y, m);
           setCurrentMonth(`${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`);
-        }} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-2xl active:scale-90 transition-all"><ChevronRight className="w-5 h-5 text-slate-400" /></button>
+        }} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl active:scale-90 transition-all text-slate-400"><ChevronRight className="w-4 h-4" /></button>
       </div>
 
-      {/* Sub Tabs */}
-      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
         {[
-          { id: 'OVERVIEW', label: 'Tổng quan', icon: Layers },
+          { id: 'OVERVIEW', label: 'T.Quan', icon: Layers },
           { id: 'DAILY', label: 'Ngày', icon: TableIcon },
-          { id: 'ASSETS', label: 'Dòng tiền', icon: Wallet },
-          { id: 'DEBT', label: 'Nợ nần', icon: AlertCircle }
+          { id: 'ASSETS', label: 'Vốn', icon: Wallet },
+          { id: 'DEBT', label: 'Nợ', icon: AlertCircle }
         ].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 shrink-0 ${activeTab === tab.id ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-400'}`}>
-            <tab.icon className="w-4 h-4" /> {tab.label}
+          <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-4 py-3 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-all flex items-center gap-2 shrink-0 ${activeTab === tab.id ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950 shadow-md' : 'bg-white/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400'}`}>
+            <tab.icon className="w-3.5 h-3.5" /> {tab.label}
           </button>
         ))}
       </div>
 
       {activeTab === 'OVERVIEW' && (
-        <div className="space-y-6 animate-in fade-in duration-500">
-          <div className="grid grid-cols-1 gap-4">
-            {/* Primary Revenue Card */}
-            <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden group">
-               <div className="relative z-10 flex flex-col gap-8">
-                 <div className="flex justify-between items-start">
-                   <div>
-                     <p className="text-[11px] font-black uppercase tracking-widest opacity-60 mb-1">Tổng doanh thu</p>
-                     <h2 className="text-4xl font-black tracking-tighter">{formatCurrency(stats.totalIn)}</h2>
-                   </div>
-                   <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-black ${growth.revenue >= 0 ? 'bg-emerald-500' : 'bg-rose-500'}`}>
-                     {growth.revenue >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                     {Math.abs(growth.revenue).toFixed(1)}%
-                   </div>
-                 </div>
-                 <div className="flex gap-8">
-                    <div>
-                      <p className="text-[9px] font-black uppercase tracking-widest opacity-50 mb-1">Tiền mặt</p>
-                      <p className="text-lg font-black">{formatCurrency(stats.cashIn)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-black uppercase tracking-widest opacity-50 mb-1">Thẻ / App</p>
-                      <p className="text-lg font-black">{formatCurrency(stats.cardIn)}</p>
-                    </div>
-                 </div>
+        <div className="space-y-4 animate-in fade-in duration-500">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-indigo-600 rounded-3xl p-5 text-white shadow-lg relative overflow-hidden group h-32 flex flex-col justify-between">
+               <div className="relative z-10">
+                 <p className="text-[8px] font-black uppercase tracking-widest opacity-60 mb-1">Doanh thu</p>
+                 <h2 className="text-xl font-black tracking-tight">{formatCurrency(stats.totalIn)}</h2>
                </div>
-               <Banknote className="absolute -right-6 -bottom-6 w-40 h-40 text-white/10 -rotate-12" />
+               <div className={`relative z-10 inline-flex items-center gap-1 text-[8px] font-black ${growth.revenue >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                 {growth.revenue >= 0 ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
+                 {Math.abs(growth.revenue).toFixed(0)}%
+               </div>
+               <Banknote className="absolute -right-4 -bottom-4 w-16 h-16 text-white/10 -rotate-12" />
             </div>
 
-            {/* Profit Card */}
-            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border dark:border-slate-800 shadow-sm flex items-center justify-between">
-               <div>
-                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-1">Lợi nhuận ròng</p>
-                  <h3 className={`text-3xl font-black ${stats.profit >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{formatCurrency(stats.profit)}</h3>
-                  <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1">Marge: {(stats.profit / (stats.totalIn || 1) * 100).toFixed(1)}%</p>
+            <div className="bg-emerald-600 rounded-3xl p-5 text-white shadow-lg relative overflow-hidden group h-32 flex flex-col justify-between">
+               <div className="relative z-10">
+                 <p className="text-[8px] font-black uppercase tracking-widest opacity-60 mb-1">Lợi nhuận</p>
+                 <h3 className="text-xl font-black tracking-tight">{formatCurrency(stats.profit)}</h3>
                </div>
-               <div className={`p-5 rounded-3xl ${stats.profit >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500' : 'bg-rose-50 dark:bg-rose-900/20 text-rose-500'}`}>
-                  {stats.profit >= 0 ? <TrendingUp className="w-8 h-8" /> : <TrendingDown className="w-8 h-8" />}
+               <div className="relative z-10 text-[8px] font-black text-emerald-100">
+                  LN/DT: {(stats.profit / (stats.totalIn || 1) * 100).toFixed(0)}%
+               </div>
+               <TrendingUp className="absolute -right-4 -bottom-4 w-16 h-16 text-white/10" />
+            </div>
+            
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 border dark:border-slate-800 flex items-center gap-3">
+               <div className="w-8 h-8 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center text-indigo-600"><Banknote className="w-4 h-4" /></div>
+               <div>
+                  <p className="text-[7px] font-black uppercase text-slate-400">TM Shop</p>
+                  <p className="text-[11px] font-black dark:text-white leading-none">{formatCurrency(stats.cashIn)}</p>
+               </div>
+            </div>
+            
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 border dark:border-slate-800 flex items-center gap-3">
+               <div className="w-8 h-8 bg-rose-50 dark:bg-rose-900/30 rounded-lg flex items-center justify-center text-rose-600"><Receipt className="w-4 h-4" /></div>
+               <div>
+                  <p className="text-[7px] font-black uppercase text-slate-400">Tổng chi</p>
+                  <p className="text-[11px] font-black dark:text-white leading-none">{formatCurrency(stats.totalOut)}</p>
                </div>
             </div>
           </div>
 
-          {/* AI Section */}
-          <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden">
-             <div className="relative z-10 space-y-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl"><Sparkles className="w-6 h-6" /></div>
-                  <h3 className="text-xl font-black uppercase tracking-tight">AI Financial Advisor</h3>
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-5 border dark:border-slate-800 shadow-sm">
+             <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shrink-0"><MessageSquare className="w-6 h-6" /></div>
+                <div className="flex-1">
+                   <h3 className="text-xs font-black dark:text-white uppercase leading-none mb-1">AI Advisor</h3>
+                   <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Phân tích tháng {currentMonth.split('-')[1]}</p>
                 </div>
                 {aiAnalysis ? (
-                  <div className="p-5 bg-black/10 backdrop-blur-md rounded-3xl border border-white/10">
-                    <p className="text-[13px] font-bold leading-relaxed italic">"{aiAnalysis}"</p>
-                  </div>
+                  // Add missing RefreshCw import usage correctly
+                  <button onClick={handleAiAnalysis} disabled={isAnalyzing} className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg"><RefreshCw className={`w-3 h-3 ${isAnalyzing ? 'animate-spin' : ''}`} /></button>
                 ) : (
-                  <button onClick={handleAiAnalysis} disabled={isAnalyzing} className="w-full py-4 bg-white text-indigo-600 rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all">
-                    {isAnalyzing ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageSquare className="w-5 h-5" />} Phân tích báo cáo ngay
-                  </button>
+                  <button onClick={handleAiAnalysis} disabled={isAnalyzing} className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[8px] font-black uppercase">Start</button>
                 )}
              </div>
+             {aiAnalysis && (
+               <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border-l-2 border-indigo-600">
+                 <p className="text-[10px] font-bold italic text-slate-700 dark:text-slate-300">"{aiAnalysis}"</p>
+               </div>
+             )}
           </div>
 
-          {/* Chart Section */}
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border dark:border-slate-800 shadow-sm">
-             <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-8 flex items-center gap-2"><History className="w-4 h-4" /> Xu hướng doanh thu ngày</h3>
-             <div className="h-64 w-full">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-4 border dark:border-slate-800 shadow-sm">
+             <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[9px] font-black uppercase tracking-wider text-slate-400">Biểu đồ dòng tiền</h3>
+                <div className="flex gap-2">
+                   <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-indigo-600" /><span className="text-[7px] font-bold">DT</span></div>
+                   <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500" /><span className="text-[7px] font-bold">TM</span></div>
+                </div>
+             </div>
+             <div className="h-40 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                    <AreaChart data={dailyData}>
-                      <defs>
-                        <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.2}/><stop offset="95%" stopColor="#6366f1" stopOpacity={0}/></linearGradient>
-                      </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#cbd5e1" opacity={0.1} />
-                      <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 9, fontWeight: 800, fill: '#94a3b8'}} />
+                      <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 8, fontWeight: 800, fill: '#94a3b8'}} />
                       <YAxis hide />
-                      <RechartsTooltip formatter={(v: any) => formatCurrency(v)} />
-                      <Area type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={4} fillOpacity={1} fill="url(#colorRev)" />
+                      <RechartsTooltip contentStyle={{ borderRadius: '1rem', border: 'none', fontSize: '10px' }} formatter={(v: any) => formatCurrency(v)} />
+                      <Area type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={3} fillOpacity={0.1} fill="#6366f1" />
+                      <Area type="monotone" dataKey="netCash" stroke="#10b981" strokeWidth={3} fillOpacity={0.1} fill="#10b981" />
                    </AreaChart>
                 </ResponsiveContainer>
              </div>
@@ -258,24 +250,23 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, initialBalances, la
       )}
 
       {activeTab === 'DAILY' && (
-        <div className="space-y-4 animate-in fade-in duration-300">
+        <div className="space-y-2 animate-in fade-in duration-300">
            {dailyData.slice().reverse().map(d => (
-             <div key={d.date} className="bg-white dark:bg-slate-900 p-5 rounded-3xl border dark:border-slate-800 shadow-sm flex items-center justify-between">
+             <div key={d.date} className="bg-white dark:bg-slate-900 p-3 rounded-2xl border dark:border-slate-800 shadow-sm flex items-center justify-between group">
                 <div className="flex items-center gap-4">
-                   <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex flex-col items-center justify-center border dark:border-slate-700">
-                      <span className="text-[8px] font-black text-slate-400 uppercase leading-none">{new Date(d.date).toLocaleDateString('vi-VN', {weekday: 'short'})}</span>
-                      <span className="text-lg font-black dark:text-white leading-none mt-1">{d.day}</span>
+                   <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex flex-col items-center justify-center">
+                      <span className="text-[7px] font-black uppercase opacity-50">{new Date(d.date).toLocaleDateString('vi-VN', {weekday: 'short'})}</span>
+                      <span className="text-sm font-black mt-0.5">{d.day}</span>
                    </div>
                    <div>
-                      <p className="text-[12px] font-black dark:text-white uppercase leading-none mb-1">{formatCurrency(d.revenue)}</p>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">LN: {formatCurrency(d.profit)}</p>
+                      <p className="text-[11px] font-black dark:text-white uppercase leading-none">{formatCurrency(d.revenue)}</p>
+                      <p className="text-[8px] font-bold text-slate-400 mt-0.5 uppercase">TM: {formatCurrency(d.netCash)}</p>
                    </div>
                 </div>
                 <div className="text-right">
-                   <p className="text-[10px] font-black text-emerald-600 uppercase mb-1">TM: {formatCurrency(d.netCash)}</p>
-                   <div className="w-20 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-indigo-500 rounded-full" style={{width: `${Math.min(100, (d.revenue / 2000) * 100)}%`}} />
-                   </div>
+                   <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-lg ${d.profit >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                      LN: {formatCurrency(d.profit)}
+                   </span>
                 </div>
              </div>
            ))}
@@ -283,27 +274,30 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, initialBalances, la
       )}
 
       {activeTab === 'ASSETS' && (
-        <div className="space-y-6 animate-in slide-in-from-top-4 duration-500">
+        <div className="space-y-4 animate-in zoom-in-95 duration-300">
           {!assetStats ? (
-            <div className="py-20 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800">
-               <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-               <p className="text-[11px] font-bold text-slate-400 uppercase max-w-[200px] mx-auto leading-relaxed">Vui lòng chọn 1 chi nhánh để xem chính xác số dư tiền mặt và ngân hàng.</p>
+            <div className="py-20 text-center bg-white dark:bg-slate-900 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-800">
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-6">Vui lòng chọn 1 chi nhánh</p>
             </div>
           ) : (
             <>
-               <div className="bg-emerald-600 rounded-[2.5rem] p-8 text-white shadow-xl flex items-center justify-between">
+               <div className="bg-emerald-600 rounded-3xl p-6 text-white shadow-md flex items-center justify-between">
                   <div>
-                    <p className="text-[11px] font-black uppercase tracking-widest opacity-60 mb-1">Tiền mặt tại quán</p>
-                    <h2 className="text-4xl font-black">{formatCurrency(assetStats.cash)}</h2>
+                    <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Tiền mặt tại quán</p>
+                    <h2 className="text-3xl font-black tracking-tighter">{formatCurrency(assetStats.cash)}</h2>
                   </div>
-                  <Banknote className="w-10 h-10 opacity-30" />
+                  <Banknote className="w-10 h-10 opacity-20" />
                </div>
-               <div className="bg-indigo-600 rounded-[2.5rem] p-8 text-white shadow-xl flex items-center justify-between">
+               <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-md flex items-center justify-between">
                   <div>
-                    <p className="text-[11px] font-black uppercase tracking-widest opacity-60 mb-1">Số dư ngân hàng</p>
-                    <h2 className="text-4xl font-black">{formatCurrency(assetStats.bank)}</h2>
+                    <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Số dư ngân hàng</p>
+                    <h2 className="text-3xl font-black tracking-tighter">{formatCurrency(assetStats.bank)}</h2>
                   </div>
-                  <CreditCard className="w-10 h-10 opacity-30" />
+                  <CreditCard className="w-10 h-10 opacity-20" />
+               </div>
+               <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border dark:border-slate-800 text-center">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Tổng cộng (Flow)</p>
+                  <h3 className="text-xl font-black dark:text-white">{formatCurrency(assetStats.total)}</h3>
                </div>
             </>
           )}
@@ -311,28 +305,30 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, initialBalances, la
       )}
 
       {activeTab === 'DEBT' && (
-        <div className="space-y-6 animate-in fade-in duration-300">
-           <div className="bg-rose-600 rounded-[2.5rem] p-8 text-white shadow-xl flex items-center justify-between">
+        <div className="space-y-4 animate-in fade-in duration-300">
+           <div className="bg-rose-600 rounded-3xl p-6 text-white shadow-md flex items-center justify-between">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-widest opacity-60 mb-1">Công nợ NCC</p>
-                <h2 className="text-4xl font-black">{formatCurrency(stats.totalDebt)}</h2>
+                <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Nợ NCC tháng này</p>
+                <h2 className="text-3xl font-black tracking-tighter">{formatCurrency(stats.totalDebt)}</h2>
               </div>
-              <AlertCircle className="w-10 h-10 opacity-30" />
+              <Receipt className="w-10 h-10 opacity-20" />
            </div>
 
-           <div className="space-y-4">
+           <div className="space-y-2">
               {monthTransactions.filter(tx => tx.type === TransactionType.EXPENSE && tx.isPaid === false).map(t => (
-                <div key={t.id} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border dark:border-slate-800 shadow-sm flex items-center justify-between">
-                   <div className="flex-1 pr-4">
-                      <p className="text-[13px] font-black uppercase tracking-tight dark:text-white mb-1 truncate">{t.debtorName || 'NCC Không tên'}</p>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Calendar className="w-3 h-3" /> {t.date} • {t.category}</p>
+                <div key={t.id} className="bg-white dark:bg-slate-900 p-4 rounded-2xl border dark:border-slate-800 shadow-sm flex items-center justify-between">
+                   <div className="flex-1 min-w-0 pr-3">
+                      <p className="text-xs font-black uppercase truncate dark:text-white">{t.debtorName || 'N/A'}</p>
+                      <p className="text-[8px] font-bold text-slate-400 mt-0.5">{t.date} • {t.category}</p>
                    </div>
-                   <div className="text-right">
-                      <p className="text-lg font-black text-rose-600">{formatCurrency(t.amount)}</p>
-                      <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-rose-50 text-rose-500 rounded-full border border-rose-100">Chưa trả</span>
+                   <div className="text-right shrink-0">
+                      <p className="text-sm font-black text-rose-600 leading-none">{formatCurrency(t.amount)}</p>
                    </div>
                 </div>
               ))}
+              {monthTransactions.filter(tx => tx.type === TransactionType.EXPENSE && tx.isPaid === false).length === 0 && (
+                <div className="py-10 text-center text-slate-400 text-[10px] font-black uppercase">Không có nợ</div>
+              )}
            </div>
         </div>
       )}
