@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Transaction, TransactionType, formatCurrency, ExpenseSource, EXPENSE_SOURCE_LABELS, UserRole } from '../types';
 import { 
@@ -225,9 +226,9 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                       </div>
                       {t.type === TransactionType.INCOME && t.incomeBreakdown && (
                         <div className="flex gap-4 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">
-                          <span>TM: {formatCurrency(t.incomeBreakdown.cash)}</span>
-                          <span>Thẻ: {formatCurrency(t.incomeBreakdown.card)}</span>
-                          <span>App: {formatCurrency(t.incomeBreakdown.delivery)}</span>
+                          <span>TM: {formatCurrency(t.incomeBreakdown.cash || 0)}</span>
+                          <span>Thẻ: {formatCurrency(t.incomeBreakdown.card || 0)}</span>
+                          <span>App: {formatCurrency(t.incomeBreakdown.delivery || 0)}</span>
                         </div>
                       )}
                       {t.note && <div className="text-xs text-slate-400 dark:text-slate-500 mt-1 italic font-medium">"{t.note}"</div>}
@@ -235,7 +236,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                     <td className={`px-8 py-6 text-right font-black text-lg align-top ${
                       t.type === TransactionType.INCOME ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                     }`}>
-                      {t.type === TransactionType.INCOME ? '+' : '-'}{formatCurrency(t.amount)}
+                      {t.type === TransactionType.INCOME ? '+' : '-'}{formatCurrency(t.amount || 0)}
                     </td>
                     {!isViewer && (
                       <td className="px-8 py-6 text-center align-top">
@@ -272,7 +273,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                     </div>
                     <div className="text-right flex flex-col items-end">
                       <span className={`text-base font-black ${t.type === TransactionType.INCOME ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                        {t.type === TransactionType.INCOME ? '+' : '-'}{formatCurrency(t.amount)}
+                        {t.type === TransactionType.INCOME ? '+' : '-'}{formatCurrency(t.amount || 0)}
                       </span>
                     </div>
                   </div>
@@ -332,7 +333,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                 <div className="bg-emerald-50/50 dark:bg-emerald-900/10 p-5 rounded-3xl border border-emerald-100 dark:border-emerald-900/30">
                   <div className="flex justify-between items-center mb-3">
                     <span className="px-3 py-1 bg-emerald-600 text-white text-[9px] font-black uppercase rounded-full tracking-widest">Hiện tại</span>
-                    <span className="text-xl font-black text-emerald-700 dark:text-emerald-400">{formatCurrency(viewingHistory.amount)}</span>
+                    <span className="text-xl font-black text-emerald-700 dark:text-emerald-400">{formatCurrency(viewingHistory.amount || 0)}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-xs">
                     <div>
@@ -358,7 +359,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                           {new Date(entry.timestamp).toLocaleString('vi-VN')}
                         </span>
                       </div>
-                      <span className="text-base font-black text-slate-600 dark:text-slate-400">{formatCurrency(entry.amount)}</span>
+                      <span className="text-base font-black text-slate-600 dark:text-slate-400">{formatCurrency(entry.amount || 0)}</span>
                     </div>
                   </div>
                 </div>
