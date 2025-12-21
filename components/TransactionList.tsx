@@ -22,7 +22,6 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
   
   const isViewer = userRole === UserRole.VIEWER;
 
-  // Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');

@@ -15,7 +15,7 @@ import {
   Wallet, ArrowDownCircle, Sun, Moon, LogOut, 
   Bell, BellRing, History as HistoryIcon, 
   AlertTriangle, CheckCircle2, Info, Trash2, Languages,
-  Tag, CalendarClock, ShieldCheck, MapPin, Users, Lock, KeyRound, Key, Save
+  Tag, CalendarClock, ShieldCheck, MapPin, Users, Lock, KeyRound, Key, Save, Download, Upload
 } from 'lucide-react';
 
 const App = () => {
@@ -51,7 +51,6 @@ const App = () => {
 
   const [currentBranchId, setCurrentBranchId] = useState<string>(() => localStorage.getItem('tokymon_current_branch') || 'b1');
 
-  // Logic lọc chi nhánh cho người dùng hiện tại
   const visibleBranches = useMemo(() => {
     if (!currentUser) return [];
     if (currentUser.role === UserRole.SUPER_ADMIN || currentUser.role === UserRole.ADMIN) return branches;
@@ -59,7 +58,6 @@ const App = () => {
   }, [branches, currentUser]);
 
   useEffect(() => {
-    // Nếu chi nhánh hiện tại không thuộc quyền hạn, chuyển về chi nhánh đầu tiên có quyền
     if (visibleBranches.length > 0 && !visibleBranches.find(b => b.id === currentBranchId)) {
       setCurrentBranchId(visibleBranches[0].id);
     }
@@ -178,6 +176,47 @@ const App = () => {
     setPassForm({ old: '', new: '', confirm: '' });
     alert(t('password_changed'));
     addAuditLog('UPDATE', 'USER', currentUser.id, 'Đổi mật khẩu cá nhân');
+  };
+
+  const exportBackup = () => {
+    const data = {
+      transactions,
+      branches,
+      users,
+      expenseCategories,
+      recurringExpenses,
+      auditLogs,
+      version: "1.0",
+      exportDate: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Tokymon_Backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        if (data.transactions) setTransactions(data.transactions);
+        if (data.branches) setBranches(data.branches);
+        if (data.users) setUsers(data.users);
+        if (data.expenseCategories) setExpenseCategories(data.expenseCategories);
+        if (data.recurringExpenses) setRecurringExpenses(data.recurringExpenses);
+        if (data.auditLogs) setAuditLogs(data.auditLogs);
+        alert(lang === 'vi' ? "Khôi phục dữ liệu thành công!" : "Daten erfolgreich wiederhergestellt!");
+      } catch (err) {
+        alert(lang === 'vi' ? "File không hợp lệ!" : "Ungültige Datei!");
+      }
+    };
+    reader.readAsText(file);
   };
 
   if (!currentUser) {
@@ -307,9 +346,26 @@ const App = () => {
               </div>
 
               {settingsSubTab === 'general' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <CategoryManager title={t('categories_man')} categories={expenseCategories} onUpdate={setExpenseCategories} />
-                  <RecurringManager recurringExpenses={recurringExpenses} onUpdate={setRecurringExpenses} categories={expenseCategories} onGenerateTransactions={txs => setTransactions(prev => [...txs, ...prev])} branchId={currentBranchId} />
+                <div className="space-y-8">
+                  <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border dark:border-slate-800 shadow-sm">
+                    <h3 className="text-xs font-black uppercase tracking-widest mb-6 flex items-center gap-2"><Save className="w-4 h-4 text-indigo-500" /> Sao lưu dữ liệu (Dự phòng)</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <button onClick={exportBackup} className="flex items-center justify-center gap-2 p-5 bg-slate-100 dark:bg-slate-800 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-indigo-600 hover:text-white transition-all">
+                        <Download className="w-4 h-4" /> Tải về bản sao lưu (.json)
+                      </button>
+                      <label className="flex items-center justify-center gap-2 p-5 bg-slate-100 dark:bg-slate-800 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-600 hover:text-white transition-all cursor-pointer">
+                        <Upload className="w-4 h-4" /> Khôi phục từ bản sao lưu
+                        <input type="file" accept=".json" onChange={importBackup} className="hidden" />
+                      </label>
+                    </div>
+                    <p className="mt-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest italic text-center">
+                      Mẹo: Hãy tải bản sao lưu hàng tuần để đảm bảo dữ liệu luôn an toàn nếu trình duyệt bị xóa cache.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <CategoryManager title={t('categories_man')} categories={expenseCategories} onUpdate={setExpenseCategories} />
+                    <RecurringManager recurringExpenses={recurringExpenses} onUpdate={setRecurringExpenses} categories={expenseCategories} onGenerateTransactions={txs => setTransactions(prev => [...txs, ...prev])} branchId={currentBranchId} />
+                  </div>
                 </div>
               )}
 
