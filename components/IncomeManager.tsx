@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Transaction, TransactionType, UserRole } from '../types';
+import { Transaction, TransactionType, UserRole, Branch } from '../types';
 import TransactionForm from './TransactionForm';
 import TransactionList from './TransactionList';
 import EditTransactionModal from './EditTransactionModal';
@@ -14,6 +14,7 @@ interface IncomeManagerProps {
   initialBalances: { cash: number; card: number };
   userRole?: UserRole;
   lang?: any;
+  branchName?: string;
 }
 
 const IncomeManager: React.FC<IncomeManagerProps> = ({ 
@@ -23,7 +24,8 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({
   onEditTransaction, 
   branchId, 
   initialBalances, 
-  userRole 
+  userRole,
+  branchName
 }) => {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const incomeTransactions = transactions.filter(t => t.type === TransactionType.INCOME && t.branchId === branchId && !t.deletedAt);
@@ -40,6 +42,7 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({
             branchId={branchId}
             initialBalances={initialBalances}
             transactions={transactions}
+            branchName={branchName}
           />
         </div>
       )}
@@ -48,7 +51,7 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({
           transactions={incomeTransactions} 
           onDelete={onDeleteTransaction}
           onEdit={(tx) => setEditingTx(tx)}
-          title="Lịch Sử Doanh Thu" 
+          title={`Lịch Sử Doanh Thu - ${branchName}`} 
           userRole={userRole}
         />
       </div>

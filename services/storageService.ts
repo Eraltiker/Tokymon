@@ -1,22 +1,16 @@
 
-import { AppData, SCHEMA_VERSION, EXPENSE_CATEGORIES, Transaction, Branch, User, RecurringTransaction } from '../types';
+import { AppData, SCHEMA_VERSION, EXPENSE_CATEGORIES, Transaction, Branch, User, RecurringTransaction, ReportSettings } from '../types';
 
 const STORAGE_KEY = 'tokymon_master_data';
 
 export const StorageService = {
-  // Hàm gộp mảng dựa trên ID và thời gian cập nhật mới nhất
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
     const map = new Map<string, T>();
-    
-    // Nạp dữ liệu local vào map
     (local || []).forEach(item => {
       if (item && item.id) map.set(item.id, item);
     });
-
-    // Duyệt dữ liệu remote, nếu remote mới hơn hoặc local chưa có thì ghi đè
     (remote || []).forEach(remoteItem => {
       if (!remoteItem || !remoteItem.id) return;
-      
       const localItem = map.get(remoteItem.id);
       if (!localItem) {
         map.set(remoteItem.id, remoteItem);
@@ -28,12 +22,10 @@ export const StorageService = {
         }
       }
     });
-
     return Array.from(map.values());
   },
 
   mergeAppData: (local: AppData, remote: AppData): AppData => {
-    // Đảm bảo các mảng không bị undefined trước khi gộp
     return {
       version: SCHEMA_VERSION,
       lastSync: new Date().toISOString(),
@@ -44,7 +36,8 @@ export const StorageService = {
       recurringExpenses: StorageService.mergeArrays(local.recurringExpenses || [], remote.recurringExpenses || []),
       auditLogs: [...(local.auditLogs || []), ...(remote.auditLogs || [])]
         .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)
-        .slice(-500)
+        .slice(-500),
+      reportSettings: remote.reportSettings || local.reportSettings
     };
   },
 
@@ -78,23 +71,27 @@ export const StorageService = {
     users: [{ id: 'admin_root', username: 'admin', password: 'admin', role: 'SUPER_ADMIN' as any, assignedBranchIds: ['b1'], updatedAt: new Date().toISOString() }],
     expenseCategories: EXPENSE_CATEGORIES,
     recurringExpenses: [],
-    auditLogs: []
+    auditLogs: [],
+    reportSettings: {
+      showSystemTotal: true,
+      showShopRevenue: true,
+      showAppRevenue: true,
+      showCardRevenue: true,
+      showActualCash: true,
+      showProfit: true
+    }
   }),
 
   syncWithCloud: async (bucketId: string, localData: AppData): Promise<AppData> => {
     const sanitizedId = bucketId?.trim();
     if (!sanitizedId) return localData;
-    
     const BUCKET_URL = `https://kvdb.io/${sanitizedId}/main`;
-
     try {
-      // 1. Thử lấy dữ liệu từ Cloud
       const response = await fetch(BUCKET_URL, {
         method: 'GET',
         mode: 'cors',
         headers: { 'Accept': 'application/json' }
       });
-
       let remoteData: AppData | null = null;
       if (response.ok) {
         const text = await response.text();
@@ -106,22 +103,16 @@ export const StorageService = {
           }
         }
       }
-
-      // 2. Gộp dữ liệu
       const merged = remoteData ? StorageService.mergeAppData(localData, remoteData) : localData;
-
-      // 3. Đẩy dữ liệu lên Cloud
       const saveResponse = await fetch(BUCKET_URL, {
         method: 'PUT',
         mode: 'cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(merged)
       });
-
       if (!saveResponse.ok) {
         throw new Error(`Cloud không phản hồi (${saveResponse.status})`);
       }
-
       return merged;
     } catch (error: any) {
       console.error("Lỗi kĩ thuật đồng bộ:", error);

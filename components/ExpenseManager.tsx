@@ -15,6 +15,7 @@ interface ExpenseManagerProps {
   initialBalances: { cash: number; card: number };
   userRole?: UserRole;
   lang?: any;
+  branchName?: string;
 }
 
 const ExpenseManager: React.FC<ExpenseManagerProps> = ({ 
@@ -25,7 +26,8 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
   expenseCategories, 
   branchId, 
   initialBalances, 
-  userRole 
+  userRole,
+  branchName
 }) => {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const expenseTransactions = transactions.filter(t => t.type === TransactionType.EXPENSE && t.branchId === branchId && !t.deletedAt);
@@ -42,6 +44,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
             branchId={branchId}
             initialBalances={initialBalances}
             transactions={transactions}
+            branchName={branchName}
           />
         </div>
       )}
@@ -50,7 +53,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
           transactions={expenseTransactions} 
           onDelete={onDeleteTransaction}
           onEdit={(tx) => setEditingTx(tx)}
-          title="Lịch Sử Chi Phí" 
+          title={`Lịch Sử Chi Phí - ${branchName}`} 
           userRole={userRole}
         />
       </div>

@@ -50,9 +50,11 @@ export interface User {
 }
 
 export interface IncomeBreakdown {
-  cash: number;
-  card: number;
-  delivery?: number;
+  cash: number;       // Doanh thu tiền mặt theo bill
+  card: number;       // Doanh thu thẻ
+  delivery?: number;  // Doanh thu qua app
+  actualCash?: number; // Tiền mặt thực tế đếm được cuối ngày
+  tip?: number;        // Tiền tip (tính toán hoặc nhập tay)
 }
 
 export interface HistoryEntry {
@@ -80,7 +82,7 @@ export interface Transaction {
   debtorName?: string;
   updatedAt: string;
   deletedAt?: string;
-  history: HistoryEntry[]; // Bắt buộc mảng để tránh lỗi TS
+  history: HistoryEntry[];
 }
 
 export interface RecurringTransaction {
@@ -106,6 +108,15 @@ export interface AuditLogEntry {
   details: string;
 }
 
+export interface ReportSettings {
+  showSystemTotal: boolean;
+  showShopRevenue: boolean;
+  showAppRevenue: boolean;
+  showCardRevenue: boolean;
+  showActualCash: boolean;
+  showProfit: boolean;
+}
+
 export interface AppData {
   version: string;
   lastSync: string;
@@ -115,9 +126,10 @@ export interface AppData {
   expenseCategories: string[];
   recurringExpenses: RecurringTransaction[];
   auditLogs: AuditLogEntry[];
+  reportSettings?: ReportSettings;
 }
 
-export const SCHEMA_VERSION = "2.2";
+export const SCHEMA_VERSION = "2.4";
 
 export const formatCurrency = (val: number, lang: Language = 'vi') => 
   new Intl.NumberFormat(lang === 'vi' ? 'vi-VN' : 'de-DE', { 
