@@ -6,7 +6,7 @@ import { useTranslation } from '../i18n';
 import { 
   Save, Camera, Loader2,
   ChevronLeft, ChevronRight, Store, 
-  ChevronDown, Building2, Banknote, CreditCard, Smartphone
+  ChevronDown, Building2, Banknote, CreditCard, Smartphone, Info
 } from 'lucide-react';
 
 interface TransactionFormProps {
@@ -26,14 +26,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [note, setNote] = useState<string>('');
 
-  // Expense states
   const [expenseAmount, setExpenseAmount] = useState<string>('');
   const [expenseCategory, setExpenseCategory] = useState<string>(expenseCategories[0] || '');
   const [expenseSource, setExpenseSource] = useState<ExpenseSource>(ExpenseSource.SHOP_CASH);
   const [isPaid, setIsPaid] = useState<boolean>(true);
   const [debtorName, setDebtorName] = useState<string>('');
 
-  // Income states
   const [kasseInput, setKasseInput] = useState<string>(''); 
   const [appInput, setAppInput] = useState<string>('');   
   const [cardTotalInput, setCardTotalInput] = useState<string>(''); 
@@ -88,16 +86,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
       const kasse = Number(kasseInput) || 0;
       const app = Number(appInput) || 0;
       const cardTotal = Number(cardTotalInput) || 0;
-
       if (kasse + app <= 0) return;
-      
       onAddTransaction({
         ...commonData,
         type: TransactionType.INCOME,
         amount: kasse + app,
-        category: 'Doanh thu ngày',
+        category: t('income'),
         incomeBreakdown: { 
-          cash: Math.max(0, (kasse + app) - cardTotal), // Lưu số TM doanh thu gốc
+          cash: Math.max(0, (kasse + app) - cardTotal),
           card: cardTotal, 
           delivery: app
         },
@@ -132,19 +128,18 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
       {isScanning && (
         <div className="absolute inset-0 z-50 bg-indigo-600 flex flex-col items-center justify-center text-white p-6 animate-in fade-in duration-300">
           <Loader2 className="w-12 h-12 animate-spin mb-4" />
-          <p className="text-xs font-black uppercase tracking-widest">AI Vision Scanning...</p>
+          <p className="text-xs font-black uppercase tracking-widest">{t('scan_ai')}</p>
         </div>
       )}
 
-      {/* Header Form */}
       <div className="px-6 pt-8 pb-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
         <div>
            <div className="flex items-center gap-2 mb-1">
               <Building2 className="w-3 h-3 text-indigo-500" />
-              <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{branchName || 'Tokymon'}</span>
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{branchName}</span>
            </div>
            <h2 className="text-2xl font-black uppercase tracking-tighter dark:text-white leading-none">
-             {type === TransactionType.INCOME ? 'Chốt Sổ' : 'Chi Phí'}
+             {type === TransactionType.INCOME ? t('chot_so') : t('chi_phi')}
            </h2>
         </div>
         {type === TransactionType.EXPENSE && (
@@ -156,7 +151,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
       </div>
       
       <form onSubmit={handleSubmit} className="p-6 space-y-6 flex-1 overflow-y-auto no-scrollbar pb-12">
-        {/* Date Selector */}
         <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 p-1.5 rounded-2xl border dark:border-slate-800">
           <button type="button" onClick={() => adjustDate(-1)} className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border dark:border-slate-800 text-slate-400 active:scale-90"><ChevronLeft className="w-4 h-4" /></button>
           <div onClick={() => dateInputRef.current?.showPicker()} className="flex-1 text-center py-2 cursor-pointer">
@@ -168,42 +162,42 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
 
         {type === TransactionType.INCOME ? (
           <div className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Tiền Kasse (€)</label>
+            <div className="space-y-2 text-center">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 block mb-2">{t('kasse_total')}</label>
               <div className="relative">
-                <input type="number" inputMode="decimal" value={kasseInput} onChange={(e) => setKasseInput(e.target.value)} placeholder="0.00" className="w-full px-6 py-5 bg-slate-50 dark:bg-slate-950 border-2 dark:border-slate-800 rounded-3xl font-black text-3xl text-indigo-600 outline-none text-center focus:border-indigo-600 transition-all" required />
+                <input type="number" inputMode="decimal" value={kasseInput} onChange={(e) => setKasseInput(e.target.value)} placeholder="0.00" className="w-full px-6 py-5 bg-slate-50 dark:bg-slate-950 border-2 dark:border-slate-800 rounded-3xl font-black text-3xl text-indigo-600 outline-none text-center focus:border-indigo-600 transition-all shadow-inner" required />
                 <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
               </div>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Tiền App (€)</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">{t('card_total')}</label>
                 <div className="relative">
-                  <input type="number" inputMode="decimal" value={appInput} onChange={(e) => setAppInput(e.target.value)} placeholder="0" className="w-full pl-4 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border-2 dark:border-slate-800 rounded-2xl font-black text-sm text-slate-900 dark:text-white outline-none focus:border-orange-500" />
+                  <input type="number" inputMode="decimal" value={cardTotalInput} onChange={(e) => setCardTotalInput(e.target.value)} placeholder="0" className="w-full pl-4 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border-2 dark:border-slate-800 rounded-2xl font-black text-sm text-indigo-600 outline-none focus:border-indigo-500" />
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Tiền Thẻ (€)</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">{t('app_total')}</label>
                 <div className="relative">
-                  <input type="number" inputMode="decimal" value={cardTotalInput} onChange={(e) => setCardTotalInput(e.target.value)} placeholder="0" className="w-full pl-4 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border-2 dark:border-slate-800 rounded-2xl font-black text-sm text-slate-900 dark:text-white outline-none focus:border-indigo-500" />
+                  <input type="number" inputMode="decimal" value={appInput} onChange={(e) => setAppInput(e.target.value)} placeholder="0" className="w-full pl-4 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border-2 dark:border-slate-800 rounded-2xl font-black text-sm text-slate-900 dark:text-white outline-none focus:border-orange-500" />
                 </div>
               </div>
             </div>
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Số tiền (€)</label>
+            <div className="space-y-2 text-center">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">{t('amount')} (€)</label>
               <input type="number" inputMode="decimal" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} className="w-full px-6 py-5 bg-slate-50 dark:bg-slate-950 border-2 dark:border-slate-800 rounded-3xl font-black text-3xl text-rose-600 outline-none text-center focus:border-rose-500 transition-all" required />
             </div>
             
             <div className="grid grid-cols-2 gap-3 p-1.5 bg-slate-100 dark:bg-slate-950 rounded-2xl">
               <button type="button" onClick={() => setIsPaid(true)} className={`py-3.5 rounded-xl text-[10px] font-black uppercase transition-all ${isPaid ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400'}`}>
-                Đã trả
+                {t('paid')}
               </button>
               <button type="button" onClick={() => setIsPaid(false)} className={`py-3.5 rounded-xl text-[10px] font-black uppercase transition-all ${!isPaid ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400'}`}>
-                Chưa trả
+                {t('unpaid')}
               </button>
             </div>
 
@@ -216,15 +210,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
               </div>
 
               {!isPaid ? (
-                <input type="text" value={debtorName} onChange={e => setDebtorName(e.target.value)} placeholder="Tên chủ nợ..." className="w-full p-4 bg-slate-50 dark:bg-slate-950 border-2 dark:border-slate-800 rounded-2xl font-black text-xs outline-none" required />
+                <input type="text" value={debtorName} onChange={e => setDebtorName(e.target.value)} placeholder={t('vendor_name')} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border-2 dark:border-slate-700 rounded-2xl font-black text-xs outline-none" required />
               ) : (
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: ExpenseSource.SHOP_CASH, label: 'Két Quán' },
-                    { id: ExpenseSource.WALLET, label: 'Ví Tổng' },
-                    { id: ExpenseSource.CARD, label: 'Thẻ Bank' }
+                    { id: ExpenseSource.SHOP_CASH, label: t('shop_cash') },
+                    { id: ExpenseSource.WALLET, label: t('master_wallet') },
+                    { id: ExpenseSource.CARD, label: t('card_bank') }
                   ].map((s) => (
-                    <button key={s.id} type="button" onClick={() => setExpenseSource(s.id)} className={`py-3 rounded-xl border-2 transition-all ${expenseSource === s.id ? `bg-indigo-600 border-indigo-600 text-white shadow-md` : 'bg-slate-50 dark:bg-slate-950 dark:border-slate-800 text-slate-400'}`}>
+                    <button key={s.id} type="button" onClick={() => setExpenseSource(s.id)} className={`py-3 rounded-xl border-2 transition-all ${expenseSource === s.id ? `bg-indigo-600 border-indigo-600 text-white shadow-md` : 'bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400'}`}>
                       <span className="text-[8px] font-black uppercase leading-none">{s.label}</span>
                     </button>
                   ))}
@@ -235,11 +229,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         )}
 
         <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border dark:border-slate-800">
-          <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Ghi chú thêm..." className="w-full bg-transparent text-[11px] font-bold outline-none text-slate-600 dark:text-slate-400 resize-none h-12" />
+          <textarea value={note} onChange={e => setNote(e.target.value)} placeholder={t('note')} className="w-full bg-transparent text-[11px] font-bold outline-none text-slate-600 dark:text-slate-400 resize-none h-12" />
         </div>
 
         <button type="submit" disabled={isDuplicateDate || isScanning} className={`w-full py-6 rounded-3xl font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl active:scale-[0.98] transition-all ${isDuplicateDate || isScanning ? 'bg-slate-100 text-slate-300' : 'bg-slate-900 dark:bg-indigo-600 text-white hover:bg-black'}`}>
-          <Save className="w-4 h-4 inline-block mr-2" /> Lưu Giao Dịch
+          <Save className="w-4 h-4 inline-block mr-2" /> {t('save_transaction')}
         </button>
       </form>
     </div>

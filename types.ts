@@ -50,11 +50,11 @@ export interface User {
 }
 
 export interface IncomeBreakdown {
-  cash: number;       // Doanh thu tiền mặt theo bill
-  card: number;       // Doanh thu thẻ
-  delivery?: number;  // Doanh thu qua app
-  actualCash?: number; // Tiền mặt thực tế đếm được cuối ngày
-  tip?: number;        // Tiền tip (tính toán hoặc nhập tay)
+  cash: number;
+  card: number;
+  delivery?: number;
+  actualCash?: number;
+  tip?: number;
 }
 
 export interface HistoryEntry {
@@ -129,7 +129,8 @@ export interface AppData {
   reportSettings?: ReportSettings;
 }
 
-export const SCHEMA_VERSION = "2.4";
+export const SCHEMA_VERSION = "2.6";
+export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const formatCurrency = (val: number, lang: Language = 'vi') => 
   new Intl.NumberFormat(lang === 'vi' ? 'vi-VN' : 'de-DE', { 
