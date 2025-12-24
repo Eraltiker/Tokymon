@@ -48,7 +48,7 @@ const App = () => {
   });
   
   const [currentBranchId, setCurrentBranchId] = useState<string>(() => localStorage.getItem('tokymon_current_branch') || '');
-  const [lastSelectedBranchId, setLastSelectedBranchId] = useState<string>(''); // Lưu lại chi nhánh cuối cùng trước khi xem tổng
+  const [lastSelectedBranchId, setLastSelectedBranchId] = useState<string>(''); 
   
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
@@ -121,7 +121,6 @@ const App = () => {
     return base;
   }, [activeBranches, currentUser, isAdmin]);
 
-  // Dropdown ở header giờ chỉ hiện các chi nhánh thật, không hiện "Toàn hệ thống"
   const dropdownBranches = useMemo(() => allowedBranches, [allowedBranches]);
 
   useEffect(() => {
@@ -186,12 +185,10 @@ const App = () => {
   const toggleGlobalReport = () => {
     if (!isAdmin) return;
     if (currentBranchId === ALL_BRANCHES_ID) {
-      // Quay lại chi nhánh trước đó
       const targetId = lastSelectedBranchId || allowedBranches[0]?.id;
       setCurrentBranchId(targetId);
       localStorage.setItem('tokymon_current_branch', targetId);
     } else {
-      // Sang chế độ toàn hệ thống
       setLastSelectedBranchId(currentBranchId);
       setCurrentBranchId(ALL_BRANCHES_ID);
       localStorage.setItem('tokymon_current_branch', ALL_BRANCHES_ID);
@@ -295,7 +292,7 @@ const App = () => {
           </button>
           <button 
             type="button"
-            onClick={() => setConfirmModal({ title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })}
+            onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })}
             className="p-2.5 bg-rose-500 text-white rounded-xl shadow-lg flex items-center gap-1.5 cursor-pointer active:scale-95"
           >
             <LogOut className="w-4 h-4" />
@@ -344,7 +341,7 @@ const App = () => {
           allowedBranches={allowedBranches} 
           userRole={currentUser.role} 
           reportSettings={reportSettings}
-          onToggleGlobal={toggleGlobalReport} // Truyền hàm toggle xuống
+          onToggleGlobal={toggleGlobalReport} 
         />}
         
         {activeTab === 'settings' && (
@@ -388,12 +385,12 @@ const App = () => {
                     branches={data.branches} 
                     setBranches={fn => setData(p => ({...p, branches: fn(p.branches)}))} 
                     onAudit={addAuditLog}
-                    setGlobalConfirm={setConfirmModal}
+                    setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })}
                     onResetBranchData={handleResetBranchData}
                     lang={lang}
                   />
                 )}
-                {settingsSubTab === 'users' && <UserManager users={data.users} setUsers={val => setData(p => ({...p, users: typeof val === 'function' ? val(p.users) : val}))} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={setConfirmModal} lang={lang} />}
+                {settingsSubTab === 'users' && <UserManager users={data.users} setUsers={val => setData(p => ({...p, users: typeof val === 'function' ? val(p.users) : val}))} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} lang={lang} />}
                 {settingsSubTab === 'general' && (
                   <div className="space-y-8">
                     <CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => {setData(prev => ({...prev, expenseCategories: cats}));}} lang={lang} />

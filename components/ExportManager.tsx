@@ -1,15 +1,18 @@
 
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
-import { Transaction, TransactionType, Branch, EXPENSE_SOURCE_LABELS } from '../types';
+import { Transaction, TransactionType, Branch, EXPENSE_SOURCE_LABELS, Language } from '../types';
+import { useTranslation } from '../i18n';
 import { FileSpreadsheet, Calendar, Download, Loader2, AlertCircle } from 'lucide-react';
 
 interface ExportManagerProps {
   transactions: Transaction[];
   branches: Branch[];
+  lang: Language;
 }
 
-const ExportManager: React.FC<ExportManagerProps> = ({ transactions, branches }) => {
+const ExportManager: React.FC<ExportManagerProps> = ({ transactions, branches, lang }) => {
+  const t = useTranslation(lang);
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
@@ -29,41 +32,37 @@ const ExportManager: React.FC<ExportManagerProps> = ({ transactions, branches })
         ).sort((a, b) => a.date.localeCompare(b.date));
 
         if (filtered.length === 0) {
-          alert("Không có dữ liệu trong khoảng thời gian này!");
+          alert(t('export_empty'));
           setIsExporting(false);
           return;
         }
 
-        // Prepare Income Data
         const incomeData = filtered
           .filter(t => t.type === TransactionType.INCOME)
-          .map(t => ({
-            'Ngày': t.date,
-            'Chi nhánh': getBranchName(t.branchId),
-            'Hệ thống (App+Shop)': t.amount,
-            'Shop (Kasse)': (t.incomeBreakdown?.cash || 0) + (t.incomeBreakdown?.card || 0),
-            'Thẻ': t.incomeBreakdown?.card || 0,
-            'Tiền mặt': t.incomeBreakdown?.cash || 0,
-            'App (Delivery)': t.incomeBreakdown?.delivery || 0,
-            'Tiền mặt thực thu': t.incomeBreakdown?.actualCash || '---',
-            'Ghi chú': t.note || ''
+          .map(tx => ({
+            'Ngày': tx.date,
+            'Chi nhánh': getBranchName(tx.branchId),
+            'Hệ thống (App+Shop)': tx.amount,
+            'Shop (Kasse)': (tx.incomeBreakdown?.cash || 0) + (tx.incomeBreakdown?.card || 0),
+            'Thẻ': tx.incomeBreakdown?.card || 0,
+            'Tiền mặt': tx.incomeBreakdown?.cash || 0,
+            'App (Delivery)': tx.incomeBreakdown?.delivery || 0,
+            'Ghi chú': tx.note || ''
           }));
 
-        // Prepare Expense Data
         const expenseData = filtered
           .filter(t => t.type === TransactionType.EXPENSE)
-          .map(t => ({
-            'Ngày': t.date,
-            'Chi nhánh': getBranchName(t.branchId),
-            'Danh mục': t.category,
-            'Số tiền': t.amount,
-            'Nguồn': t.expenseSource ? EXPENSE_SOURCE_LABELS[t.expenseSource] : 'N/A',
-            'Trạng thái': t.isPaid === false ? 'Ghi nợ' : 'Đã trả',
-            'Chủ nợ': t.debtorName || '',
-            'Ghi chú': t.note || ''
+          .map(tx => ({
+            'Ngày': tx.date,
+            'Chi nhánh': getBranchName(tx.branchId),
+            'Danh mục': tx.category,
+            'Số tiền': tx.amount,
+            'Nguồn': tx.expenseSource ? EXPENSE_SOURCE_LABELS[tx.expenseSource] : 'N/A',
+            'Trạng thái': tx.isPaid === false ? 'Ghi nợ' : 'Đã trả',
+            'Chủ nợ': tx.debtorName || '',
+            'Ghi chú': tx.note || ''
           }));
 
-        // Create Workbook
         const wb = XLSX.utils.book_new();
 
         if (incomeData.length > 0) {
@@ -76,7 +75,6 @@ const ExportManager: React.FC<ExportManagerProps> = ({ transactions, branches })
           XLSX.utils.book_append_sheet(wb, wsExpense, "Chi Phí");
         }
 
-        // Export File
         const fileName = `Tokymon_BaoCao_${startDate}_den_${endDate}.xlsx`;
         XLSX.writeFile(wb, fileName);
       } catch (error) {
@@ -95,7 +93,7 @@ const ExportManager: React.FC<ExportManagerProps> = ({ transactions, branches })
           <FileSpreadsheet className="w-6 h-6" />
         </div>
         <div>
-          <h3 className="text-sm font-black dark:text-white uppercase leading-none mb-1">Xuất báo cáo Excel</h3>
+          <h3 className="text-sm font-black dark:text-white uppercase leading-none mb-1">{t('export_excel')}</h3>
           <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Tải dữ liệu kế toán (.xlsx)</p>
         </div>
       </div>
@@ -104,7 +102,7 @@ const ExportManager: React.FC<ExportManagerProps> = ({ transactions, branches })
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 flex items-center gap-1.5">
-              <Calendar className="w-3 h-3" /> Từ ngày
+              <Calendar className="w-3 h-3" /> {t('from_date')}
             </label>
             <input 
               type="date" 
@@ -115,7 +113,7 @@ const ExportManager: React.FC<ExportManagerProps> = ({ transactions, branches })
           </div>
           <div className="space-y-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 flex items-center gap-1.5">
-              <Calendar className="w-3 h-3" /> Đến ngày
+              <Calendar className="w-3 h-3" /> {t('to_date')}
             </label>
             <input 
               type="date" 
@@ -128,8 +126,8 @@ const ExportManager: React.FC<ExportManagerProps> = ({ transactions, branches })
 
         <div className="p-4 bg-amber-50 dark:bg-amber-950/20 rounded-2xl border border-amber-100 dark:border-amber-900/30 flex gap-3">
           <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
-          <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 leading-relaxed">
-            Dữ liệu sẽ được xuất ra thành 2 Sheet riêng biệt cho Doanh thu và Chi phí. File này có thể mở bằng Excel, Google Sheets hoặc Numbers.
+          <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 leading-relaxed uppercase">
+            {lang === 'vi' ? 'Dữ liệu được chia thành các Sheet riêng biệt.' : 'Daten werden in separaten Tabellenblättern exportiert.'}
           </p>
         </div>
 
@@ -139,12 +137,10 @@ const ExportManager: React.FC<ExportManagerProps> = ({ transactions, branches })
           className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 shadow-xl shadow-emerald-200 dark:shadow-none active:scale-95 transition-all disabled:opacity-50"
         >
           {isExporting ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" /> Đang xử lý...
-            </>
+            <Loader2 className="w-5 h-5 animate-spin" />
           ) : (
             <>
-              <Download className="w-5 h-5" /> Tải báo cáo ngay
+              <Download className="w-5 h-5" /> {t('download_now')}
             </>
           )}
         </button>
