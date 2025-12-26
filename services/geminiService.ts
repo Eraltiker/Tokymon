@@ -29,20 +29,23 @@ export const analyzeFinances = async (stats: any, lang: Language = 'vi'): Promis
 };
 
 /**
- * Quét hóa đơn - Tối ưu cho tốc độ phản hồi cực nhanh
+ * Quét hóa đơn - Tối ưu cho tốc độ và khả năng đọc ảnh mờ
  */
 export const scanReceipt = async (base64Image: string, mimeType: string): Promise<any> => {
-  const prompt = `Act as an OCR financial expert. Extract data from this receipt image:
-  Return ONLY JSON with these exact fields:
-  1. amount (number): The total sum to pay.
+  const prompt = `Act as an expert financial OCR auditor. 
+  The image provided might be slightly blurry or from a mobile camera. 
+  Carefully analyze the image and extract:
+  1. amount (number): The absolute final total to pay.
   2. date (string): Format YYYY-MM-DD.
-  3. category (string): MUST be exactly one of: [${EXPENSE_CATEGORIES.join(', ')}]. Choose best fit.
+  3. category (string): Choose the most accurate from this list: [${EXPENSE_CATEGORIES.join(', ')}].
   4. note (string): The merchant/shop name.
   
-  Instructions:
-  - If handwritten, look for the largest number near currency symbols.
-  - If multiple amounts, pick the 'Grand Total'.
-  - No conversational text, just the raw JSON.`;
+  Critical Logic:
+  - If text is blurry, look for patterns (e.g., numbers followed by 'EUR' or '€').
+  - The 'amount' is usually the largest number on the bottom of a receipt.
+  - If unsure about a digit, use the context of surrounding items to infer the value.
+  
+  Return ONLY the JSON object. No extra text.`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });

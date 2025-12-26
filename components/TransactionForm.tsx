@@ -8,7 +8,7 @@ import {
   ChevronLeft, ChevronRight, Store, 
   ChevronDown, CreditCard, Calendar,
   Wallet, Receipt, Sparkles, AlertCircle, X,
-  Image as ImageIcon
+  Image as ImageIcon, Zap
 } from 'lucide-react';
 
 interface TransactionFormProps {
@@ -68,15 +68,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
 
   const compressImage = (file: File): Promise<{base64: string, type: string}> => {
     return new Promise((resolve, reject) => {
-      // iOS Memory Fix: Sử dụng ObjectURL
       const objectUrl = URL.createObjectURL(file);
       const img = new Image();
       img.src = objectUrl;
       
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        // Giới hạn 1000px để ổn định trên iPhone SE/8
-        const MAX_SIZE = 1000; 
+        // Tăng lên 1500px để giữ chi tiết cho ảnh mờ
+        const MAX_SIZE = 1500; 
         let width = img.width;
         let height = img.height;
         
@@ -90,12 +89,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         if (ctx) {
+          // Xử lý ảnh mờ: Tăng độ tương phản và độ sáng để chữ tách biệt khỏi nền
+          // Điều này giúp OCR của Gemini hoạt động tốt hơn với ảnh thiếu sáng hoặc rung tay
+          ctx.filter = 'contrast(1.25) brightness(1.05) saturate(1.1)';
           ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'medium';
+          ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, 0, 0, width, height);
         }
         
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
         URL.revokeObjectURL(objectUrl);
         resolve({ base64: dataUrl.split(',')[1], type: 'image/jpeg' });
       };
@@ -112,8 +114,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
     if (!file) return;
     
     setIsScanning(true);
-    // Độ trễ nhẹ 100ms để iOS hoàn tất ghi file từ camera vào cache
-    await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 150)); // Tăng độ trễ để iOS cache file xong
 
     try {
       const { base64, type: compressedType } = await compressImage(file);
@@ -127,7 +128,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
       }
     } catch (error) { 
       console.error("Scan error:", error);
-      alert(lang === 'vi' ? "AI quét thất bại. Vui lòng thử lại hoặc chọn ảnh khác." : "KI-Scan fehlgeschlagen. Bitte erneut versuchen.");
+      alert(lang === 'vi' ? "AI không đọc được ảnh. Hãy chụp gần và rõ nét hơn." : "KI konnte das Bild nicht lesen. Bitte deutlicher fotografieren.");
     } finally {
       setIsScanning(false);
       setInputKey(Date.now());
@@ -171,7 +172,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
             <div className="w-12 h-12 border-4 border-brand-500/20 border-t-brand-500 rounded-full animate-spin" />
             <Sparkles className="w-5 h-5 text-amber-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
           </div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-center animate-pulse">AI Scanning...</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-center animate-pulse">AI Smart Scanning...</p>
         </div>
       )}
 
@@ -184,27 +185,21 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         </div>
         
         {type === TransactionType.EXPENSE && (
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Nút DUYỆT FILE */}
-            <div className="relative w-10 h-10 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl active-scale transition-all flex items-center justify-center shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-              <ImageIcon className="w-5 h-5 pointer-events-none" />
+          <div className="shrink-0">
+            {/* Nút QUÉT THÔNG MINH (Hợp nhất Camera & File) */}
+            <div className="relative group active-scale transition-all">
+              <div className="flex items-center gap-2.5 px-3 py-2 bg-brand-50/50 dark:bg-brand-900/10 border border-brand-200 dark:border-brand-800/50 rounded-xl">
+                 <div className="w-7 h-7 bg-brand-600 text-white rounded-lg flex items-center justify-center shadow-vivid">
+                   <Zap className="w-4 h-4 fill-white" />
+                 </div>
+                 <span className="text-[10px] font-black uppercase tracking-tight text-brand-700 dark:text-brand-300 pr-1">Scan</span>
+              </div>
+              {/* input file không có capture sẽ tự động gợi ý cả Camera và Thư viện trên iOS */}
               <input 
-                key={`gallery-${inputKey}`}
+                key={inputKey}
                 type="file" 
                 onChange={handleFileUpload} 
                 accept="image/*" 
-                className="absolute inset-0 opacity-0 cursor-pointer z-20 w-full h-full" 
-              />
-            </div>
-            {/* Nút CHỤP ẢNH */}
-            <div className="relative w-10 h-10 bg-brand-600 text-white rounded-xl active-scale transition-all flex items-center justify-center shadow-lg shadow-brand-500/20 overflow-hidden">
-              <Camera className="w-5 h-5 pointer-events-none" />
-              <input 
-                key={`camera-${inputKey}`}
-                type="file" 
-                onChange={handleFileUpload} 
-                accept="image/*" 
-                capture="environment" 
                 className="absolute inset-0 opacity-0 cursor-pointer z-20 w-full h-full" 
               />
             </div>
