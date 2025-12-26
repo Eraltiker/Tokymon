@@ -27,6 +27,17 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({ transaction
   const [cardTotalInput, setCardTotalInput] = useState(transaction.incomeBreakdown?.card.toString() || '0');
   const [expenseAmount, setExpenseAmount] = useState(transaction.amount.toString());
 
+  const validateAndSetAmount = (val: string, setter: (v: string) => void) => {
+    if (/^[0-9]*[.,]?[0-9]*$/.test(val)) {
+      setter(val);
+    }
+  };
+
+  const parseLocaleNumber = (val: string): number => {
+    if (!val) return 0;
+    return Number(val.replace(',', '.'));
+  };
+
   const adjustDate = (days: number) => {
     const current = new Date(date);
     current.setDate(current.getDate() + days);
@@ -65,16 +76,16 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({ transaction
     };
 
     if (transaction.type === TransactionType.INCOME) {
-      const kasse = Number(kasseInput) || 0;
-      const app = Number(appInput) || 0;
-      const cardTotal = Number(cardTotalInput) || 0;
+      const kasse = parseLocaleNumber(kasseInput);
+      const app = parseLocaleNumber(appInput);
+      const cardTotal = parseLocaleNumber(cardTotalInput);
       const revenue = kasse + app;
       const cash = Math.max(0, revenue - cardTotal);
       finalAmount = revenue;
       updated.amount = finalAmount;
       updated.incomeBreakdown = { cash, card: cardTotal, delivery: app };
     } else {
-      finalAmount = Number(expenseAmount) || 0;
+      finalAmount = parseLocaleNumber(expenseAmount);
       updated.amount = finalAmount;
     }
 
@@ -103,11 +114,10 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({ transaction
              </div>
              
              <div className="flex items-center gap-2">
-                <button type="button" onClick={() => adjustDate(-1)} className="p-3 bg-white dark:bg-slate-800 rounded-2xl text-slate-400 transition-all border-2 dark:border-slate-700 shadow-sm active:scale-95"><ChevronLeft className="w-5 h-5" /></button>
+                <button type="button" onClick={() => adjustDate(-1)} className="p-3 bg-white dark:bg-slate-800 rounded-2xl text-slate-400 transition-all border-2 dark:border-slate-700 shadow-sm active:scale-95 z-10"><ChevronLeft className="w-5 h-5" /></button>
                 
                 <div 
-                  onClick={() => dateInputRef.current?.showPicker()}
-                  className="relative flex-1 flex items-center justify-between p-3.5 bg-white dark:bg-slate-900 rounded-xl border-2 border-slate-100 dark:border-slate-700 hover:border-indigo-500 transition-all cursor-pointer shadow-sm group active:scale-[0.98]"
+                  className="relative flex-1 flex items-center justify-between p-3.5 bg-white dark:bg-slate-900 rounded-xl border-2 border-slate-100 dark:border-slate-700 hover:border-indigo-500 transition-all cursor-pointer shadow-sm group active:scale-[0.98] min-h-[54px] overflow-hidden"
                 >
                     <div className="flex flex-col">
                       <span className="text-[14px] font-black text-slate-800 dark:text-white leading-none">{formatDateDisplay(date)}</span>
@@ -119,11 +129,11 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({ transaction
                       ref={dateInputRef}
                       value={date} 
                       onChange={e => setDate(e.target.value)} 
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" 
                     />
                 </div>
 
-                <button type="button" onClick={() => adjustDate(1)} className="p-3 bg-white dark:bg-slate-800 rounded-2xl text-slate-400 transition-all border-2 dark:border-slate-700 shadow-sm active:scale-95"><ChevronRight className="w-5 h-5" /></button>
+                <button type="button" onClick={() => adjustDate(1)} className="p-3 bg-white dark:bg-slate-800 rounded-2xl text-slate-400 transition-all border-2 dark:border-slate-700 shadow-sm active:scale-95 z-10"><ChevronRight className="w-5 h-5" /></button>
              </div>
           </div>
 
@@ -132,7 +142,7 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({ transaction
               <div className="space-y-1.5">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Kasse (Tại quán)</label>
                 <div className="relative">
-                  <input type="number" inputMode="decimal" value={kasseInput} onChange={e => setKasseInput(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-indigo-50/20 dark:bg-indigo-900/10 border-2 border-indigo-50 dark:border-indigo-900 rounded-2xl font-black text-2xl text-indigo-600 outline-none" />
+                  <input type="text" inputMode="decimal" value={kasseInput} onChange={e => validateAndSetAmount(e.target.value, setKasseInput)} className="w-full pl-12 pr-4 py-4 bg-indigo-50/20 dark:bg-indigo-900/10 border-2 border-indigo-50 dark:border-indigo-900 rounded-2xl font-black text-2xl text-indigo-600 outline-none" />
                   <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-300" />
                 </div>
               </div>
@@ -140,14 +150,14 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({ transaction
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">App (Online)</label>
                   <div className="relative">
-                    <input type="number" inputMode="decimal" value={appInput} onChange={e => setAppInput(e.target.value)} className="w-full pl-10 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-black text-base" />
+                    <input type="text" inputMode="decimal" value={appInput} onChange={e => validateAndSetAmount(e.target.value, setAppInput)} className="w-full pl-10 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-black text-base" />
                     <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-300" />
                   </div>
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Tổng Thẻ</label>
                   <div className="relative">
-                    <input type="number" inputMode="decimal" value={cardTotalInput} onChange={e => setCardTotalInput(e.target.value)} className="w-full pl-10 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-black text-base text-indigo-500" />
+                    <input type="text" inputMode="decimal" value={cardTotalInput} onChange={e => validateAndSetAmount(e.target.value, setCardTotalInput)} className="w-full pl-10 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-black text-base text-indigo-500" />
                     <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-300" />
                   </div>
                 </div>
@@ -157,7 +167,7 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({ transaction
             <div className="space-y-1.5">
               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Số tiền chi (€)</label>
               <div className="relative">
-                <input type="number" inputMode="decimal" value={expenseAmount} onChange={e => setExpenseAmount(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-rose-50/20 dark:bg-rose-900/10 border-2 border-rose-50 dark:border-rose-900 rounded-2xl font-black text-2xl text-rose-600 outline-none" />
+                <input type="text" inputMode="decimal" value={expenseAmount} onChange={e => validateAndSetAmount(e.target.value, setExpenseAmount)} className="w-full pl-12 pr-4 py-4 bg-rose-50/20 dark:bg-rose-900/10 border-2 border-rose-50 dark:border-rose-900 rounded-2xl font-black text-2xl text-rose-600 outline-none" />
                 <Euro className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-rose-300" />
               </div>
             </div>

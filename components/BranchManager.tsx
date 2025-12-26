@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Branch, formatCurrency, Language } from '../types';
 import { useTranslation } from '../i18n';
-import { Plus, Trash2, MapPin, Store, Banknote, CreditCard, Edit3, X, Save, RotateCcw, Eye, EyeOff, Zap, RefreshCcw } from 'lucide-react';
+import { Plus, Trash2, MapPin, Store, Banknote, CreditCard, Edit3, X, Save, RotateCcw, Eye, EyeOff, Zap, RefreshCcw, Eraser } from 'lucide-react';
 
 interface BranchManagerProps {
   branches: Branch[];
@@ -93,6 +93,18 @@ const BranchManager: React.FC<BranchManagerProps> = ({ branches, setBranches, on
     });
   };
 
+  const handleReset = (id: string, branchName: string) => {
+    setGlobalConfirm({
+      show: true,
+      title: 'Reset Dữ Liệu',
+      message: `${t('confirm_reset_data')} (${branchName})`,
+      onConfirm: () => {
+        onResetBranchData(id);
+        setGlobalConfirm(null);
+      }
+    });
+  };
+
   return (
     <div className="space-y-8 pb-10">
       <form onSubmit={handleSubmit} className={`bg-white dark:bg-slate-950 p-6 sm:p-8 rounded-[2rem] border-2 shadow-sm transition-all ${editingBranchId ? 'border-indigo-500' : 'dark:border-slate-800 border-slate-100'}`}>
@@ -133,8 +145,11 @@ const BranchManager: React.FC<BranchManagerProps> = ({ branches, setBranches, on
                 <Store className="w-5 h-5" />
               </div>
               <div className="flex gap-1">
-                <button type="button" onClick={() => startEdit(b)} className="p-2 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 rounded-lg"><Edit3 className="w-4 h-4" /></button>
-                <button type="button" onClick={() => handleDelete(b.id, b.name)} className="p-2 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-rose-600 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                <button type="button" onClick={() => handleReset(b.id, b.name)} title="Reset dữ liệu" className="p-2 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-amber-600 rounded-lg transition-colors">
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+                <button type="button" onClick={() => startEdit(b)} className="p-2 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-600 rounded-lg transition-colors"><Edit3 className="w-4 h-4" /></button>
+                <button type="button" onClick={() => handleDelete(b.id, b.name)} className="p-2 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
               </div>
             </div>
             <h4 className="font-black text-slate-900 dark:text-white uppercase text-lg mb-1">{b.name}</h4>

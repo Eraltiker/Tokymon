@@ -34,9 +34,9 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
   const isViewer = userRole === UserRole.VIEWER;
 
   return (
-    <div className={`flex flex-col lg:grid ${isViewer ? 'lg:grid-cols-1' : 'lg:grid-cols-3'} gap-6 lg:h-[calc(100vh-140px)] overflow-hidden`}>
+    <div className={`flex flex-col lg:grid ${isViewer ? 'lg:grid-cols-1' : 'lg:grid-cols-3'} gap-6`}>
       {!isViewer && (
-        <div className="lg:col-span-1 h-auto lg:h-full overflow-y-auto no-scrollbar">
+        <div className="lg:col-span-1">
           <TransactionForm 
             onAddTransaction={onAddTransaction} 
             expenseCategories={expenseCategories} 
@@ -48,12 +48,12 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
           />
         </div>
       )}
-      <div className={`${isViewer ? 'lg:col-span-1' : 'lg:col-span-2'} h-[600px] lg:h-full overflow-hidden mt-4 lg:mt-0`}>
+      <div className={`${isViewer ? 'lg:col-span-1' : 'lg:col-span-2'} min-h-[500px]`}>
         <TransactionList 
           transactions={expenseTransactions} 
           onDelete={onDeleteTransaction}
           onEdit={(tx) => setEditingTx(tx)}
-          title={`Lịch Sử Chi Phí - ${branchName}`} 
+          title={`Chi Phí - ${branchName}`} 
           userRole={userRole}
         />
       </div>

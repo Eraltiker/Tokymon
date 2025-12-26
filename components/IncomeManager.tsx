@@ -32,9 +32,9 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({
   const isViewer = userRole === UserRole.VIEWER;
 
   return (
-    <div className={`flex flex-col lg:grid ${isViewer ? 'lg:grid-cols-1' : 'lg:grid-cols-3'} gap-6 lg:h-[calc(100vh-140px)] overflow-hidden`}>
+    <div className={`flex flex-col lg:grid ${isViewer ? 'lg:grid-cols-1' : 'lg:grid-cols-3'} gap-6`}>
       {!isViewer && (
-        <div className="lg:col-span-1 h-auto lg:h-full overflow-y-auto no-scrollbar">
+        <div className="lg:col-span-1">
           <TransactionForm 
             onAddTransaction={onAddTransaction} 
             expenseCategories={[]} 
@@ -46,12 +46,12 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({
           />
         </div>
       )}
-      <div className={`${isViewer ? 'lg:col-span-1' : 'lg:col-span-2'} h-[600px] lg:h-full overflow-hidden mt-4 lg:mt-0`}>
+      <div className={`${isViewer ? 'lg:col-span-1' : 'lg:col-span-2'} min-h-[500px]`}>
         <TransactionList 
           transactions={incomeTransactions} 
           onDelete={onDeleteTransaction}
           onEdit={(tx) => setEditingTx(tx)}
-          title={`Lịch Sử Doanh Thu - ${branchName}`} 
+          title={`Doanh Thu - ${branchName}`} 
           userRole={userRole}
         />
       </div>

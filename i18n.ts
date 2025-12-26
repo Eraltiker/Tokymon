@@ -40,6 +40,8 @@ export const translations = {
     tab_monthly: "Tháng",
     profit: "Lợi nhuận",
     total_out: "Tổng chi",
+    // Fix: Added missing 'margin' key to resolve error in Dashboard.tsx
+    margin: "Tỷ suất lợi nhuận",
     top_expense: "Top hạng mục chi",
     assets: "Dòng tiền & Tài sản",
     cash_wallet: "Tiền Mặt (Ví Tổng)",
@@ -141,6 +143,8 @@ export const translations = {
     tab_monthly: "Monat",
     profit: "Gewinn",
     total_out: "Gesamtausgaben",
+    // Fix: Added missing 'margin' key to resolve error in Dashboard.tsx
+    margin: "Marge",
     top_expense: "Top Ausgaben",
     assets: "Cashflow & Vermögen",
     cash_wallet: "Bargeld (Hauptkasse)",
