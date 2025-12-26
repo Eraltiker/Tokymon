@@ -10,7 +10,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Tokymon" />
-    <meta name="theme-color" content="#0a0c10" />
+    <meta name="theme-color" content="#F2F4F7" />
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3135/3135706.png" />
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -48,7 +48,7 @@
             boxShadow: {
               'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
               'vivid': '0 12px 24px -6px rgba(99, 102, 241, 0.15)',
-              'ios': '0 10px 30px -10px rgba(0,0,0,0.1)'
+              'ios': '0 10px 30px -10px rgba(0,0,0,0.08)'
             }
           }
         }
@@ -65,19 +65,20 @@
         font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif; 
         -webkit-tap-highlight-color: transparent;
         overflow-x: hidden;
-        background-color: #f0f2f5;
+        background-color: #F2F4F7; /* Soft light grey-blue background */
         min-height: 100vh;
         position: relative;
+        color: #1E293B; /* slate-800 */
       }
-      .dark body { background-color: #06070a; }
+      .dark body { background-color: #06070a; color: #F1F5F9; }
 
-      /* Animated iOS Mesh Background */
+      /* Improved Contrast Mesh Background */
       body::before {
         content: '';
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
-        background: radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.05) 0%, transparent 40%),
-                    radial-gradient(circle at 100% 100%, rgba(168, 85, 247, 0.05) 0%, transparent 40%);
+        background: radial-gradient(circle at 10% 10%, rgba(99, 102, 241, 0.04) 0%, transparent 40%),
+                    radial-gradient(circle at 90% 90%, rgba(168, 85, 247, 0.04) 0%, transparent 40%);
         z-index: -1;
         pointer-events: none;
       }
@@ -87,12 +88,12 @@
       }
       
       .glass {
-        background: rgba(255, 255, 255, 0.82);
+        background: rgba(255, 255, 255, 0.88);
         backdrop-filter: saturate(180%) blur(25px);
         -webkit-backdrop-filter: saturate(180%) blur(25px);
       }
       .dark .glass {
-        background: rgba(10, 15, 25, 0.78);
+        background: rgba(10, 15, 25, 0.82);
         backdrop-filter: saturate(180%) blur(25px);
         -webkit-backdrop-filter: saturate(180%) blur(25px);
       }
@@ -115,6 +116,12 @@
         to { opacity: 1; transform: translateY(0); }
       }
       .animate-ios { animation: fadeSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+
+      /* Custom scrollbar for better visibility */
+      ::-webkit-scrollbar { width: 4px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+      .dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
     </style>
   <script type="importmap">
 {
@@ -132,7 +139,7 @@
 }
 </script>
 </head>
-  <body class="dark:bg-slate-950 text-slate-900 dark:text-slate-200 transition-colors duration-300 antialiased">
+  <body class="dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-300 antialiased font-sans">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

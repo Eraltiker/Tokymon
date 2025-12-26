@@ -66,12 +66,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   };
 
   const compressImage = (file: File): Promise<{base64: string, type: string}> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = (event) => {
         const img = new Image();
         img.src = event.target?.result as string;
+        img.onerror = reject;
         img.onload = () => {
           const canvas = document.createElement('canvas');
           const MAX_SIZE = 1200;
@@ -89,6 +90,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
           resolve({ base64: dataUrl.split(',')[1], type: 'image/jpeg' });
         };
       };
+      reader.onerror = reject;
     });
   };
 
@@ -105,9 +107,19 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         if (result.note) setNote(result.note);
         if (result.date) setDate(result.date);
       }
-    } catch (error) { console.error("Scan error:", error); } finally {
+    } catch (error) { 
+      console.error("Scan error:", error);
+      alert("AI Scan failed. Please try a clearer photo.");
+    } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const triggerCamera = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
     }
   };
 
@@ -141,99 +153,99 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   };
 
   return (
-    <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-3xl shadow-ios border border-white/20 dark:border-slate-800/50 flex flex-col relative overflow-hidden transition-all max-w-full lg:max-w-md mx-auto animate-ios">
+    <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-[2.5rem] shadow-ios border border-white dark:border-slate-800/50 flex flex-col relative overflow-hidden transition-all max-w-full lg:max-w-md mx-auto animate-ios">
       {isScanning && (
         <div className="absolute inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex flex-col items-center justify-center text-white p-6 animate-in fade-in duration-300">
           <div className="relative mb-6">
-            <div className="w-12 h-12 border-4 border-brand-500/20 border-t-brand-500 rounded-full animate-spin" />
-            <Sparkles className="w-5 h-5 text-amber-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+            <div className="w-14 h-14 border-4 border-brand-500/20 border-t-brand-500 rounded-full animate-spin" />
+            <Sparkles className="w-6 h-6 text-amber-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
           </div>
-          <p className="text-[9px] font-black uppercase tracking-widest text-center animate-pulse">AI Scanning...</p>
+          <p className="text-xs font-black uppercase tracking-widest text-center animate-pulse">AI Scanning...</p>
         </div>
       )}
 
-      <div className="px-5 py-3 border-b border-slate-50 dark:border-slate-800/50 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20">
+      <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/50 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20">
         <div className="min-w-0">
-          <span className="text-[7px] font-black uppercase text-brand-600 dark:text-brand-400 tracking-widest block mb-0.5 opacity-80">{branchName}</span>
-          <h2 className="text-base font-black uppercase tracking-tight dark:text-white leading-none truncate">
+          <span className="text-[10px] font-black uppercase text-brand-600 dark:text-brand-400 tracking-widest block mb-1 opacity-80">{branchName}</span>
+          <h2 className="text-xl font-extrabold uppercase tracking-tight dark:text-white leading-none truncate">
             {type === TransactionType.INCOME ? t('chot_so') : t('chi_phi')}
           </h2>
         </div>
         {type === TransactionType.EXPENSE && (
           <button 
             type="button" 
-            onClick={() => fileInputRef.current?.click()} 
-            className="w-10 h-10 bg-brand-600 text-white rounded-2xl active-scale transition-all flex items-center justify-center shadow-lg shadow-brand-500/20"
+            onClick={triggerCamera} 
+            className="w-12 h-12 bg-brand-600 text-white rounded-2xl active-scale transition-all flex items-center justify-center shadow-lg shadow-brand-500/20"
           >
-            <Camera className="w-5 h-5" />
+            <Camera className="w-6 h-6" />
           </button>
         )}
         <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" capture="environment" className="hidden" />
       </div>
       
-      <form onSubmit={handleSubmit} className="p-4 space-y-3">
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950/50 p-1 rounded-2xl border border-slate-200/50 dark:border-slate-800">
-          <button type="button" onClick={() => adjustDate(-1)} className="w-9 h-9 bg-white dark:bg-slate-800 rounded-xl text-slate-400 active-scale flex items-center justify-center shadow-sm"><ChevronLeft className="w-4 h-4" /></button>
-          <div className="flex-1 text-center relative h-9 flex items-center justify-center">
-            <span className="text-[10px] font-black dark:text-white uppercase tracking-tight flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-brand-500" />
+      <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <div className="flex items-center gap-2 bg-slate-100/50 dark:bg-slate-950/50 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800">
+          <button type="button" onClick={() => adjustDate(-1)} className="w-11 h-11 bg-white dark:bg-slate-800 rounded-xl text-slate-500 dark:text-slate-400 active-scale flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700"><ChevronLeft className="w-5 h-5" /></button>
+          <div className="flex-1 text-center relative h-11 flex items-center justify-center">
+            <span className="text-sm font-black dark:text-white uppercase tracking-tight flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-brand-500" />
               {formatDateDisplay(date)}
             </span>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer w-full" />
           </div>
-          <button type="button" onClick={() => adjustDate(1)} className="w-9 h-9 bg-white dark:bg-slate-800 rounded-xl text-slate-400 active-scale flex items-center justify-center shadow-sm"><ChevronRight className="w-4 h-4" /></button>
+          <button type="button" onClick={() => adjustDate(1)} className="w-11 h-11 bg-white dark:bg-slate-800 rounded-xl text-slate-500 dark:text-slate-400 active-scale flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-700"><ChevronRight className="w-5 h-5" /></button>
         </div>
 
         {type === TransactionType.INCOME ? (
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <label className="text-[7px] font-black text-slate-400 uppercase px-1 tracking-widest leading-none">{t('kasse_total')}</label>
-              <input type="text" inputMode="decimal" value={kasseInput} onChange={e => validateAndSetAmount(e.target.value, setKasseInput)} placeholder="0.00" className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border-2 border-transparent focus:border-brand-500 rounded-2xl font-black text-xl text-brand-600 dark:text-brand-400 outline-none transition-all shadow-inner text-center" required />
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase px-1 tracking-widest leading-none">{t('kasse_total')} (€)</label>
+              <input type="text" inputMode="decimal" value={kasseInput} onChange={e => validateAndSetAmount(e.target.value, setKasseInput)} placeholder="0.00" className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 focus:border-brand-500 dark:focus:border-brand-500 rounded-2xl font-black text-3xl text-brand-600 dark:text-brand-400 outline-none transition-all shadow-inner text-center" required />
             </div>
             
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="space-y-1">
-                <label className="text-[7px] font-black text-slate-400 uppercase px-1 tracking-widest leading-none">{t('card_total')}</label>
-                <input type="text" inputMode="decimal" value={cardTotalInput} onChange={e => validateAndSetAmount(e.target.value, setCardTotalInput)} placeholder="0" className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border-2 border-transparent focus:border-brand-500 rounded-xl font-black text-sm outline-none transition-all text-center" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase px-1 tracking-widest leading-none">{t('card_total')}</label>
+                <input type="text" inputMode="decimal" value={cardTotalInput} onChange={e => validateAndSetAmount(e.target.value, setCardTotalInput)} placeholder="0" className="w-full p-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 focus:border-brand-500 rounded-2xl font-black text-lg outline-none transition-all text-center" />
               </div>
-              <div className="space-y-1">
-                <label className="text-[7px] font-black text-slate-400 uppercase px-1 tracking-widest leading-none">{t('app_total')}</label>
-                <input type="text" inputMode="decimal" value={appInput} onChange={e => validateAndSetAmount(e.target.value, setAppInput)} placeholder="0" className="w-full p-2.5 bg-slate-50 dark:bg-slate-950 border-2 border-transparent focus:border-brand-500 rounded-xl font-black text-sm outline-none transition-all text-center" />
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase px-1 tracking-widest leading-none">{t('app_total')}</label>
+                <input type="text" inputMode="decimal" value={appInput} onChange={e => validateAndSetAmount(e.target.value, setAppInput)} placeholder="0" className="w-full p-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 focus:border-brand-500 rounded-2xl font-black text-lg outline-none transition-all text-center" />
               </div>
             </div>
           </div>
         ) : (
-          <div className="space-y-3">
-            <div className="space-y-1 text-center">
-              <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest leading-none">{t('chi_phi')} (€)</label>
-              <input type="text" inputMode="decimal" value={expenseAmount} onChange={e => validateAndSetAmount(e.target.value, setExpenseAmount)} className="w-full py-3 bg-slate-50 dark:bg-slate-950 border-2 border-transparent focus:border-rose-500 rounded-2xl font-black text-2xl text-rose-600 text-center outline-none transition-all shadow-inner" required />
+          <div className="space-y-4">
+            <div className="space-y-2 text-center">
+              <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-none">{t('chi_phi')} (€)</label>
+              <input type="text" inputMode="decimal" value={expenseAmount} onChange={e => validateAndSetAmount(e.target.value, setExpenseAmount)} className="w-full py-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 focus:border-rose-500 rounded-2xl font-black text-3xl text-rose-600 text-center outline-none transition-all shadow-inner" required />
             </div>
             
-            <div className="flex p-0.5 bg-slate-100 dark:bg-slate-950 rounded-xl border border-slate-200/50 dark:border-slate-800">
-              <button type="button" onClick={() => setIsPaid(true)} className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase transition-all active-scale ${isPaid ? 'bg-white dark:bg-slate-800 text-brand-600 shadow-sm' : 'text-slate-400'}`}>{t('paid')}</button>
-              <button type="button" onClick={() => setIsPaid(false)} className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase transition-all active-scale ${!isPaid ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400'}`}>{t('unpaid')}</button>
+            <div className="flex p-1 bg-slate-100/80 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800">
+              <button type="button" onClick={() => setIsPaid(true)} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all active-scale ${isPaid ? 'bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 shadow-sm border border-slate-100 dark:border-slate-700' : 'text-slate-400'}`}>{t('paid')}</button>
+              <button type="button" onClick={() => setIsPaid(false)} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition-all active-scale ${!isPaid ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400'}`}>{t('unpaid')}</button>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               <div className="relative">
-                <select value={expenseCategory} onChange={e => setExpenseCategory(e.target.value)} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border-2 border-transparent focus:border-brand-500 rounded-xl font-black text-[9px] uppercase outline-none appearance-none transition-all">
+                <select value={expenseCategory} onChange={e => setExpenseCategory(e.target.value)} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 focus:border-brand-500 rounded-2xl font-black text-xs uppercase outline-none appearance-none transition-all text-slate-700 dark:text-slate-200">
                   {expenseCategories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
               </div>
 
               {!isPaid ? (
-                <input type="text" value={debtorName} onChange={e => setDebtorName(e.target.value)} placeholder={t('vendor_name')} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border-2 border-transparent focus:border-brand-500 rounded-xl font-black text-[10px] outline-none" required />
+                <input type="text" value={debtorName} onChange={e => setDebtorName(e.target.value)} placeholder={t('vendor_name')} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 focus:border-brand-500 rounded-2xl font-black text-sm outline-none" required />
               ) : (
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-3">
                   {[
                     { id: ExpenseSource.SHOP_CASH, label: t('shop_cash'), icon: Store },
                     { id: ExpenseSource.WALLET, label: t('master_wallet'), icon: Wallet },
                     { id: ExpenseSource.CARD, label: t('card_bank'), icon: CreditCard }
                   ].map((s) => (
-                    <button key={s.id} type="button" onClick={() => setExpenseSource(s.id)} className={`py-1.5 rounded-xl border-2 transition-all flex flex-col items-center gap-0.5 active-scale ${expenseSource === s.id ? `bg-brand-600 border-brand-600 text-white shadow-md` : 'bg-slate-50 dark:bg-slate-950 border-transparent text-slate-400'}`}>
-                      <s.icon className="w-3.5 h-3.5" />
-                      <span className="text-[7px] font-black uppercase tracking-widest leading-none">{s.label}</span>
+                    <button key={s.id} type="button" onClick={() => setExpenseSource(s.id)} className={`py-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-1 active-scale ${expenseSource === s.id ? `bg-brand-600 border-brand-600 text-white shadow-md` : 'bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-500'}`}>
+                      <s.icon className="w-5 h-5" />
+                      <span className="text-[10px] font-black uppercase tracking-tight leading-none">{s.label}</span>
                     </button>
                   ))}
                 </div>
@@ -242,23 +254,23 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
           </div>
         )}
 
-        <div className="space-y-2.5 pt-1">
-          <div className="bg-slate-50/50 dark:bg-slate-950/30 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-inner">
-            <textarea value={note} onChange={e => setNote(e.target.value)} placeholder={t('note')} className="w-full bg-transparent text-[10px] font-bold outline-none dark:text-white resize-none h-12 leading-relaxed" />
+        <div className="space-y-4 pt-2">
+          <div className="bg-white dark:bg-slate-950/30 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-inner">
+            <textarea value={note} onChange={e => setNote(e.target.value)} placeholder={t('note')} className="w-full bg-transparent text-sm font-bold outline-none dark:text-white resize-none h-16 leading-relaxed" />
           </div>
 
           <button 
             type="submit" 
             disabled={isDuplicateDate || isScanning} 
-            className={`w-full h-12 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] active-scale transition-all flex items-center justify-center gap-2.5 shadow-vivid ${isDuplicateDate || isScanning ? 'bg-slate-200 text-slate-400 shadow-none cursor-not-allowed' : 'bg-brand-600 text-white'}`}
+            className={`w-full h-16 rounded-3xl font-black uppercase tracking-[0.1em] text-sm active-scale transition-all flex items-center justify-center gap-3 shadow-vivid ${isDuplicateDate || isScanning ? 'bg-slate-200 text-slate-400 shadow-none cursor-not-allowed' : 'bg-brand-600 text-white'}`}
           >
-            <Save className="w-4 h-4" /> {t('save_transaction')}
+            <Save className="w-6 h-6" /> {t('save_transaction')}
           </button>
           
           {isDuplicateDate && (
-             <div className="p-2.5 bg-rose-50 dark:bg-rose-950/20 rounded-xl border border-rose-100 dark:border-rose-900/50 flex items-center gap-2">
-                <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                <p className="text-[8px] font-black text-rose-500 uppercase leading-relaxed">{t('duplicate_date_error')}</p>
+             <div className="p-3 bg-rose-50 dark:bg-rose-950/20 rounded-2xl border border-rose-100 dark:border-rose-900/50 flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
+                <p className="text-xs font-black text-rose-600 dark:text-rose-400 uppercase leading-relaxed">{t('duplicate_date_error')}</p>
              </div>
           )}
         </div>

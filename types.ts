@@ -130,16 +130,24 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "3.2.3";
+export const SCHEMA_VERSION = "3.2.5";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
   {
-    version: "3.2.3",
-    date: "2024-05-25",
+    version: "3.2.5",
+    date: "2024-05-27",
     changes: {
-      vi: ["Dịch thuật triệt để toàn bộ hệ thống (Việt/Đức)", "Thêm nút chuyển đổi ngôn ngữ nhanh trên Header", "Tối ưu hóa Mesh Gradient Background", "Sửa lỗi hiển thị các nhãn nợ trên mobile"],
-      de: ["Vollständige Systemübersetzung (Deutsch/Vietnamesisch)", "Sprachumschalter zum Header hinzugefügt", "Optimierter Mesh-Gradient-Hintergrund", "Fehlerbehebung bei der Anzeige von Schuldenetiketten"]
+      vi: ["Tái thiết kế màn hình Đăng nhập theo phong cách Glassmorphism cao cấp", "Cải thiện độ tương phản và hiển thị của các ô nhập liệu", "Tối ưu hóa bố cục logo và tiêu đề chuyên nghiệp hơn", "Chuyển đổi ngôn ngữ mượt mà ngay tại màn hình chờ"],
+      de: ["Neugestaltung des Login-Bildschirms im Premium-Glassmorphism-Stil", "Verbesserter Kontrast und Anzeige von Eingabefeldern", "Optimiertes Logo-Layout und professionelle Titel", "Reibungslose Sprachumschaltung im Standby-Bildschirm"]
+    }
+  },
+  {
+    version: "3.2.4",
+    date: "2024-05-26",
+    changes: {
+      vi: ["Tối ưu Typography: Tăng kích thước font chữ toàn hệ thống", "Theme Light mới: Chống chói, tăng độ tương phản đọc", "Cải thiện bố cục Dashboard trực quan hơn", "Tăng kích thước các nút bấm và ô nhập liệu"],
+      de: ["Typography-Optimierung: Größere Schriftarten im gesamten System", "Neues Light-Theme: Blendfrei mit besserem Kontrast", "Verbessertes Dashboard-Layout", "Größere Schaltflächen und Eingabefelder"]
     }
   }
 ];
