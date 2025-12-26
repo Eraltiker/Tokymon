@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { Transaction, TransactionType, formatCurrency, ExpenseSource, Language } from '../types';
 import { scanReceipt } from '../services/geminiService';
 import { useTranslation } from '../i18n';
@@ -36,7 +36,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   const [cardTotalInput, setCardTotalInput] = useState<string>(''); 
   
   const [isScanning, setIsScanning] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [inputKey, setInputKey] = useState(Date.now());
 
   const isDuplicateDate = useMemo(() => {
     if (type !== TransactionType.INCOME) return false;
@@ -90,13 +90,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
           resolve({ base64: dataUrl.split(',')[1], type: 'image/jpeg' });
         };
       };
-      reader.onerror = reject;
+      reader.onerror = (e) => reject(e);
     });
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
     setIsScanning(true);
     try {
       const { base64, type: compressedType } = await compressImage(file);
@@ -109,17 +110,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
       }
     } catch (error) { 
       console.error("Scan error:", error);
-      alert("AI Scan failed. Please try a clearer photo.");
+      alert(lang === 'vi' ? "AI quét thất bại. Vui lòng chụp ảnh rõ hơn." : "KI-Scan fehlgeschlagen. Bitte machen Sie ein deutlicheres Foto.");
     } finally {
       setIsScanning(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  const triggerCamera = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
+      setInputKey(Date.now());
     }
   };
 
@@ -172,15 +166,19 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
           </h2>
         </div>
         {type === TransactionType.EXPENSE && (
-          <button 
-            type="button" 
-            onClick={triggerCamera} 
-            className="w-12 h-12 bg-brand-600 text-white rounded-2xl active-scale transition-all flex items-center justify-center shadow-lg shadow-brand-500/20"
-          >
-            <Camera className="w-6 h-6" />
-          </button>
+          <div className="relative w-12 h-12 bg-brand-600 text-white rounded-2xl active-scale transition-all flex items-center justify-center shadow-lg shadow-brand-500/20 overflow-hidden">
+            <Camera className="w-6 h-6 pointer-events-none" />
+            {/* iOS Bulletproof Fix: Input phủ kín nút bấm, nhận diện chạm trực tiếp từ hệ điều hành */}
+            <input 
+              key={inputKey}
+              type="file" 
+              onChange={handleFileUpload} 
+              accept="image/*" 
+              capture="environment" 
+              className="absolute inset-0 opacity-0 cursor-pointer z-10 scale-[10]" 
+            />
+          </div>
         )}
-        <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" capture="environment" className="hidden" />
       </div>
       
       <form onSubmit={handleSubmit} className="p-6 space-y-5">
