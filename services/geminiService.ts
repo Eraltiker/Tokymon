@@ -29,15 +29,15 @@ export const analyzeFinances = async (stats: any, lang: Language = 'vi'): Promis
 };
 
 /**
- * Quét hóa đơn - Tối ưu cho tốc độ và độ chính xác ( < 2 giây )
+ * Quét hóa đơn - Tối ưu cho tốc độ phản hồi tối đa
  */
 export const scanReceipt = async (base64Image: string, mimeType: string): Promise<any> => {
-  const prompt = `Extract JSON from receipt image:
-  1. amount (number): The total final sum.
+  const prompt = `Extract receipt data as JSON:
+  1. amount (number): Total sum.
   2. date (string): YYYY-MM-DD.
-  3. category (string): Must match one of [${EXPENSE_CATEGORIES.join(', ')}].
-  4. note (string): Only the Merchant Name (e.g., Edeka, Metro, Amazon).
-  Return ONLY valid JSON.`;
+  3. category (string): Strictly one of [${EXPENSE_CATEGORIES.join(', ')}].
+  4. note (string): Merchant Name only.
+  No preamble, return JSON only.`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -51,7 +51,7 @@ export const scanReceipt = async (base64Image: string, mimeType: string): Promis
       },
       config: {
         responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 0 },
+        thinkingConfig: { thinkingBudget: 0 }, // Tắt thinking để có kết quả ngay lập tức
         responseSchema: {
           type: Type.OBJECT,
           properties: {
