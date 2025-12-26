@@ -22,10 +22,10 @@ export const analyzeFinances = async (stats: any, lang: Language = 'vi'): Promis
 
     Yêu cầu bản phân tích:
     1. Nhận xét ngắn gọn về sức khỏe tài chính.
-    2. Chỉ ra điểm bất thường hoặc cần tối ưu (nếu có, ví dụ chi phí nguyên liệu quá cao hoặc nợ nhiều).
+    2. Chỉ ra điểm bất thường hoặc cần tối ưu (nếu có).
     3. Đưa ra 3 lời khuyên cụ thể để tăng lợi nhuận hoặc tối ưu dòng tiền.
     
-    Phong cách: Chuyên nghiệp, súc tích, đi thẳng vào vấn đề. Sử dụng Markdown để trình bày (bullet points).
+    Phong cách: Chuyên nghiệp, súc tích, đi thẳng vào vấn đề. Sử dụng Markdown để trình bày.
   `;
 
   try {
@@ -33,6 +33,9 @@ export const analyzeFinances = async (stats: any, lang: Language = 'vi'): Promis
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
+      config: {
+        thinkingConfig: { thinkingBudget: 0 } // Tối ưu tốc độ phản hồi
+      }
     });
     return response.text || "Không thể khởi tạo bản phân tích.";
   } catch (error) {
@@ -42,17 +45,17 @@ export const analyzeFinances = async (stats: any, lang: Language = 'vi'): Promis
 };
 
 /**
- * Scan a receipt image using Gemini 3 vision capabilities
+ * Quét hóa đơn bằng Gemini 3 Vision - Tối ưu hóa tốc độ và độ chính xác trích xuất
  */
 export const scanReceipt = async (base64Image: string, mimeType: string): Promise<any> => {
-  const prompt = `Bạn là một trợ lý kế toán cho nhà hàng Tokymon. Hãy phân tích ảnh hóa đơn này.
-  Trích xuất các thông tin sau vào JSON:
-  - amount: tổng số tiền phải thanh toán (chỉ lấy số)
-  - date: ngày trên hóa đơn (định dạng YYYY-MM-DD)
-  - category: chọn danh mục phù hợp nhất từ danh sách này: [${EXPENSE_CATEGORIES.join(', ')}]
-  - note: tên nhà cung cấp hoặc nội dung ngắn gọn (ví dụ: "Metro", "Edeka", "Lương tháng 5")
-  
-  Lưu ý: Nếu hóa đơn bằng tiếng Đức, hãy hiểu các từ như 'Summe', 'Gesamtbetrag' là tổng tiền. Nếu không tìm thấy ngày, hãy lấy ngày hôm nay.`;
+  // Prompt được thiết kế cực kỳ ngắn gọn để AI xử lý nhanh nhất
+  const prompt = `Trích xuất dữ liệu từ hóa đơn này vào JSON:
+  - amount: Số tiền cuối cùng phải trả (Tổng cộng/Summe/Total).
+  - date: Ngày giao dịch (YYYY-MM-DD). Nếu không thấy, dùng ngày hiện tại.
+  - category: Chọn 1 mục phù hợp nhất từ: [${EXPENSE_CATEGORIES.join(', ')}].
+  - note: Tên cửa hàng/Nhà cung cấp (ví dụ: Metro, Edeka, Netto, v.v.).
+
+  Ưu tiên độ chính xác của số tiền và tên cửa hàng.`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -71,19 +74,21 @@ export const scanReceipt = async (base64Image: string, mimeType: string): Promis
       },
       config: {
         responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 0 }, // QUAN TRỌNG: Tắt thinking để đạt tốc độ nhanh nhất
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            amount: { type: Type.NUMBER, description: "Total amount on the receipt" },
-            date: { type: Type.STRING, description: "Transaction date in YYYY-MM-DD format" },
-            category: { type: Type.STRING, description: "The most appropriate category from the provided list" },
-            note: { type: Type.STRING, description: "Brief vendor or item note" }
+            amount: { type: Type.NUMBER, description: "Total final amount" },
+            date: { type: Type.STRING, description: "YYYY-MM-DD format" },
+            category: { type: Type.STRING, description: "Matching category from list" },
+            note: { type: Type.STRING, description: "Store or Vendor name" }
           },
           required: ["amount", "date", "category", "note"]
         }
       }
     });
 
+    // Trả về dữ liệu đã được parse, nếu lỗi trả về object rỗng
     return JSON.parse(response.text || "{}");
   } catch (error) {
     console.error("OCR Error:", error);
