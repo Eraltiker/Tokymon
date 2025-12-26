@@ -67,36 +67,42 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
 
   const compressImage = (file: File): Promise<{base64: string, type: string}> => {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        img.onerror = reject;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          // Tăng nhẹ kích thước lên 1200 để Gemini đọc chữ nhỏ tốt hơn
-          const MAX_SIZE = 1200; 
-          let width = img.width;
-          let height = img.height;
-          if (width > height) {
-            if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
-          } else {
-            if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
-          }
-          canvas.width = width; canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-            ctx.drawImage(img, 0, 0, width, height);
-          }
-          // Sử dụng chất lượng 0.8 để đảm bảo text cực kỳ sắc nét cho OCR
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-          resolve({ base64: dataUrl.split(',')[1], type: 'image/jpeg' });
-        };
+      // iOS Memory Fix: Sử dụng ObjectURL thay vì đọc trực tiếp chuỗi Base64 cực lớn của ảnh gốc
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.src = objectUrl;
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        // Mobile Safe Limit: Giới hạn 1000px để tránh crash Safari mobile
+        const MAX_SIZE = 1000; 
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > height) {
+          if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
+        } else {
+          if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'medium';
+          ctx.drawImage(img, 0, 0, width, height);
+        }
+        
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        URL.revokeObjectURL(objectUrl); // Giải phóng bộ nhớ ngay lập tức
+        resolve({ base64: dataUrl.split(',')[1], type: 'image/jpeg' });
       };
-      reader.onerror = (e) => reject(e);
+      
+      img.onerror = (e) => {
+        URL.revokeObjectURL(objectUrl);
+        reject(e);
+      };
     });
   };
 
@@ -106,8 +112,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
     
     setIsScanning(true);
     try {
+      // Xử lý nén ảnh ngay lập tức
       const { base64, type: compressedType } = await compressImage(file);
+      // Gửi sang AI
       const result = await scanReceipt(base64, compressedType);
+      
       if (result) {
         if (result.amount) setExpenseAmount(result.amount.toString());
         if (result.category) setExpenseCategory(result.category);
@@ -116,10 +125,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
       }
     } catch (error) { 
       console.error("Scan error:", error);
-      alert(lang === 'vi' ? "AI quét thất bại. Vui lòng chụp ảnh rõ hơn." : "KI-Scan fehlgeschlagen. Bitte machen Sie ein deutlicheres Foto.");
+      alert(lang === 'vi' ? "AI quét thất bại. Vui lòng chụp ảnh rõ hơn hoặc dung lượng ảnh quá lớn." : "KI-Scan fehlgeschlagen. Bitte machen Sie ein deutlicheres Foto.");
     } finally {
       setIsScanning(false);
-      // Reset input key để người dùng có thể chụp lại ảnh ngay sau đó nếu chưa ưng ý
       setInputKey(Date.now());
     }
   };
@@ -175,14 +183,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         {type === TransactionType.EXPENSE && (
           <div className="relative w-10 h-10 bg-brand-600 text-white rounded-xl active-scale transition-all flex items-center justify-center shadow-lg shadow-brand-500/20 overflow-hidden shrink-0">
             <Camera className="w-5 h-5 pointer-events-none" />
-            {/* iOS Fix: Thẻ input vô hình với z-index cực cao và kích thước phủ toàn bộ nút bấm */}
+            {/* iOS Fix: Đặt input file đè chính xác 100% diện tích icon để luôn nhận click */}
             <input 
               key={inputKey}
               type="file" 
               onChange={handleFileUpload} 
               accept="image/*" 
               capture="environment" 
-              className="absolute inset-0 opacity-0 cursor-pointer z-[20] w-full h-full scale-[5]" 
+              className="absolute inset-0 opacity-0 cursor-pointer z-20 w-full h-full" 
             />
           </div>
         )}
