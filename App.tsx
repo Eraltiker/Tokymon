@@ -190,16 +190,16 @@ const App = () => {
         <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[120px] rounded-full animate-pulse delay-1000 pointer-events-none" />
         
         <div className="absolute top-8 right-8 z-50 flex items-center gap-3">
-           <button onClick={() => setIsDark(!isDark)} className="w-11 h-11 glass rounded-2xl border dark:border-white/10 border-slate-200 flex items-center justify-center active-scale transition-all shadow-xl">
-             {isDark ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-brand-600" />}
+           <button onClick={() => setIsDark(!isDark)} className="w-12 h-12 glass rounded-2xl border dark:border-white/10 border-slate-200 flex items-center justify-center active-scale transition-all shadow-xl">
+             {isDark ? <Sun className="w-6 h-6 text-amber-500" /> : <Moon className="w-6 h-6 text-brand-600" />}
            </button>
-           <button onClick={toggleLanguage} className="px-5 py-2.5 glass rounded-2xl border dark:border-white/10 border-slate-200 dark:text-white text-slate-700 active-scale transition-all flex items-center gap-3 shadow-xl group">
-              <Languages className="w-4 h-4 text-brand-500" />
+           <button onClick={toggleLanguage} className="px-5 py-3 glass rounded-2xl border dark:border-white/10 border-slate-200 dark:text-white text-slate-700 active-scale transition-all flex items-center gap-3 shadow-xl group">
+              <Languages className="w-5 h-5 text-brand-500" />
               <span className="text-[11px] font-black uppercase tracking-widest">{lang === 'vi' ? 'Tiếng Việt' : 'Deutsch'}</span>
            </button>
         </div>
 
-        <div className="w-full max-w-[420px] z-10 space-y-10 animate-ios">
+        <div className="w-full max-w-[420px] z-10 space-y-12 animate-ios">
           <div className="text-center space-y-6">
             <div className="relative inline-block">
               {data.logoUrl ? (
@@ -207,17 +207,17 @@ const App = () => {
                   <img src={data.logoUrl} alt="Tokymon" className="w-24 h-24 mx-auto object-contain" />
                 </div>
               ) : (
-                <div className="w-28 h-28 bg-gradient-to-br from-brand-600 to-indigo-700 rounded-[2.5rem] flex items-center justify-center shadow-vivid mx-auto transform rotate-6 active:rotate-0 transition-all duration-500 relative overflow-hidden">
-                  <UtensilsCrossed className="w-14 h-14 text-white" />
+                <div className="w-32 h-32 bg-gradient-to-br from-brand-600 to-indigo-700 rounded-[2.5rem] flex items-center justify-center shadow-vivid mx-auto transform rotate-6 active:rotate-0 transition-all duration-500 relative overflow-hidden">
+                  <UtensilsCrossed className="w-16 h-16 text-white" />
                 </div>
               )}
             </div>
             <div className="space-y-2">
-              <h1 className="text-5xl font-black dark:text-white text-slate-900 uppercase tracking-tighter leading-none">Tokymon</h1>
-              <div className="flex items-center justify-center gap-2">
-                <div className="h-[1px] w-8 bg-brand-500/30" />
-                <p className="text-[10px] font-black text-brand-500 dark:text-brand-400 uppercase tracking-[0.4em] translate-x-[0.2em]">Finance Core</p>
-                <div className="h-[1px] w-8 bg-brand-500/30" />
+              <h1 className="text-6xl font-black uppercase tracking-tighter leading-none text-transparent bg-clip-text bg-gradient-to-b from-brand-500 to-indigo-600 dark:from-white dark:to-slate-400">Tokymon</h1>
+              <div className="flex items-center justify-center gap-3">
+                <div className="h-[2px] w-8 bg-brand-500/20" />
+                <p className="text-[11px] font-black text-brand-600 dark:text-brand-400 uppercase tracking-[0.5em] translate-x-[0.25em]">Finance Core</p>
+                <div className="h-[2px] w-8 bg-brand-500/20" />
               </div>
             </div>
           </div>
@@ -228,40 +228,44 @@ const App = () => {
               const user = activeUsers.find(u => u.username.toLowerCase() === loginForm.username.toLowerCase() && u.password === loginForm.password);
               if (user) { setCurrentUser(user); localStorage.setItem('tokymon_user', JSON.stringify(user)); addAuditLog('LOGIN', 'USER', user.id, `Đăng nhập thành công`); } else { setLoginError(t('error_login')); }
             }} 
-            className="bg-white/80 dark:bg-white/[0.03] backdrop-blur-3xl p-10 rounded-[3.5rem] border border-white dark:border-white/10 shadow-2xl space-y-8"
+            className="bg-white/95 dark:bg-slate-900/40 backdrop-blur-3xl p-10 rounded-[4rem] border dark:border-white/10 border-white shadow-2xl space-y-10"
           >
-            <div className="space-y-6">
+            <div className="space-y-8">
               <div className="space-y-3">
-                <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.15em] ml-2">Access ID</label>
+                <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] ml-3">Access ID</label>
                 <div className="relative group">
-                  <input type="text" value={loginForm.username} onChange={e => {setLoginForm({...loginForm, username: e.target.value}); setLoginError('');}} className="w-full p-5 bg-slate-100/50 dark:bg-white/5 focus:bg-white dark:focus:bg-white/[0.08] rounded-2xl font-bold border-2 border-transparent focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-14 text-sm" placeholder="Username" required />
-                  <UserCircle2 className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                  <input type="text" value={loginForm.username} onChange={e => {setLoginForm({...loginForm, username: e.target.value}); setLoginError('');}} className="w-full p-6 bg-slate-100/50 dark:bg-slate-950/50 rounded-3xl font-bold border-2 border-transparent focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-16 text-base" placeholder="Username" required />
+                  <UserCircle2 className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
                 </div>
               </div>
               <div className="space-y-3">
-                <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.15em] ml-2">Secure Key</label>
+                <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] ml-3">Secure Key</label>
                 <div className="relative group">
-                  <input type="password" value={loginForm.password} onChange={e => {setLoginForm({...loginForm, password: e.target.value}); setLoginError('');}} className="w-full p-5 bg-slate-100/50 dark:bg-white/5 focus:bg-white dark:focus:bg-white/[0.08] rounded-2xl font-bold border-2 border-transparent focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-14 text-sm" placeholder="••••••••" required />
-                  <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                  <input type="password" value={loginForm.password} onChange={e => {setLoginForm({...loginForm, password: e.target.value}); setLoginError('');}} className="w-full p-6 bg-slate-100/50 dark:bg-slate-950/50 rounded-3xl font-bold border-2 border-transparent focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-16 text-base" placeholder="••••••••" required />
+                  <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
                 </div>
               </div>
             </div>
 
             {loginError && (
-              <div className="bg-rose-500/10 p-5 rounded-2xl border border-rose-500/20 flex items-center gap-4 animate-shake">
-                <AlertTriangle className="w-6 h-6 text-rose-500" />
-                <p className="text-rose-600 dark:text-rose-400 text-xs font-black uppercase">{loginError}</p>
+              <div className="bg-rose-500/10 p-6 rounded-3xl border border-rose-500/20 flex items-center gap-5 animate-ios">
+                <AlertTriangle className="w-7 h-7 text-rose-500" />
+                <p className="text-rose-600 dark:text-rose-400 text-xs font-black uppercase tracking-wide leading-relaxed">{loginError}</p>
               </div>
             )}
 
-            <button type="submit" className="w-full py-5.5 bg-brand-600 hover:bg-brand-500 text-white rounded-[2rem] font-black uppercase text-sm tracking-[0.2em] active-scale transition-all flex items-center justify-center gap-4 shadow-vivid">
-              {t('login')} <ArrowRight className="w-5 h-5" />
+            <button type="submit" className="w-full py-6 bg-brand-600 hover:bg-brand-500 text-white rounded-[2.2rem] font-black uppercase text-sm tracking-[0.2em] active-scale transition-all flex items-center justify-center gap-5 shadow-vivid border border-white/10">
+              {t('login')} <ArrowRight className="w-6 h-6" />
             </button>
           </form>
 
-          <div className="text-center space-y-2 opacity-50">
-             <p className="text-[10px] font-black dark:text-slate-400 text-slate-500 uppercase tracking-[0.3em]">Tokymon Finance • thPhuoc Dev</p>
-             <p className="text-[9px] font-bold dark:text-slate-500 text-slate-400 uppercase tracking-[0.1em]">v{SCHEMA_VERSION} • Persistence Layer Active</p>
+          <div className="text-center space-y-4">
+             <p className="text-[11px] font-black dark:text-slate-400 text-slate-500 uppercase tracking-[0.4em]">Sản phẩm của <span className="text-brand-600 dark:text-brand-400">thPhuoc</span></p>
+             <div className="flex items-center justify-center gap-4 opacity-30">
+               <span className="text-[10px] font-bold uppercase tracking-widest">v{SCHEMA_VERSION}</span>
+               <div className="w-1 h-1 bg-slate-400 rounded-full" />
+               <span className="text-[10px] font-bold uppercase tracking-widest">Built with AI Intelligence</span>
+             </div>
           </div>
         </div>
       </div>
@@ -285,16 +289,16 @@ const App = () => {
         </div>
       )}
       
-      <header className="px-4 py-3 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800/80 shadow-sm pt-[calc(0.7rem+env(safe-area-inset-top))]">
-        <div className="flex items-center gap-2">
-          {data.logoUrl ? ( <img src={data.logoUrl} alt="Logo" className="w-9 h-9 object-contain" /> ) : (
-            <div className="w-9 h-9 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-vivid"><UtensilsCrossed className="w-5 h-5" /></div>
+      <header className="px-4 py-4 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800 shadow-lg pt-[calc(0.8rem+env(safe-area-inset-top))]">
+        <div className="flex items-center gap-3">
+          {data.logoUrl ? ( <img src={data.logoUrl} alt="Logo" className="w-10 h-10 object-contain" /> ) : (
+            <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-vivid"><UtensilsCrossed className="w-5 h-5" /></div>
           )}
           <div className="relative">
-            <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 active-scale transition-all shadow-sm">
-              <div className={`w-2 h-2 rounded-full ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-500 animate-pulse' : 'bg-brand-500'}`} />
-              <span className="text-[11px] font-black uppercase dark:text-white truncate max-w-[90px] sm:max-w-[140px] tracking-tight">{currentBranchName}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 active-scale transition-all shadow-sm">
+              <div className={`w-2.5 h-2.5 rounded-full ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-500 animate-pulse' : 'bg-brand-500'}`} />
+              <span className="text-[11px] font-black uppercase dark:text-white truncate max-w-[110px] sm:max-w-[160px] tracking-tight">{currentBranchName}</span>
+              <ChevronDown className="w-4 h-4 text-slate-400" />
             </button>
             {showBranchDropdown && (
               <>
@@ -318,14 +322,14 @@ const App = () => {
           </div>
         </div>
         
-        <div className="flex items-center gap-1.5 sm:gap-2.5">
-          <button onClick={toggleLanguage} className="w-10 h-10 glass rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center active-scale transition-all shadow-sm">
+        <div className="flex items-center gap-3">
+          <button onClick={toggleLanguage} className="w-11 h-11 glass rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center active-scale transition-all shadow-sm">
              <span className="text-[11px] font-black uppercase dark:text-white">{lang === 'vi' ? 'VN' : 'DE'}</span>
           </button>
-          <button onClick={() => setIsDark(!isDark)} className="w-10 h-10 glass rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center active-scale shadow-sm">
-             {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-brand-600" />}
+          <button onClick={() => setIsDark(!isDark)} className="w-11 h-11 glass rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center active-scale shadow-sm">
+             {isDark ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-brand-600" />}
           </button>
-          <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })} className="w-10 h-10 bg-rose-600 text-white rounded-xl shadow-lg active-scale flex items-center justify-center border border-rose-500/50"><LogOut className="w-4 h-4" /></button>
+          <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })} className="w-11 h-11 bg-rose-600 text-white rounded-xl shadow-lg active-scale flex items-center justify-center border border-rose-500/50"><LogOut className="w-5 h-5" /></button>
         </div>
       </header>
 

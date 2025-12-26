@@ -75,7 +75,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         img.onerror = reject;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_SIZE = 1200;
+          const MAX_SIZE = 1200; // Tăng lên một chút để AI đọc rõ hơn
           let width = img.width;
           let height = img.height;
           if (width > height) {
@@ -85,8 +85,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
           }
           canvas.width = width; canvas.height = height;
           const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          if (ctx) {
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, width, height);
+          }
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
           resolve({ base64: dataUrl.split(',')[1], type: 'image/jpeg' });
         };
       };
@@ -113,7 +117,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
       alert(lang === 'vi' ? "AI quét thất bại. Vui lòng chụp ảnh rõ hơn." : "KI-Scan fehlgeschlagen. Bitte machen Sie ein deutlicheres Foto.");
     } finally {
       setIsScanning(false);
-      setInputKey(Date.now());
+      setInputKey(Date.now()); // Reset input key để có thể chọn lại cùng 1 file nếu cần
     }
   };
 
@@ -168,14 +172,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         {type === TransactionType.EXPENSE && (
           <div className="relative w-12 h-12 bg-brand-600 text-white rounded-2xl active-scale transition-all flex items-center justify-center shadow-lg shadow-brand-500/20 overflow-hidden">
             <Camera className="w-6 h-6 pointer-events-none" />
-            {/* iOS Bulletproof Fix: Input phủ kín nút bấm, nhận diện chạm trực tiếp từ hệ điều hành */}
+            {/* iOS Bulletproof Fix: Input phủ kín toàn bộ diện tích nút bấm, nhận diện chạm trực tiếp để kích hoạt camera */}
             <input 
               key={inputKey}
               type="file" 
               onChange={handleFileUpload} 
               accept="image/*" 
               capture="environment" 
-              className="absolute inset-0 opacity-0 cursor-pointer z-10 scale-[10]" 
+              className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full h-full scale-[2]" 
             />
           </div>
         )}
