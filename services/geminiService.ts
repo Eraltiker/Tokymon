@@ -8,12 +8,12 @@ import { Language, EXPENSE_CATEGORIES } from "../types";
 export const analyzeFinances = async (stats: any, lang: Language = 'vi'): Promise<string> => {
   const { totalIn, totalOut, profit, margin, totalDebt } = stats;
   
-  const prompt = `Phân tích tài chính nhà hàng Tokymon (Ngôn ngữ: ${lang}):
+  const prompt = `Phân tích tài chính nhà hàng Tokymon (${lang}):
     - Doanh thu: ${totalIn} EUR
     - Chi phí: ${totalOut} EUR
     - Lợi nhuận: ${profit} EUR (${(margin * 100).toFixed(1)}%)
     - Công nợ: ${totalDebt} EUR
-    Đưa ra 3 nhận xét chiến lược cực ngắn gọn. Định dạng Markdown.`;
+    Hãy đưa ra 3 nhận xét chiến lược cực kỳ súc tích. Định dạng Markdown.`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -22,22 +22,22 @@ export const analyzeFinances = async (stats: any, lang: Language = 'vi'): Promis
       contents: prompt,
       config: { thinkingConfig: { thinkingBudget: 0 } }
     });
-    return response.text || "Không có phân tích.";
+    return response.text || "No analysis available.";
   } catch (error) {
-    return "Dịch vụ phân tích tạm thời không khả dụng.";
+    return "Analysis service unavailable.";
   }
 };
 
 /**
- * Quét hóa đơn - Tối ưu hóa cho tốc độ phản hồi cực nhanh
+ * Quét hóa đơn - Tối ưu cho tốc độ và độ chính xác ( < 2 giây )
  */
 export const scanReceipt = async (base64Image: string, mimeType: string): Promise<any> => {
-  const prompt = `Trích xuất JSON từ hóa đơn:
-  1. amount (number): Tổng tiền thanh toán.
+  const prompt = `Extract JSON from receipt image:
+  1. amount (number): The total final sum.
   2. date (string): YYYY-MM-DD.
-  3. category (string): Chọn 1 trong [${EXPENSE_CATEGORIES.join(', ')}].
-  4. note (string): TÊN CỬA HÀNG/ĐỐI TÁC (VD: Metro, Edeka, Amazon...).
-  Trả về DUY NHẤT mã JSON, không thêm văn bản khác.`;
+  3. category (string): Must match one of [${EXPENSE_CATEGORIES.join(', ')}].
+  4. note (string): Only the Merchant Name (e.g., Edeka, Metro, Amazon).
+  Return ONLY valid JSON.`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -65,7 +65,8 @@ export const scanReceipt = async (base64Image: string, mimeType: string): Promis
       }
     });
 
-    return JSON.parse(response.text || "{}");
+    const text = response.text || "{}";
+    return JSON.parse(text);
   } catch (error) {
     console.error("AI Scan Error:", error);
     throw error;
