@@ -15,6 +15,7 @@ import BranchManager from './components/BranchManager';
 import UserManager from './components/UserManager';
 import ExportManager from './components/ExportManager';
 import { useTranslation } from './i18n';
+// Fix: Added missing Loader2 to the lucide-react imports
 import { 
   UtensilsCrossed, LayoutDashboard, Settings, 
   Wallet, ArrowDownCircle, Sun, Moon, LogOut, 
@@ -23,7 +24,7 @@ import {
   AlertTriangle, Languages, UserCircle2, 
   ImageIcon, Lock, ArrowRight, Cpu,
   Globe, Check, Info, ShieldCheck, ExternalLink, Zap,
-  Sparkles
+  Sparkles, WifiOff, Wifi, Loader2
 } from 'lucide-react';
 
 const App = () => {
@@ -31,9 +32,11 @@ const App = () => {
   const [settingsSubTab, setSettingsSubTab] = useState<'general' | 'export' | 'branches' | 'users' | 'sync' | 'audit' | 'about'>('general');
   const [isDark, setIsDark] = useState(() => localStorage.getItem('tokymon_theme') === 'dark');
   const [lang, setLang] = useState<Language>(() => (localStorage.getItem('tokymon_lang') as Language) || 'vi');
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   
   const t = useTranslation(lang);
-  const [data, setData] = useState<AppData>(() => StorageService.loadLocal());
+  const [data, setData] = useState<AppData>(StorageService.getEmptyData());
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
@@ -54,13 +57,32 @@ const App = () => {
   const pollTimerRef = useRef<number | null>(null);
   const dataRef = useRef(data);
 
+  // Load dữ liệu từ IndexedDB lần đầu
   useEffect(() => {
-    dataRef.current = data;
-    StorageService.saveLocal(data);
-  }, [data]);
+    StorageService.loadLocal().then(loadedData => {
+      setData(loadedData);
+      setIsDataLoaded(true);
+    });
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isDataLoaded) {
+      dataRef.current = data;
+      StorageService.saveLocal(data);
+    }
+  }, [data, isDataLoaded]);
 
   const handleCloudSync = useCallback(async (silent = false, specificData?: AppData) => {
-    if (!syncKey || syncKey.trim() === '') return;
+    if (!syncKey || syncKey.trim() === '' || !navigator.onLine) return;
     if (!silent) setIsSyncing(true);
     try {
       const targetData = specificData || dataRef.current;
@@ -74,12 +96,12 @@ const App = () => {
   }, [syncKey]);
 
   useEffect(() => {
-    if (syncKey && currentUser) {
+    if (syncKey && currentUser && isOnline) {
       handleCloudSync(true);
-      pollTimerRef.current = window.setInterval(() => handleCloudSync(true), 25000);
+      pollTimerRef.current = window.setInterval(() => handleCloudSync(true), 30000);
     }
     return () => { if (pollTimerRef.current) window.clearInterval(pollTimerRef.current); };
-  }, [syncKey, handleCloudSync, currentUser]);
+  }, [syncKey, handleCloudSync, currentUser, isOnline]);
 
   useEffect(() => {
     if (isDark) document.documentElement.classList.add('dark');
@@ -320,6 +342,12 @@ const App = () => {
         </div>
         
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
+          {/* Status Indicator */}
+          <div className={`px-2 py-1 rounded-lg flex items-center gap-1.5 transition-colors ${isOnline ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600 animate-pulse'}`}>
+            {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
+            <span className="text-[8px] font-black uppercase tracking-widest hidden sm:inline">{isOnline ? 'Online' : 'Offline'}</span>
+          </div>
+
           <button onClick={toggleLanguage} className="w-9 h-9 sm:w-10 sm:h-10 glass rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center active-scale transition-all shadow-sm">
              <span className="text-[10px] sm:text-[11px] font-black uppercase dark:text-white">{lang === 'vi' ? 'VN' : 'DE'}</span>
           </button>
@@ -331,103 +359,112 @@ const App = () => {
       </header>
 
       <main className="flex-1 px-4 sm:px-5 max-w-6xl mx-auto w-full pt-4 sm:pt-6 pb-32">
-        {activeTab === 'income' && (
-          currentBranchId === ALL_BRANCHES_ID ? (
-            <div className="flex flex-col items-center justify-center py-20 bg-white/60 dark:bg-slate-900/50 backdrop-blur-sm rounded-[2.5rem] border-2 border-dashed dark:border-slate-800 border-slate-300 animate-ios">
-               <LayoutPanelTop className="w-12 h-12 text-slate-400 dark:text-slate-800 mb-6" />
-               <p className="text-[10px] sm:text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('choose_branch_hint')}</p>
-               <button onClick={() => setShowBranchDropdown(true)} className="mt-8 px-8 py-4 bg-brand-600 text-white rounded-[1.2rem] font-black uppercase text-[10px] active-scale shadow-vivid">{t('select_branch_btn')}</button>
-            </div>
-          ) : (
-            <IncomeManager transactions={activeTransactions} onAddTransaction={tx => setData(p => ({...p, transactions: [tx, ...p.transactions]}))} onDeleteTransaction={id => setData(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}))} onEditTransaction={u => setData(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}))} branchId={currentBranchId} initialBalances={{cash: currentBranch?.initialCash || 0, card: currentBranch?.initialCard || 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />
-          )
-        )}
-        
-        {activeTab === 'expense' && (
-          currentBranchId === ALL_BRANCHES_ID ? (
-            <div className="flex flex-col items-center justify-center py-20 bg-white/60 dark:bg-slate-900/50 backdrop-blur-sm rounded-[2.5rem] border-2 border-dashed dark:border-slate-800 border-slate-300 animate-ios">
-               <ArrowDownCircle className="w-12 h-12 text-slate-400 dark:text-slate-800 mb-6" />
-               <p className="text-[10px] sm:text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('choose_branch_hint')}</p>
-               <button onClick={() => setShowBranchDropdown(true)} className="mt-8 px-8 py-4 bg-brand-600 text-white rounded-[1.2rem] font-black uppercase text-[10px] active-scale shadow-vivid">{t('select_branch_btn')}</button>
-            </div>
-          ) : (
-            <ExpenseManager transactions={activeTransactions} onAddTransaction={tx => setData(p => ({...p, transactions: [tx, ...p.transactions]}))} onDeleteTransaction={id => setData(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}))} onEditTransaction={u => setData(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}))} expenseCategories={data.expenseCategories} branchId={currentBranchId} initialBalances={{cash: currentBranch?.initialCash || 0, card: currentBranch?.initialCard || 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />
-          )
-        )}
-        
-        {activeTab === 'stats' && <Dashboard 
-          transactions={activeTransactions} initialBalances={currentBranchId === ALL_BRANCHES_ID ? systemInitialBalances : {cash: currentBranch?.initialCash || 0, card: currentBranch?.initialCard || 0}} 
-          lang={lang} currentBranchId={currentBranchId} allowedBranches={allowedBranches} userRole={currentUser.role} reportSettings={reportSettings} onToggleGlobal={toggleGlobalReport} 
-        />}
-        
-        {activeTab === 'settings' && (
-          <div className="space-y-6">
-            <div className="flex gap-2.5 overflow-x-auto no-scrollbar px-1">
-              {[ { id: 'general', label: t('branding'), icon: ImageIcon }, { id: 'export', label: 'Excel', icon: FileSpreadsheet }, { id: 'sync', label: 'Cloud', icon: Cloud }, { id: 'branches', label: t('branches'), icon: MapPin }, { id: 'users', label: t('users'), icon: Users }, { id: 'audit', label: 'Log', icon: HistoryIcon }, { id: 'about', label: t('about'), icon: Info }
-              ].map(sub => (
-                <button key={sub.id} onClick={() => setSettingsSubTab(sub.id as any)} style={{ display: (sub.id === 'branches' || sub.id === 'users') && !isAdmin ? 'none' : 'flex' }} className={`px-4 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2.5 shrink-0 active-scale ${settingsSubTab === sub.id ? 'bg-brand-600 border-brand-600 text-white shadow-lg' : 'bg-white/90 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 shadow-sm'}`}>
-                  <sub.icon className="w-4 h-4" /> {sub.label}
-                </button>
-              ))}
-            </div>
-            <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-[2rem] p-6 sm:p-8 border border-white dark:border-slate-800 shadow-soft min-h-[450px] animate-ios">
-                {settingsSubTab === 'sync' && (
-                  <div className="space-y-10 max-w-sm mx-auto pt-10 text-center">
-                    <div className="w-20 h-20 bg-brand-50 dark:bg-brand-900/20 text-brand-600 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner border border-brand-100 dark:border-brand-900/30"><Cloud className="w-10 h-10" /></div>
-                    <div className="space-y-4">
-                      <h3 className="text-xl font-black uppercase tracking-tight dark:text-white">Cloud Master Sync</h3>
-                      <input type="text" value={syncKey} onChange={e => {setSyncKey(e.target.value); localStorage.setItem('tokymon_sync_key', e.target.value);}} className="w-full p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl font-bold border-2 border-slate-100 dark:border-slate-800 focus:border-brand-500 outline-none text-sm dark:text-white transition-all text-center uppercase tracking-widest" placeholder="Cloud Key ID..." />
-                    </div>
-                    <button onClick={() => handleCloudSync()} disabled={isSyncing} className="w-full py-6 bg-brand-600 text-white rounded-[1.8rem] font-black uppercase text-xs tracking-widest flex items-center justify-center gap-4 active-scale shadow-vivid">
-                      <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /> {t('cloud_sync')}
-                    </button>
-                  </div>
-                )}
-                {settingsSubTab === 'export' && <ExportManager transactions={activeTransactions} branches={activeBranches} lang={lang} />}
-                {settingsSubTab === 'branches' && <BranchManager branches={data.branches} setBranches={setBranchesWithDataCleanup} onAudit={addAuditLog} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} onResetBranchData={handleResetBranchData} lang={lang} />}
-                {settingsSubTab === 'users' && <UserManager users={data.users} setUsers={val => setData(p => ({...p, users: typeof val === 'function' ? val(p.users) : val}))} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} lang={lang} />}
-                {settingsSubTab === 'general' && ( <div className="space-y-12"><CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => {setData(prev => ({...prev, expenseCategories: cats}));}} lang={lang} /><RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={data.expenseCategories} onUpdate={(recs) => {setData(prev => ({...prev, recurringExpenses: recs}));}} onGenerateTransactions={txs => {setData(prev => ({...prev, transactions: [...txs, ...prev.transactions]}));}} branchId={currentBranchId === ALL_BRANCHES_ID ? allowedBranches[0]?.id : currentBranchId} lang={lang} /></div> )}
-                {settingsSubTab === 'audit' && (
-                  <div className="space-y-4 max-h-[600px] overflow-y-auto no-scrollbar pr-1">
-                    {data.auditLogs.slice().reverse().map(log => (
-                      <div key={log.id} className="p-5 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-100 dark:border-slate-800">
-                        <div className="flex justify-between items-start mb-3"><span className="text-[10px] font-black px-3 py-1 bg-brand-50 dark:bg-brand-900/20 text-brand-600 rounded-lg uppercase border border-brand-100 dark:border-brand-900/30">{log.action}</span><span className="text-[10px] text-slate-500 font-bold">{new Date(log.timestamp).toLocaleString()}</span></div>
-                        <div className="text-sm font-bold dark:text-slate-200 uppercase tracking-tight leading-relaxed">{log.details}</div>
-                        <div className="text-[10px] text-slate-500 font-black uppercase mt-3 pt-3 border-t border-slate-200/50 dark:border-slate-800/50">Bởi: {log.username}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {settingsSubTab === 'about' && (
-                  <div className="space-y-10 animate-ios max-w-xl mx-auto py-4">
-                    <div className="text-center space-y-6">
-                       <div className="relative inline-block">{data.logoUrl ? ( <img src={data.logoUrl} className="w-20 h-20 object-contain mx-auto" alt="Logo" /> ) : (
-                           <div className="w-20 h-20 bg-brand-600 rounded-[1.5rem] mx-auto flex items-center justify-center shadow-vivid border-2 border-white dark:border-slate-800"><UtensilsCrossed className="w-10 h-10 text-white" /></div>
-                         )}<div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white text-[9px] font-black px-2.5 py-1 rounded-full border-2 border-white dark:border-slate-900 uppercase tracking-widest shadow-sm">{t('active')}</div>
-                       </div>
-                       <div><h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Tokymon Finance</h2><p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.4em] mt-1.5">Version {SCHEMA_VERSION}</p></div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                       <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-[1.5rem] border border-slate-100 dark:border-slate-700/50 shadow-sm"><p className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase mb-1.5 tracking-widest">{t('system_status')}</p><div className="flex items-center gap-2.5 text-emerald-500"><div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" /><span className="text-[10px] font-black uppercase">{t('online')}</span></div></div>
-                       <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-[1.5rem] border border-slate-100 dark:border-slate-700/50 shadow-sm"><p className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase mb-1.5 tracking-widest">Encryption</p><div className="flex items-center gap-2.5 text-brand-500"><ShieldCheck className="w-4 h-4" /><span className="text-[10px] font-black uppercase">AES-256</span></div></div>
-                    </div>
-                    <div className="space-y-5">
-                       <h3 className="text-[10px] font-black uppercase dark:text-white flex items-center gap-2.5"><Sparkles className="w-4 h-4 text-brand-500" /> {t('whats_new')}</h3>
-                       <div className="bg-brand-50/50 dark:bg-brand-900/10 p-6 sm:p-8 rounded-[1.8rem] border border-brand-100 dark:border-brand-800/50">
-                          <ul className="space-y-3.5">
-                             {APP_CHANGELOG[0].changes[lang].map((change, i) => (
-                               <li key={i} className="flex gap-3 text-[11px] font-bold text-slate-800 dark:text-slate-200 leading-relaxed"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> {change}</li>
-                             ))}
-                          </ul>
-                       </div>
-                    </div>
-                    <div className="pt-5 border-t dark:border-slate-800 border-slate-200 text-center">
-                       <p className="text-[9px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-[0.15em]">Sản phẩm được phát triển bởi <span className="text-brand-500 font-extrabold underline underline-offset-4">thPhuoc</span></p>
-                    </div>
-                  </div>
-                )}
-            </div>
+        {!isDataLoaded ? (
+          <div className="flex flex-col items-center justify-center py-40">
+            <Loader2 className="w-12 h-12 text-brand-600 animate-spin mb-4" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 animate-pulse">Initializing Database...</p>
           </div>
+        ) : (
+          <>
+            {activeTab === 'income' && (
+              currentBranchId === ALL_BRANCHES_ID ? (
+                <div className="flex flex-col items-center justify-center py-20 bg-white/60 dark:bg-slate-900/50 backdrop-blur-sm rounded-[2.5rem] border-2 border-dashed dark:border-slate-800 border-slate-300 animate-ios">
+                   <LayoutPanelTop className="w-12 h-12 text-slate-400 dark:text-slate-800 mb-6" />
+                   <p className="text-[10px] sm:text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('choose_branch_hint')}</p>
+                   <button onClick={() => setShowBranchDropdown(true)} className="mt-8 px-8 py-4 bg-brand-600 text-white rounded-[1.2rem] font-black uppercase text-[10px] active-scale shadow-vivid">{t('select_branch_btn')}</button>
+                </div>
+              ) : (
+                <IncomeManager transactions={activeTransactions} onAddTransaction={tx => setData(p => ({...p, transactions: [tx, ...p.transactions]}))} onDeleteTransaction={id => setData(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}))} onEditTransaction={u => setData(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}))} branchId={currentBranchId} initialBalances={{cash: currentBranch?.initialCash || 0, card: currentBranch?.initialCard || 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />
+              )
+            )}
+            
+            {activeTab === 'expense' && (
+              currentBranchId === ALL_BRANCHES_ID ? (
+                <div className="flex flex-col items-center justify-center py-20 bg-white/60 dark:bg-slate-900/50 backdrop-blur-sm rounded-[2.5rem] border-2 border-dashed dark:border-slate-800 border-slate-300 animate-ios">
+                   <ArrowDownCircle className="w-12 h-12 text-slate-400 dark:text-slate-800 mb-6" />
+                   <p className="text-[10px] sm:text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('choose_branch_hint')}</p>
+                   <button onClick={() => setShowBranchDropdown(true)} className="mt-8 px-8 py-4 bg-brand-600 text-white rounded-[1.2rem] font-black uppercase text-[10px] active-scale shadow-vivid">{t('select_branch_btn')}</button>
+                </div>
+              ) : (
+                <ExpenseManager transactions={activeTransactions} onAddTransaction={tx => setData(p => ({...p, transactions: [tx, ...p.transactions]}))} onDeleteTransaction={id => setData(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}))} onEditTransaction={u => setData(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}))} expenseCategories={data.expenseCategories} branchId={currentBranchId} initialBalances={{cash: currentBranch?.initialCash || 0, card: currentBranch?.initialCard || 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />
+              )
+            )}
+            
+            {activeTab === 'stats' && <Dashboard 
+              transactions={activeTransactions} initialBalances={currentBranchId === ALL_BRANCHES_ID ? systemInitialBalances : {cash: currentBranch?.initialCash || 0, card: currentBranch?.initialCard || 0}} 
+              lang={lang} currentBranchId={currentBranchId} allowedBranches={allowedBranches} userRole={currentUser.role} reportSettings={reportSettings} onToggleGlobal={toggleGlobalReport} 
+            />}
+            
+            {activeTab === 'settings' && (
+              <div className="space-y-6">
+                <div className="flex gap-2.5 overflow-x-auto no-scrollbar px-1">
+                  {[ { id: 'general', label: t('branding'), icon: ImageIcon }, { id: 'export', label: 'Excel', icon: FileSpreadsheet }, { id: 'sync', label: 'Cloud', icon: Cloud }, { id: 'branches', label: t('branches'), icon: MapPin }, { id: 'users', label: t('users'), icon: Users }, { id: 'audit', label: 'Log', icon: HistoryIcon }, { id: 'about', label: t('about'), icon: Info }
+                  ].map(sub => (
+                    <button key={sub.id} onClick={() => setSettingsSubTab(sub.id as any)} style={{ display: (sub.id === 'branches' || sub.id === 'users') && !isAdmin ? 'none' : 'flex' }} className={`px-4 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2.5 shrink-0 active-scale ${settingsSubTab === sub.id ? 'bg-brand-600 border-brand-600 text-white shadow-lg' : 'bg-white/90 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500 shadow-sm'}`}>
+                      <sub.icon className="w-4 h-4" /> {sub.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-[2rem] p-6 sm:p-8 border border-white dark:border-slate-800 shadow-soft min-h-[450px] animate-ios">
+                    {settingsSubTab === 'sync' && (
+                      <div className="space-y-10 max-w-sm mx-auto pt-10 text-center">
+                        <div className="w-20 h-20 bg-brand-50 dark:bg-brand-900/20 text-brand-600 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner border border-brand-100 dark:border-brand-900/30"><Cloud className="w-10 h-10" /></div>
+                        <div className="space-y-4">
+                          <h3 className="text-xl font-black uppercase tracking-tight dark:text-white">Cloud Master Sync</h3>
+                          <input type="text" value={syncKey} onChange={e => {setSyncKey(e.target.value); localStorage.setItem('tokymon_sync_key', e.target.value);}} className="w-full p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl font-bold border-2 border-slate-100 dark:border-slate-800 focus:border-brand-500 outline-none text-sm dark:text-white transition-all text-center uppercase tracking-widest" placeholder="Cloud Key ID..." />
+                        </div>
+                        <button onClick={() => handleCloudSync()} disabled={isSyncing || !isOnline} className="w-full py-6 bg-brand-600 text-white rounded-[1.8rem] font-black uppercase text-xs tracking-widest flex items-center justify-center gap-4 active-scale shadow-vivid disabled:opacity-50">
+                          <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /> {isOnline ? t('cloud_sync') : 'Offline'}
+                        </button>
+                      </div>
+                    )}
+                    {settingsSubTab === 'export' && <ExportManager transactions={activeTransactions} branches={activeBranches} lang={lang} />}
+                    {settingsSubTab === 'branches' && <BranchManager branches={data.branches} setBranches={setBranchesWithDataCleanup} onAudit={addAuditLog} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} onResetBranchData={handleResetBranchData} lang={lang} />}
+                    {settingsSubTab === 'users' && <UserManager users={data.users} setUsers={val => setData(p => ({...p, users: typeof val === 'function' ? val(p.users) : val}))} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} lang={lang} />}
+                    {settingsSubTab === 'general' && ( <div className="space-y-12"><CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => {setData(prev => ({...prev, expenseCategories: cats}));}} lang={lang} /><RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={data.expenseCategories} onUpdate={(recs) => {setData(prev => ({...prev, recurringExpenses: recs}));}} onGenerateTransactions={txs => {setData(prev => ({...prev, transactions: [...txs, ...prev.transactions]}));}} branchId={currentBranchId === ALL_BRANCHES_ID ? allowedBranches[0]?.id : currentBranchId} lang={lang} /></div> )}
+                    {settingsSubTab === 'audit' && (
+                      <div className="space-y-4 max-h-[600px] overflow-y-auto no-scrollbar pr-1">
+                        {data.auditLogs.slice().reverse().map(log => (
+                          <div key={log.id} className="p-5 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-100 dark:border-slate-800">
+                            <div className="flex justify-between items-start mb-3"><span className="text-[10px] font-black px-3 py-1 bg-brand-50 dark:bg-brand-900/20 text-brand-600 rounded-lg uppercase border border-brand-100 dark:border-brand-900/30">{log.action}</span><span className="text-[10px] text-slate-500 font-bold">{new Date(log.timestamp).toLocaleString()}</span></div>
+                            <div className="text-sm font-bold dark:text-slate-200 uppercase tracking-tight leading-relaxed">{log.details}</div>
+                            <div className="text-[10px] text-slate-500 font-black uppercase mt-3 pt-3 border-t border-slate-200/50 dark:border-slate-800/50">Bởi: {log.username}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {settingsSubTab === 'about' && (
+                      <div className="space-y-10 animate-ios max-w-xl mx-auto py-4">
+                        <div className="text-center space-y-6">
+                           <div className="relative inline-block">{data.logoUrl ? ( <img src={data.logoUrl} className="w-20 h-20 object-contain mx-auto" alt="Logo" /> ) : (
+                               <div className="w-20 h-20 bg-brand-600 rounded-[1.5rem] mx-auto flex items-center justify-center shadow-vivid border-2 border-white dark:border-slate-800"><UtensilsCrossed className="w-10 h-10 text-white" /></div>
+                             )}<div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white text-[9px] font-black px-2.5 py-1 rounded-full border-2 border-white dark:border-slate-900 uppercase tracking-widest shadow-sm">{t('active')}</div>
+                           </div>
+                           <div><h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Tokymon Finance</h2><p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.4em] mt-1.5">Version {SCHEMA_VERSION}</p></div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                           <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-[1.5rem] border border-slate-100 dark:border-slate-700/50 shadow-sm"><p className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase mb-1.5 tracking-widest">{t('system_status')}</p><div className="flex items-center gap-2.5 text-emerald-500"><div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" /><span className="text-[10px] font-black uppercase">{isOnline ? t('online') : 'Offline'}</span></div></div>
+                           <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-[1.5rem] border border-slate-100 dark:border-slate-700/50 shadow-sm"><p className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase mb-1.5 tracking-widest">Storage</p><div className="flex items-center gap-2.5 text-brand-500"><ShieldCheck className="w-4 h-4" /><span className="text-[10px] font-black uppercase">IndexedDB Active</span></div></div>
+                        </div>
+                        <div className="space-y-5">
+                           <h3 className="text-[10px] font-black uppercase dark:text-white flex items-center gap-2.5"><Sparkles className="w-4 h-4 text-brand-500" /> {t('whats_new')}</h3>
+                           <div className="bg-brand-50/50 dark:bg-brand-900/10 p-6 sm:p-8 rounded-[1.8rem] border border-brand-100 dark:border-brand-800/50">
+                              <ul className="space-y-3.5">
+                                 {APP_CHANGELOG[0].changes[lang].map((change, i) => (
+                                   <li key={i} className="flex gap-3 text-[11px] font-bold text-slate-800 dark:text-slate-200 leading-relaxed"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> {change}</li>
+                                 ))}
+                              </ul>
+                           </div>
+                        </div>
+                        <div className="pt-5 border-t dark:border-slate-800 border-slate-200 text-center">
+                           <p className="text-[9px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-[0.15em]">Sản phẩm được phát triển bởi <span className="text-brand-500 font-extrabold underline underline-offset-4">thPhuoc</span></p>
+                        </div>
+                      </div>
+                    )}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </main>
 

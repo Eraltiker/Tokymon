@@ -1,7 +1,54 @@
 
 import { AppData, SCHEMA_VERSION, EXPENSE_CATEGORIES, Transaction, Branch, User, RecurringTransaction, ReportSettings } from '../types';
 
-const STORAGE_KEY = 'tokymon_master_data';
+const DB_NAME = 'TokymonDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'app_data';
+const DATA_KEY = 'master';
+
+/**
+ * Wrapper cho IndexedDB để thao tác như LocalStorage nhưng mạnh mẽ hơn
+ */
+const idb = {
+  db: null as IDBDatabase | null,
+  async open(): Promise<IDBDatabase> {
+    if (this.db) return this.db;
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME);
+        }
+      };
+      request.onsuccess = () => {
+        this.db = request.result;
+        resolve(this.db);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  },
+  async get(key: string): Promise<any> {
+    const db = await this.open();
+    return new Promise((resolve) => {
+      const transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.get(key);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+    });
+  },
+  async set(key: string, val: any): Promise<void> {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.put(val, key);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+};
 
 export const StorageService = {
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
@@ -42,26 +89,27 @@ export const StorageService = {
     };
   },
 
-  saveLocal: (data: AppData) => {
+  async saveLocal(data: AppData) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      await idb.set(DATA_KEY, data);
     } catch (e) {
-      console.error("Lưu LocalStorage thất bại", e);
+      console.error("Lưu IndexedDB thất bại, fallback sang LocalStorage", e);
+      localStorage.setItem('tokymon_fallback', JSON.stringify(data));
     }
   },
 
-  loadLocal: (): AppData => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return StorageService.getEmptyData();
-    try {
-      const data = JSON.parse(raw);
-      return {
-        ...StorageService.getEmptyData(),
-        ...data
-      };
-    } catch (e) {
+  async loadLocal(): Promise<AppData> {
+    const data = await idb.get(DATA_KEY);
+    if (!data) {
+      // Thử đọc từ fallback cũ nếu có
+      const legacy = localStorage.getItem('tokymon_master_data') || localStorage.getItem('tokymon_fallback');
+      if (legacy) return JSON.parse(legacy);
       return StorageService.getEmptyData();
     }
+    return {
+      ...StorageService.getEmptyData(),
+      ...data
+    };
   },
 
   getEmptyData: (): AppData => ({
@@ -84,6 +132,11 @@ export const StorageService = {
   }),
 
   syncWithCloud: async (bucketId: string, localData: AppData): Promise<AppData> => {
+    // Chỉ đồng bộ khi online
+    if (!navigator.onLine) {
+      throw new Error("Offline mode: Sync suspended");
+    }
+
     const sanitizedId = bucketId?.trim();
     if (!sanitizedId) return localData;
     const BUCKET_URL = `https://kvdb.io/${sanitizedId}/main`;
@@ -100,7 +153,7 @@ export const StorageService = {
           try {
             remoteData = JSON.parse(text);
           } catch (pError) {
-            console.warn("Dữ liệu Cloud bị lỗi định dạng, sẽ khởi tạo lại.");
+            console.warn("Dữ liệu Cloud bị lỗi định dạng");
           }
         }
       }
@@ -112,7 +165,7 @@ export const StorageService = {
         body: JSON.stringify(merged)
       });
       if (!saveResponse.ok) {
-        throw new Error(`Cloud không phản hồi (${saveResponse.status})`);
+        throw new Error(`Cloud error (${saveResponse.status})`);
       }
       return merged;
     } catch (error: any) {
