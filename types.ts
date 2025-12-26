@@ -130,24 +130,24 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "3.2.0";
+export const SCHEMA_VERSION = "3.2.1";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
   {
-    version: "3.2.0",
-    date: "2024-05-20",
+    version: "3.2.1",
+    date: "2024-05-22",
     changes: {
-      vi: ["Tối ưu AI Vision: Tăng tốc độ quét hóa đơn x2", "Trích xuất tên cửa hàng tự động vào ghi chú", "Thêm module About & Changelog trong cài đặt", "Nâng cấp giao diện Mobile mượt mà hơn"],
-      de: ["KI-Vision optimiert: Scangeschwindigkeit verdoppelt", "Automatische Shop-Erkennung in Notizen", "About-Modul & Changelog hinzugefügt", "Mobile UI Performance-Upgrade"]
+      vi: ["Tối ưu AI Scanning: Xử lý hóa đơn siêu tốc ( < 2s )", "Tự động trích xuất tên cửa hàng vào phần Ghi chú", "Bổ sung module About chi tiết trong phần Cài đặt", "Sửa lỗi không nhận diện được hóa đơn mờ trên mobile"],
+      de: ["KI-Scan optimiert: Ultraschnelle Belegverarbeitung ( < 2s )", "Automatische Shop-Erkennung im Notizfeld", "Detailliertes About-Modul in den Einstellungen", "Fehlerbehebung für unscharfe Handyfotos"]
     }
   },
   {
-    version: "3.1.0",
-    date: "2024-05-10",
+    version: "3.2.0",
+    date: "2024-05-20",
     changes: {
-      vi: ["Hỗ trợ quản lý đa chi nhánh", "Đồng bộ hóa Cloud thời gian thực", "Hệ thống phân quyền User", "Báo cáo Dashboard thông minh"],
-      de: ["Filialmanagement-Support", "Echtzeit-Cloud-Synchronisierung", "Benutzerberechtigungssystem", "Intelligentes Dashboard"]
+      vi: ["Nâng cấp AI Vision v3", "Cải thiện giao diện Mobile mượt mà", "Bổ sung Changelog hệ thống"],
+      de: ["KI-Vision v3 Upgrade", "Flüssiges Mobile-UI Upgrade", "System Changelog hinzugefügt"]
     }
   }
 ];
