@@ -28,9 +28,7 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({ transaction
   const [expenseAmount, setExpenseAmount] = useState(transaction.amount.toString());
 
   const validateAndSetAmount = (val: string, setter: (v: string) => void) => {
-    if (/^[0-9]*[.,]?[0-9]*$/.test(val)) {
-      setter(val);
-    }
+    if (/^[0-9]*[.,]?[0-9]*$/.test(val)) setter(val);
   };
 
   const parseLocaleNumber = (val: string): number => {
@@ -45,13 +43,8 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({ transaction
   };
 
   const formatDateDisplay = (dateStr: string) => {
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
     const [y, m, d] = dateStr.split('-');
-    const formatted = `${d}/${m}/${y}`;
-    if (dateStr === today) return `Hôm nay, ${formatted}`;
-    if (dateStr === yesterday) return `Hôm qua, ${formatted}`;
-    return formatted;
+    return `${d}/${m}/${y}`;
   };
 
   const handleSave = () => {
@@ -96,90 +89,62 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({ transaction
   return (
     <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl relative z-[201] overflow-hidden flex flex-col max-h-[95vh] animate-in slide-in-from-bottom-20 duration-500">
-        <div className="px-6 py-5 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+      {/* Container chính: Trên mobile là Bottom Sheet (rounded-t), trên desktop là Modal (rounded-4xl) */}
+      <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl relative z-[201] overflow-hidden flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-10 duration-500">
+        {/* Handle bar for Mobile */}
+        <div className="w-12 h-1 bg-slate-200 dark:bg-slate-800 rounded-full mx-auto my-3 sm:hidden" />
+        
+        <div className="px-6 py-3 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
           <div>
-            <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tighter text-base">Cập nhật thông tin</h3>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{transaction.category}</p>
+            <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tight text-sm">Chỉnh sửa</h3>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{category}</p>
           </div>
-          <button onClick={onClose} className="p-2.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors text-slate-500"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors text-slate-500"><X className="w-5 h-5" /></button>
         </div>
 
-        <div className="p-6 overflow-y-auto no-scrollbar space-y-6">
-          <div className="bg-slate-100/50 dark:bg-slate-800/30 p-4 rounded-3xl border border-slate-100 dark:border-slate-800/50 space-y-3">
-             <div className="flex items-center justify-between">
-               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                 <CalendarDays className="w-3 h-3 text-indigo-500" /> Thời gian giao dịch
-               </label>
-             </div>
-             
-             <div className="flex items-center gap-2">
-                <button type="button" onClick={() => adjustDate(-1)} className="p-3 bg-white dark:bg-slate-800 rounded-2xl text-slate-400 transition-all border-2 dark:border-slate-700 shadow-sm active:scale-95 z-10"><ChevronLeft className="w-5 h-5" /></button>
-                
-                <div 
-                  className="relative flex-1 flex items-center justify-between p-3.5 bg-white dark:bg-slate-900 rounded-xl border-2 border-slate-100 dark:border-slate-700 hover:border-indigo-500 transition-all cursor-pointer shadow-sm group active:scale-[0.98] min-h-[54px] overflow-hidden"
-                >
-                    <div className="flex flex-col">
-                      <span className="text-[14px] font-black text-slate-800 dark:text-white leading-none">{formatDateDisplay(date)}</span>
-                      <span className="text-[7px] font-bold text-slate-400 uppercase mt-1">Nhấn để đổi ngày</span>
-                    </div>
-                    <Calendar className="w-5 h-5 text-indigo-500" />
-                    <input 
-                      type="date" 
-                      ref={dateInputRef}
-                      value={date} 
-                      onChange={e => setDate(e.target.value)} 
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" 
-                    />
-                </div>
-
-                <button type="button" onClick={() => adjustDate(1)} className="p-3 bg-white dark:bg-slate-800 rounded-2xl text-slate-400 transition-all border-2 dark:border-slate-700 shadow-sm active:scale-95 z-10"><ChevronRight className="w-5 h-5" /></button>
-             </div>
+        <div className="p-5 overflow-y-auto no-scrollbar space-y-5">
+          {/* Date Picker Section */}
+          <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <button type="button" onClick={() => adjustDate(-1)} className="p-2.5 bg-white dark:bg-slate-900 rounded-xl shadow-sm text-slate-400 active:scale-90"><ChevronLeft className="w-4 h-4" /></button>
+            <div className="flex-1 text-center relative flex flex-col items-center">
+               <span className="text-xs font-black dark:text-white uppercase flex items-center gap-1.5">
+                 <Calendar className="w-3 h-3 text-indigo-500" /> {formatDateDisplay(date)}
+               </span>
+               <input type="date" value={date} onChange={e => setDate(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
+            </div>
+            <button type="button" onClick={() => adjustDate(1)} className="p-2.5 bg-white dark:bg-slate-900 rounded-xl shadow-sm text-slate-400 active:scale-90"><ChevronRight className="w-4 h-4" /></button>
           </div>
 
           {transaction.type === TransactionType.INCOME ? (
             <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Kasse (Tại quán)</label>
-                <div className="relative">
-                  <input type="text" inputMode="decimal" value={kasseInput} onChange={e => validateAndSetAmount(e.target.value, setKasseInput)} className="w-full pl-12 pr-4 py-4 bg-indigo-50/20 dark:bg-indigo-900/10 border-2 border-indigo-50 dark:border-indigo-900 rounded-2xl font-black text-2xl text-indigo-600 outline-none" />
-                  <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-300" />
-                </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Tiền Quán (Kasse)</label>
+                <input type="text" inputMode="decimal" value={kasseInput} onChange={e => validateAndSetAmount(e.target.value, setKasseInput)} className="w-full px-5 py-3.5 bg-indigo-50/10 dark:bg-indigo-900/10 border-2 border-indigo-50 dark:border-indigo-900 rounded-2xl font-black text-2xl text-indigo-600 outline-none" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">App (Online)</label>
-                  <div className="relative">
-                    <input type="text" inputMode="decimal" value={appInput} onChange={e => validateAndSetAmount(e.target.value, setAppInput)} className="w-full pl-10 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-black text-base" />
-                    <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-300" />
-                  </div>
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">App Online</label>
+                  <input type="text" inputMode="decimal" value={appInput} onChange={e => validateAndSetAmount(e.target.value, setAppInput)} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl font-black text-sm" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Tổng Thẻ</label>
-                  <div className="relative">
-                    <input type="text" inputMode="decimal" value={cardTotalInput} onChange={e => validateAndSetAmount(e.target.value, setCardTotalInput)} className="w-full pl-10 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-black text-base text-indigo-500" />
-                    <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-300" />
-                  </div>
+                  <input type="text" inputMode="decimal" value={cardTotalInput} onChange={e => validateAndSetAmount(e.target.value, setCardTotalInput)} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl font-black text-sm text-indigo-500" />
                 </div>
               </div>
             </div>
           ) : (
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Số tiền chi (€)</label>
-              <div className="relative">
-                <input type="text" inputMode="decimal" value={expenseAmount} onChange={e => validateAndSetAmount(e.target.value, setExpenseAmount)} className="w-full pl-12 pr-4 py-4 bg-rose-50/20 dark:bg-rose-900/10 border-2 border-rose-50 dark:border-rose-900 rounded-2xl font-black text-2xl text-rose-600 outline-none" />
-                <Euro className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-rose-300" />
-              </div>
+              <input type="text" inputMode="decimal" value={expenseAmount} onChange={e => validateAndSetAmount(e.target.value, setExpenseAmount)} className="w-full py-4 bg-rose-50/10 dark:bg-rose-900/10 border-2 border-rose-50 dark:border-rose-900 rounded-2xl font-black text-2xl text-rose-600 outline-none text-center" />
             </div>
           )}
 
-          <div className="relative flex items-center bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl p-4 shadow-sm">
-            <input type="text" value={note} onChange={e => setNote(e.target.value)} placeholder="Ghi chú nội dung..." className="w-full px-2 bg-transparent text-xs font-bold outline-none" />
-            <Edit3 className="w-4 h-4 text-slate-200 shrink-0" />
+          <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-inner">
+            <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Ghi chú..." className="w-full bg-transparent text-[13px] font-bold outline-none dark:text-white resize-none h-20" />
           </div>
 
-          <button onClick={handleSave} className="w-full py-5 bg-indigo-600 text-white rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-2">
-            <Save className="w-5 h-5" /> Lưu thay đổi
+          <button onClick={handleSave} className="w-full h-14 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 mb-4">
+            <Save className="w-5 h-5" /> Cập nhật ngay
           </button>
         </div>
       </div>

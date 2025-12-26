@@ -40,7 +40,6 @@ export const translations = {
     tab_monthly: "Tháng",
     profit: "Lợi nhuận",
     total_out: "Tổng chi",
-    // Fix: Added missing 'margin' key to resolve error in Dashboard.tsx
     margin: "Tỷ suất lợi nhuận",
     top_expense: "Top hạng mục chi",
     assets: "Dòng tiền & Tài sản",
@@ -67,8 +66,17 @@ export const translations = {
     scan_ai: "AI Vision Scanning...",
     save_transaction: "Lưu Giao Dịch",
     placeholder_search: "Tìm nội dung...",
+    min_amount: "Tiền từ",
+    max_amount: "Đến",
+    reset_filter: "Xóa bộ lọc",
     
-    // Management
+    // Management & Branding
+    branding: "Thương hiệu",
+    custom_logo: "Logo doanh nghiệp",
+    upload_logo: "Tải lên Logo",
+    reset_logo: "Khôi phục mặc định",
+    logo_hint: "Logo sẽ tự động tách nền để hòa hợp với giao diện.",
+    dev_info: "Hệ thống được phát triển bởi thPhuoc",
     categories_man: "Hạng mục",
     display_settings: "Báo cáo",
     export_excel: "Xuất Excel",
@@ -143,7 +151,6 @@ export const translations = {
     tab_monthly: "Monat",
     profit: "Gewinn",
     total_out: "Gesamtausgaben",
-    // Fix: Added missing 'margin' key to resolve error in Dashboard.tsx
     margin: "Marge",
     top_expense: "Top Ausgaben",
     assets: "Cashflow & Vermögen",
@@ -170,8 +177,17 @@ export const translations = {
     scan_ai: "AI-Vision Scan...",
     save_transaction: "Speichern",
     placeholder_search: "Suchen...",
+    min_amount: "Betrag ab",
+    max_amount: "Bis",
+    reset_filter: "Filter zurücksetzen",
     
-    // Management
+    // Management & Branding
+    branding: "Markenführung",
+    custom_logo: "Unternehmenslogo",
+    upload_logo: "Logo hochladen",
+    reset_logo: "Zurücksetzen",
+    logo_hint: "Logo wird automatisch angepasst, um harmonisch zu wirken.",
+    dev_info: "System entwickelt von thPhuoc",
     categories_man: "Kategorien",
     display_settings: "Anzeige",
     export_excel: "Excel-Export",

@@ -13,19 +13,20 @@ import RecurringManager from './components/RecurringManager';
 import BranchManager from './components/BranchManager';
 import UserManager from './components/UserManager';
 import ExportManager from './components/ExportManager';
-import ReportSettingsManager from './components/ReportSettingsManager';
 import { useTranslation } from './i18n';
 import { 
   UtensilsCrossed, LayoutDashboard, Settings, 
   Wallet, ArrowDownCircle, Sun, Moon, LogOut, 
   History as HistoryIcon, MapPin, Users, RefreshCw, 
-  ChevronDown, Cloud, Zap, ShieldCheck, FileSpreadsheet, LayoutPanelTop,
-  AlertTriangle, Check, X, Clock, Code2, Heart, Languages
+  ChevronDown, Cloud, ShieldCheck, FileSpreadsheet, LayoutPanelTop,
+  AlertTriangle, Heart, Languages, Code2, UserCircle2, 
+  Image as ImageIcon, Upload, Trash2, Shield, Info,
+  Sparkles, Lock, ArrowRight, Github, MonitorSmartphone, Cpu
 } from 'lucide-react';
 
 const App = () => {
   const [activeTab, setActiveTab] = useState<'income' | 'expense' | 'stats' | 'settings'>('income');
-  const [settingsSubTab, setSettingsSubTab] = useState<'general' | 'display' | 'export' | 'branches' | 'users' | 'sync' | 'audit'>('general');
+  const [settingsSubTab, setSettingsSubTab] = useState<'general' | 'export' | 'branches' | 'users' | 'sync' | 'audit'>('general');
   const [isDark, setIsDark] = useState(() => localStorage.getItem('tokymon_theme') === 'dark');
   const [lang, setLang] = useState<Language>(() => (localStorage.getItem('tokymon_lang') as Language) || 'vi');
   
@@ -34,7 +35,6 @@ const App = () => {
   const [data, setData] = useState<AppData>(() => StorageService.loadLocal());
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
-  const [lastSyncTime, setLastSyncTime] = useState<string>('');
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
   
   const [confirmModal, setConfirmModal] = useState<{show: boolean, title: string, message: string, onConfirm: () => void} | null>(null);
@@ -74,8 +74,6 @@ const App = () => {
       }
       
       setSyncStatus('SUCCESS');
-      const now = new Date();
-      setLastSyncTime(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`);
       if (!silent) setTimeout(() => setSyncStatus('IDLE'), 3000);
     } catch (e: any) {
       setSyncStatus('ERROR');
@@ -104,6 +102,18 @@ const App = () => {
 
   const toggleLanguage = () => {
     setLang(prev => prev === 'vi' ? 'de' : 'vi');
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      setData(prev => ({ ...prev, logoUrl: base64 }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const activeTransactions = useMemo(() => data.transactions.filter(tx => !tx.deletedAt), [data.transactions]);
@@ -197,84 +207,193 @@ const App = () => {
 
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6">
-        <div className="absolute top-6 right-6">
-           <button onClick={toggleLanguage} className="p-3 bg-white dark:bg-slate-900 rounded-2xl shadow-xl flex items-center gap-2 border dark:border-slate-800">
-              <Languages className="w-4 h-4 text-indigo-500" />
-              <span className="text-[10px] font-black uppercase dark:text-white">{lang === 'vi' ? 'Tiếng Việt' : 'Deutsch'}</span>
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
+        {/* Dynamic Background Effects */}
+        <div className="absolute top-[-40%] left-[-20%] w-[120%] h-[120%] bg-gradient-to-br from-brand-600/10 via-slate-950 to-indigo-900/10 animate-pulse pointer-events-none" />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-brand-500/20 rounded-full blur-[120px] animate-pulse pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-[120px] animate-pulse delay-700 pointer-events-none" />
+
+        {/* Language Switcher */}
+        <div className="absolute top-8 right-8 z-50">
+           <button onClick={toggleLanguage} className="px-5 py-2.5 bg-white/5 hover:bg-white/10 backdrop-blur-3xl rounded-2xl border border-white/10 text-white transition-all active:scale-90 flex items-center gap-3 shadow-2xl">
+              <Languages className="w-4 h-4 text-brand-400" />
+              <span className="text-[10px] font-black uppercase tracking-widest">{lang === 'vi' ? 'Vietnam' : 'Deutsch'}</span>
            </button>
         </div>
-        <div className="w-20 h-20 bg-indigo-600 rounded-[2rem] flex items-center justify-center shadow-2xl mb-8">
-          <UtensilsCrossed className="w-10 h-10 text-white" />
-        </div>
-        <form onSubmit={(e) => {
-          e.preventDefault();
-          const user = activeUsers.find(u => u.username.toLowerCase() === loginForm.username.toLowerCase() && u.password === loginForm.password);
-          if (user) { 
-            setCurrentUser(user); 
-            localStorage.setItem('tokymon_user', JSON.stringify(user)); 
-          } else { setLoginError(t('error_login')); }
-        }} className="w-full max-w-[340px] space-y-4">
-          <div className="text-center mb-8">
-             <h1 className="text-4xl font-black dark:text-white uppercase tracking-tighter">Tokymon</h1>
-             <div className="flex flex-col items-center gap-1 mt-1">
-                <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Finance System v{SCHEMA_VERSION}</p>
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.3em]">{t('developed_by')} <span className="text-indigo-400">thPhuoc</span></p>
+
+        <div className="w-full max-w-[420px] z-10 space-y-12">
+          {/* Brand Header */}
+          <div className="text-center space-y-8 animate-in fade-in slide-in-from-top-4 duration-1000">
+            <div className="relative inline-block group">
+              {data.logoUrl ? (
+                <div className="relative p-4 bg-white/5 rounded-[3rem] backdrop-blur-xl border border-white/10 shadow-2xl">
+                  <img 
+                    src={data.logoUrl} 
+                    alt="Tokymon" 
+                    className="w-32 h-32 mx-auto object-contain transition-transform duration-700 group-hover:scale-110" 
+                    style={{ mixBlendMode: 'plus-lighter' }}
+                  />
+                  <div className="absolute -inset-2 bg-brand-500/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              ) : (
+                <div className="w-32 h-32 bg-gradient-to-br from-brand-600 to-indigo-700 rounded-[3rem] flex items-center justify-center shadow-[0_0_60px_rgba(79,70,229,0.3)] mx-auto transform rotate-6 group-hover:rotate-0 transition-all duration-700 relative overflow-hidden">
+                  <UtensilsCrossed className="w-14 h-14 text-white relative z-10" />
+                  <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                </div>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <h1 className="text-6xl font-black text-white uppercase tracking-tighter leading-none text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-500">Tokymon</h1>
+              <div className="flex items-center justify-center gap-4">
+                <div className="h-px w-10 bg-brand-500/40"></div>
+                <p className="text-[11px] font-black text-brand-400 uppercase tracking-[0.5em]">Finance Core</p>
+                <div className="h-px w-10 bg-brand-500/40"></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Login Box */}
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const user = activeUsers.find(u => u.username.toLowerCase() === loginForm.username.toLowerCase() && u.password === loginForm.password);
+            if (user) { 
+              setCurrentUser(user); 
+              localStorage.setItem('tokymon_user', JSON.stringify(user)); 
+              addAuditLog('LOGIN', 'USER', user.id, `Đăng nhập thành công`);
+            } else { setLoginError(t('error_login')); }
+          }} className="bg-white/5 backdrop-blur-[60px] p-10 rounded-[3.5rem] border border-white/10 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.8)] space-y-8 relative overflow-hidden group">
+            <div className="space-y-6 relative z-10">
+              <div className="space-y-2.5">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] ml-2">Access ID</label>
+                <div className="relative group/input">
+                  <input 
+                    type="text" 
+                    value={loginForm.username} 
+                    onChange={e => setLoginForm({...loginForm, username: e.target.value})} 
+                    className="w-full p-5 bg-black/40 rounded-[1.8rem] font-bold border-2 border-white/5 focus:border-brand-500 focus:bg-black/60 outline-none text-white transition-all pl-14" 
+                    placeholder="Username"
+                    required 
+                  />
+                  <UserCircle2 className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-500 group-focus-within/input:text-brand-400 transition-colors" />
+                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] ml-2">Secure Key</label>
+                <div className="relative group/input">
+                  <input 
+                    type="password" 
+                    value={loginForm.password} 
+                    onChange={e => setLoginForm({...loginForm, password: e.target.value})} 
+                    className="w-full p-5 bg-black/40 rounded-[1.8rem] font-bold border-2 border-white/5 focus:border-brand-500 focus:bg-black/60 outline-none text-white transition-all pl-14" 
+                    placeholder="••••••••"
+                    required 
+                  />
+                  <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-500 group-focus-within/input:text-brand-400 transition-colors" />
+                </div>
+              </div>
+            </div>
+            
+            {loginError && (
+              <div className="bg-rose-500/10 p-4 rounded-[1.8rem] border border-rose-500/20 flex items-center gap-4 animate-in slide-in-from-top-3">
+                <AlertTriangle className="w-5 h-5 text-rose-500" />
+                <p className="text-rose-400 text-[11px] font-black uppercase tracking-wider">{loginError}</p>
+              </div>
+            )}
+
+            <button type="submit" className="w-full py-6 bg-brand-600 hover:bg-brand-500 text-white rounded-[2rem] font-black uppercase text-[15px] tracking-[0.3em] shadow-[0_20px_40px_-10px_rgba(79,70,229,0.5)] active:scale-[0.97] transition-all relative overflow-hidden group/btn mt-2">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-[1.2s] ease-in-out" />
+              <div className="relative z-10 flex items-center justify-center gap-4">
+                {t('login')}
+                <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-2 transition-transform" />
+              </div>
+            </button>
+          </form>
+
+          {/* Designer Footer */}
+          <div className="text-center space-y-8 animate-in fade-in duration-1000 delay-700">
+             <div className="flex items-center justify-center gap-6 opacity-20">
+               <div className="h-px w-16 bg-white"></div>
+               <Cpu className="w-5 h-5 text-white" />
+               <div className="h-px w-16 bg-white"></div>
+             </div>
+             <div className="space-y-3">
+                <div className="inline-flex flex-col items-center gap-2">
+                   <div className="flex items-center gap-3 px-6 py-2 bg-white/5 rounded-full border border-white/5 hover:bg-white/10 transition-colors cursor-default">
+                      <Code2 className="w-4 h-4 text-brand-400" />
+                      <p className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">
+                        Handcrafted by <span className="text-brand-400">thPhuoc</span>
+                      </p>
+                   </div>
+                   <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest block">v{SCHEMA_VERSION} • Enterprise Financial Solutions</p>
+                </div>
              </div>
           </div>
-          <input type="text" placeholder={t('username')} value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-900 rounded-2xl font-bold border-2 border-transparent focus:border-indigo-500 outline-none dark:text-white" />
-          <input type="password" placeholder={t('password')} value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} className="w-full p-4 bg-white dark:bg-slate-900 rounded-2xl font-bold border-2 border-transparent focus:border-indigo-500 outline-none dark:text-white" />
-          {loginError && <p className="text-rose-500 text-center text-[10px] font-black uppercase">{loginError}</p>}
-          <button type="submit" className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl">{t('login')}</button>
-        </form>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors duration-300 pb-28">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors duration-300 font-sans">
       {confirmModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md" onClick={() => setConfirmModal(null)} />
-          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] p-8 relative z-10 border-4 border-indigo-500 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center text-indigo-600 mb-6 mx-auto">
-              <AlertTriangle className="w-8 h-8" />
+          <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-md" onClick={() => setConfirmModal(null)} />
+          <div className="bg-white dark:bg-slate-900 w-full max-w-xs rounded-4xl p-8 relative z-10 border border-slate-100 dark:border-slate-800 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="w-14 h-14 bg-indigo-100 dark:bg-brand-900/30 rounded-2xl flex items-center justify-center text-brand-600 mb-6 mx-auto">
+              <AlertTriangle className="w-7 h-7" />
             </div>
-            <h3 className="text-xl font-black text-slate-900 dark:text-white text-center uppercase mb-2">{confirmModal.title}</h3>
-            <p className="text-xs font-bold text-slate-500 text-center mb-8 leading-relaxed uppercase">{confirmModal.message}</p>
+            <h3 className="text-base font-black text-slate-900 dark:text-white text-center uppercase mb-3 tracking-tight">{confirmModal.title}</h3>
+            <p className="text-[11px] font-bold text-slate-400 text-center mb-8 leading-relaxed uppercase">{confirmModal.message}</p>
             <div className="flex gap-3">
-              <button onClick={() => setConfirmModal(null)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest">{t('cancel')}</button>
-              <button onClick={() => { confirmModal.onConfirm(); setConfirmModal(null); }} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">{t('save')}</button>
+              <button onClick={() => setConfirmModal(null)} className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all">{t('cancel')}</button>
+              <button onClick={() => { confirmModal.onConfirm(); setConfirmModal(null); }} className="flex-1 py-4 bg-brand-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all">{t('save')}</button>
             </div>
           </div>
         </div>
       )}
       
-      <header className="px-4 py-3 flex items-center justify-between sticky top-0 z-[1000] bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center gap-2">
+      <header className="px-5 py-4 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-slate-100 dark:border-slate-800 shadow-sm">
+        <div className="flex items-center gap-4">
+          {data.logoUrl ? (
+            <img 
+              src={data.logoUrl} 
+              alt="Logo" 
+              className="w-10 h-10 object-contain drop-shadow-md" 
+              style={{ mixBlendMode: isDark ? 'screen' : 'multiply' }}
+            />
+          ) : (
+            <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-soft">
+               <UtensilsCrossed className="w-5 h-5" />
+            </div>
+          )}
           <div className="relative">
             <button 
               type="button"
               onClick={() => setShowBranchDropdown(!showBranchDropdown)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl border dark:border-slate-700 cursor-pointer"
+              className="flex items-center gap-3 px-4 py-2.5 bg-slate-100 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 cursor-pointer active:scale-95 transition-all shadow-sm"
             >
-              <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-              <span className="text-[10px] font-black uppercase dark:text-white truncate max-w-[120px]">{currentBranchName}</span>
-              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${showBranchDropdown ? 'rotate-180' : ''}`} />
+              <div className="w-2.5 h-2.5 rounded-full bg-brand-500 animate-pulse" />
+              <span className="text-[11px] font-black uppercase dark:text-white truncate max-w-[120px] tracking-tight">{currentBranchName}</span>
+              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${showBranchDropdown ? 'rotate-180' : ''}`} />
             </button>
             {showBranchDropdown && (
               <>
                 <div className="fixed inset-0 z-[1001]" onClick={() => setShowBranchDropdown(false)} />
-                <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border dark:border-slate-800 z-[1002] overflow-hidden">
+                <div className="absolute top-full left-0 mt-3 w-64 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 z-[1002] overflow-hidden animate-in slide-in-from-top-2 duration-300">
+                  <div className="p-3 border-b dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
+                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest pl-2">Chọn chi nhánh</p>
+                  </div>
                   {dropdownBranches.map(b => (
                     <button 
                       key={b.id} 
                       type="button"
                       onClick={() => { setCurrentBranchId(b.id); setLastSelectedBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); setShowBranchDropdown(false); }} 
-                      className={`w-full text-left px-4 py-3 hover:bg-indigo-600 hover:text-white transition-colors flex items-center justify-between ${currentBranchId === b.id ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''}`}
+                      className={`w-full text-left px-5 py-4 hover:bg-brand-600 hover:text-white transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-brand-50 dark:bg-brand-900/10 text-brand-600' : 'dark:text-slate-300 text-slate-600'}`}
                     >
                       <span className="text-[10px] font-black uppercase">{b.name}</span>
-                      {currentBranchId === b.id && <ShieldCheck className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
+                      {currentBranchId === b.id && <div className="w-5 h-5 bg-brand-600 rounded-full flex items-center justify-center text-white"><ShieldCheck className="w-3 h-3" /></div>}
                     </button>
                   ))}
                 </div>
@@ -283,34 +402,26 @@ const App = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <button type="button" onClick={toggleLanguage} className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl border dark:border-slate-700 flex items-center gap-1">
-             <span className="text-[9px] font-black uppercase text-indigo-600 dark:text-indigo-400">{lang === 'vi' ? 'VI' : 'DE'}</span>
-          </button>
-          <button type="button" onClick={() => setIsDark(!isDark)} className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl border dark:border-slate-700">
-            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setIsDark(!isDark)} className="w-11 h-11 bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 transition-all active:scale-90 flex items-center justify-center">
+            {isDark ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-brand-600" />}
           </button>
           <button 
             type="button"
             onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })}
-            className="p-2.5 bg-rose-500 text-white rounded-xl shadow-lg flex items-center gap-1.5 cursor-pointer active:scale-95"
+            className="w-11 h-11 bg-rose-500 text-white rounded-2xl shadow-lg flex items-center justify-center active:scale-90 transition-all"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-5 h-5" />
           </button>
         </div>
       </header>
 
-      <main className="flex-1 px-4 max-w-6xl mx-auto w-full pt-4 relative z-10">
+      <main className="flex-1 px-5 max-w-6xl mx-auto w-full pt-6 pb-36">
         {activeTab === 'income' && (
           currentBranchId === ALL_BRANCHES_ID ? (
-            <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-slate-900 rounded-[2.5rem] border border-dashed dark:border-slate-800">
-               <LayoutPanelTop className="w-12 h-12 text-slate-300 mb-4" />
-               <p className="text-xs font-black text-slate-400 uppercase tracking-widest text-center px-10">
-                 {lang === 'vi' ? 'Chuyển sang chi nhánh cụ thể để nhập doanh thu' : 'Wählen Sie eine Filiale aus, um Einnahmen zu erfassen'}
-               </p>
-               <button onClick={toggleGlobalReport} className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl">
-                 {lang === 'vi' ? 'Về chi nhánh trước' : 'Zurück zur Filiale'}
-               </button>
+            <div className="flex flex-col items-center justify-center py-24 bg-white dark:bg-slate-900 rounded-4xl border-2 border-dashed border-slate-100 dark:border-slate-800">
+               <LayoutPanelTop className="w-16 h-16 text-slate-200 dark:text-slate-800 mb-6" />
+               <p className="text-xs font-black text-slate-400 uppercase tracking-widest text-center px-10 leading-loose">Vui lòng chọn một chi nhánh <br/> để nhập doanh thu</p>
             </div>
           ) : (
             <IncomeManager transactions={data.transactions} onAddTransaction={tx => setData(p => ({...p, transactions: [tx, ...p.transactions]}))} onDeleteTransaction={id => setData(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}))} onEditTransaction={u => setData(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}))} branchId={currentBranchId} initialBalances={{cash: currentBranch?.initialCash || 0, card: currentBranch?.initialCard || 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />
@@ -319,14 +430,9 @@ const App = () => {
         
         {activeTab === 'expense' && (
           currentBranchId === ALL_BRANCHES_ID ? (
-            <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-slate-900 rounded-[2.5rem] border border-dashed dark:border-slate-800">
-               <ArrowDownCircle className="w-12 h-12 text-slate-300 mb-4" />
-               <p className="text-xs font-black text-slate-400 uppercase tracking-widest text-center px-10">
-                 {lang === 'vi' ? 'Chuyển sang chi nhánh cụ thể để nhập chi phí' : 'Wählen Sie eine Filiale aus, um Ausgaben zu erfassen'}
-               </p>
-               <button onClick={toggleGlobalReport} className="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl">
-                 {lang === 'vi' ? 'Về chi nhánh trước' : 'Zurück zur Filiale'}
-               </button>
+            <div className="flex flex-col items-center justify-center py-24 bg-white dark:bg-slate-900 rounded-4xl border-2 border-dashed border-slate-100 dark:border-slate-800">
+               <ArrowDownCircle className="w-16 h-16 text-slate-200 dark:text-slate-800 mb-6" />
+               <p className="text-xs font-black text-slate-400 uppercase tracking-widest text-center px-10 leading-loose">Vui lòng chọn một chi nhánh <br/> để nhập chi phí</p>
             </div>
           ) : (
             <ExpenseManager transactions={data.transactions} onAddTransaction={tx => setData(p => ({...p, transactions: [tx, ...p.transactions]}))} onDeleteTransaction={id => setData(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}))} onEditTransaction={u => setData(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}))} expenseCategories={data.expenseCategories} branchId={currentBranchId} initialBalances={{cash: currentBranch?.initialCash || 0, card: currentBranch?.initialCard || 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />
@@ -345,107 +451,178 @@ const App = () => {
         />}
         
         {activeTab === 'settings' && (
-          <div className="space-y-6 pb-20">
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+          <div className="space-y-6">
+            <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-2">
               {[
-                { id: 'general', label: t('categories_man'), icon: Settings },
-                { id: 'display', label: t('stats'), icon: LayoutPanelTop },
+                { id: 'general', label: t('branding'), icon: ImageIcon },
                 { id: 'export', label: 'Excel', icon: FileSpreadsheet },
                 { id: 'sync', label: 'Cloud', icon: Cloud },
                 { id: 'branches', label: t('branches'), icon: MapPin },
                 { id: 'users', label: t('users'), icon: Users },
-                { id: 'audit', label: t('audit_log'), icon: HistoryIcon }
+                { id: 'audit', label: 'Log', icon: HistoryIcon }
               ].map(sub => (
                 <button 
                   key={sub.id} 
                   type="button"
                   onClick={() => setSettingsSubTab(sub.id as any)} 
                   style={{ display: (sub.id === 'branches' || sub.id === 'users') && !isAdmin ? 'none' : 'flex' }} 
-                  className={`px-4 py-3 rounded-xl text-[9px] font-black uppercase tracking-wider border transition-all flex items-center gap-2 shrink-0 ${settingsSubTab === sub.id ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500'}`}
+                  className={`px-5 py-4 rounded-2xl text-[9px] font-black uppercase tracking-wider border transition-all flex items-center gap-2.5 shrink-0 ${settingsSubTab === sub.id ? 'bg-brand-600 border-brand-600 text-white shadow-lg translate-y-[-2px]' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500'}`}
                 >
-                  <sub.icon className="w-3.5 h-3.5" /> {sub.label}
+                  <sub.icon className="w-4 h-4" /> {sub.label}
                 </button>
               ))}
             </div>
 
-            <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[2.5rem] p-6 border dark:border-slate-800 shadow-sm min-h-[450px] flex flex-col">
-              <div className="flex-1">
+            <div className="bg-white dark:bg-slate-900 rounded-5xl p-8 border border-slate-100 dark:border-slate-800 shadow-soft min-h-[500px]">
                 {settingsSubTab === 'sync' && (
-                  <div className="space-y-6">
-                    <input type="text" value={syncKey} onChange={e => {setSyncKey(e.target.value); localStorage.setItem('tokymon_sync_key', e.target.value);}} placeholder="Nhập Cloud ID..." className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-black border-2 border-transparent focus:border-indigo-500 outline-none text-xs dark:text-white" />
-                    <button type="button" onClick={() => handleCloudSync()} disabled={isSyncing} className="w-full py-4.5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 disabled:opacity-50">
-                      <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} /> {t('cloud_sync')}
+                  <div className="space-y-6 max-w-sm mx-auto pt-6 text-center">
+                    <div className="w-16 h-16 bg-brand-50 dark:bg-brand-900/20 rounded-3xl flex items-center justify-center text-brand-600 mx-auto mb-2">
+                      <Cloud className="w-8 h-8" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Cloud Bucket ID</label>
+                      <input type="text" value={syncKey} onChange={e => {setSyncKey(e.target.value); localStorage.setItem('tokymon_sync_key', e.target.value);}} placeholder="ID..." className="w-full p-4.5 bg-slate-50 dark:bg-slate-950 rounded-2xl font-bold border-2 border-transparent focus:border-brand-500 outline-none text-sm dark:text-white transition-all shadow-inner text-center" />
+                    </div>
+                    <button type="button" onClick={() => handleCloudSync()} disabled={isSyncing} className="w-full py-5 bg-brand-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-3 shadow-vivid active:scale-95 transition-all">
+                      <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /> {t('cloud_sync')}
                     </button>
                   </div>
                 )}
-                {settingsSubTab === 'display' && <ReportSettingsManager settings={reportSettings} onUpdate={val => {setData(prev => ({ ...prev, reportSettings: val }));}} />}
+                
                 {settingsSubTab === 'export' && <ExportManager transactions={data.transactions} branches={data.branches} lang={lang} />}
-                {settingsSubTab === 'branches' && (
-                  <BranchManager 
-                    branches={data.branches} 
-                    setBranches={fn => setData(p => ({...p, branches: fn(p.branches)}))} 
-                    onAudit={addAuditLog}
-                    setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })}
-                    onResetBranchData={handleResetBranchData}
-                    lang={lang}
-                  />
-                )}
+                
+                {settingsSubTab === 'branches' && <BranchManager branches={data.branches} setBranches={fn => setData(p => ({...p, branches: fn(p.branches)}))} onAudit={addAuditLog} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} onResetBranchData={handleResetBranchData} lang={lang} />}
+                
                 {settingsSubTab === 'users' && <UserManager users={data.users} setUsers={val => setData(p => ({...p, users: typeof val === 'function' ? val(p.users) : val}))} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} lang={lang} />}
+                
                 {settingsSubTab === 'general' && (
-                  <div className="space-y-8">
+                  <div className="space-y-12">
+                    {/* Branding / Logo Section */}
+                    {isAdmin && (
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-brand-50 dark:bg-brand-900/20 rounded-2xl flex items-center justify-center text-brand-600 shadow-soft">
+                             <ImageIcon className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <h3 className="text-base font-black dark:text-white uppercase tracking-tight leading-none mb-1">{t('branding')}</h3>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tùy chỉnh nhận diện thương hiệu</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-col md:flex-row items-center gap-10 bg-slate-50 dark:bg-slate-950/50 p-8 rounded-4xl border-2 border-dashed dark:border-slate-800">
+                           <div className="w-32 h-32 bg-white dark:bg-slate-900 rounded-3xl border dark:border-slate-800 flex items-center justify-center overflow-hidden shadow-vivid relative group">
+                              {data.logoUrl ? (
+                                <img 
+                                  src={data.logoUrl} 
+                                  alt="Preview" 
+                                  className="w-full h-full object-contain" 
+                                  style={{ mixBlendMode: isDark ? 'screen' : 'multiply' }}
+                                />
+                              ) : (
+                                <UtensilsCrossed className="w-12 h-12 text-slate-200 dark:text-slate-800" />
+                              )}
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
+                                <ImageIcon className="w-8 h-8 text-white" />
+                              </div>
+                           </div>
+                           <div className="flex-1 space-y-6 text-center md:text-left">
+                              <div className="space-y-1">
+                                <h4 className="text-sm font-black dark:text-white uppercase tracking-tight">{t('custom_logo')}</h4>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed max-w-xs">{t('logo_hint')}</p>
+                              </div>
+                              <div className="flex flex-wrap justify-center md:justify-start gap-3">
+                                <label className="px-6 py-3.5 bg-brand-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-vivid active:scale-95 transition-all flex items-center gap-3 cursor-pointer">
+                                  <Upload className="w-4 h-4" /> {t('upload_logo')}
+                                  <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                                </label>
+                                {data.logoUrl && (
+                                  <button onClick={() => setData(prev => ({ ...prev, logoUrl: undefined }))} className="px-6 py-3.5 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-3">
+                                    <Trash2 className="w-4 h-4" /> {t('reset_logo')}
+                                  </button>
+                                )}
+                              </div>
+                           </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="h-px bg-slate-100 dark:bg-slate-800" />
+
                     <CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => {setData(prev => ({...prev, expenseCategories: cats}));}} lang={lang} />
+                    
+                    <div className="h-px bg-slate-100 dark:bg-slate-800" />
+                    
                     <RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={data.expenseCategories} onUpdate={(recs) => {setData(prev => ({...prev, recurringExpenses: recs}));}} onGenerateTransactions={txs => {setData(prev => ({...prev, transactions: [...txs, ...prev.transactions]}));}} branchId={currentBranchId === ALL_BRANCHES_ID ? allowedBranches[0]?.id : currentBranchId} lang={lang} />
+                  
+                    {/* Credits in Settings */}
+                    <div className="pt-10 flex flex-col items-center gap-4 opacity-40">
+                       <p className="text-[10px] font-black uppercase tracking-[0.3em] dark:text-white flex items-center gap-2">
+                         <Code2 className="w-4 h-4 text-brand-500" /> Developed by thPhuoc
+                       </p>
+                       <div className="flex items-center gap-6">
+                          <div className="flex items-center gap-2">
+                            <Heart className="w-3 h-3 text-rose-500 fill-rose-500" />
+                            <span className="text-[8px] font-black uppercase tracking-widest">Premium Quality</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <MonitorSmartphone className="w-3 h-3" />
+                            <span className="text-[8px] font-black uppercase tracking-widest">Secure & Fast</span>
+                          </div>
+                       </div>
+                    </div>
                   </div>
                 )}
+                
                 {settingsSubTab === 'audit' && (
-                  <div className="space-y-4 h-[500px] overflow-y-auto custom-scrollbar pr-2">
+                  <div className="space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-2">
+                    <div className="flex items-center gap-3 mb-4">
+                      <HistoryIcon className="w-5 h-5 text-brand-500" />
+                      <h3 className="text-xs font-black uppercase dark:text-white">Nhật ký hoạt động</h3>
+                    </div>
                     {data.auditLogs.slice().reverse().map(log => (
-                      <div key={log.id} className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border dark:border-slate-800 flex items-start gap-4">
-                        <div className="flex-1 text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                          {log.details} <span className="text-[8px] text-slate-400 font-normal ml-2">{new Date(log.timestamp).toLocaleString()}</span>
+                      <div key={log.id} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-col gap-2">
+                        <div className="flex justify-between items-start">
+                           <span className="text-[9px] font-black px-2 py-0.5 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 rounded-md uppercase tracking-widest">{log.action}</span>
+                           <span className="text-[8px] text-slate-400 font-bold uppercase">{new Date(log.timestamp).toLocaleString()}</span>
+                        </div>
+                        <div className="text-[11px] font-bold dark:text-slate-200 uppercase tracking-tight">{log.details}</div>
+                        <div className="text-[8px] text-slate-500 font-black uppercase tracking-widest flex items-center gap-1.5">
+                          <UserCircle2 className="w-2.5 h-2.5" /> {log.username}
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
-              </div>
-
-              <div className="mt-12 pt-8 border-t dark:border-slate-800 flex flex-col items-center gap-4">
-                 <div className="flex items-center gap-2">
-                    <Code2 className="w-4 h-4 text-indigo-500" />
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('system_info')}</span>
-                 </div>
-                 <div className="flex flex-col items-center">
-                    <p className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-tight">{t('version')} {SCHEMA_VERSION}</p>
-                    <p className="text-[9px] font-bold text-slate-400 mt-1 flex items-center gap-1.5 uppercase">
-                      Made with <Heart className="w-2.5 h-2.5 text-rose-500 fill-rose-500" /> by <span className="text-indigo-600 dark:text-indigo-400 font-black">thPhuoc</span>
-                    </p>
-                 </div>
-              </div>
             </div>
           </div>
         )}
       </main>
 
-      <nav className="fixed bottom-4 left-6 right-6 h-18 bg-white dark:bg-slate-900 border dark:border-slate-800 flex items-center justify-around px-4 rounded-[2.5rem] shadow-2xl z-[500]">
-        {[
-          { id: 'income', label: t('income'), icon: Wallet },
-          { id: 'expense', label: t('expense'), icon: ArrowDownCircle },
-          { id: 'stats', label: t('stats'), icon: LayoutDashboard },
-          { id: 'settings', label: t('settings'), icon: Settings }
-        ].map(tab => (
-          <button 
-            key={tab.id} 
-            type="button"
-            onClick={() => { setActiveTab(tab.id as any); window.scrollTo({ top: 0, behavior: 'smooth' }); }} 
-            className={`flex flex-col items-center gap-1 relative py-2 rounded-2xl flex-1 ${activeTab === tab.id ? 'text-indigo-600' : 'text-slate-400'}`}
-          >
-            {activeTab === tab.id && <div className="absolute top-0 w-8 h-1 bg-indigo-600 rounded-full" />}
-            <tab.icon className={`w-6 h-6 ${activeTab === tab.id ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
-            <span className={`text-[8px] font-black uppercase tracking-tight ${activeTab === tab.id ? 'opacity-100' : 'opacity-60'}`}>{tab.label}</span>
-          </button>
-        ))}
-      </nav>
+      {/* Modern Floating Navigation */}
+      <div className="fixed bottom-6 left-0 right-0 px-6 z-[2000] flex justify-center pointer-events-none">
+        <nav className="h-20 max-w-md w-full glass border border-white/10 dark:border-slate-800/80 flex items-center justify-around px-4 rounded-[2.5rem] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] pointer-events-auto backdrop-blur-3xl">
+          {[
+            { id: 'income', label: t('income'), icon: Wallet },
+            { id: 'expense', label: t('expense'), icon: ArrowDownCircle },
+            { id: 'stats', label: t('stats'), icon: LayoutDashboard },
+            { id: 'settings', label: t('settings'), icon: Settings }
+          ].map(tab => (
+            <button 
+              key={tab.id} 
+              type="button"
+              onClick={() => { setActiveTab(tab.id as any); window.scrollTo({ top: 0, behavior: 'smooth' }); }} 
+              className={`flex flex-col items-center gap-1.5 relative py-2 rounded-2xl flex-1 transition-all active:scale-[0.8] ${activeTab === tab.id ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400 hover:text-slate-500'}`}
+            >
+              {activeTab === tab.id && (
+                <div className="absolute -top-3 w-10 h-1 bg-brand-600 dark:bg-brand-500 rounded-full shadow-[0_0_15px_rgba(99,102,241,0.6)] animate-in zoom-in duration-500" />
+              )}
+              <tab.icon className={`w-6 h-6 ${activeTab === tab.id ? 'stroke-[2.5] scale-110' : 'stroke-[2]'}`} />
+              <span className={`text-[9px] font-black uppercase tracking-tight transition-all ${activeTab === tab.id ? 'opacity-100 translate-y-0' : 'opacity-40 translate-y-0.5'}`}>{tab.label}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
     </div>
   );
 };

@@ -3,40 +3,41 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Transaction, TransactionType, Language, EXPENSE_CATEGORIES } from "../types";
 
 /**
- * Analyze financial transactions using Gemini 3
+ * Phân tích dữ liệu tài chính chuyên sâu bằng Gemini AI
  */
-export const analyzeFinances = async (transactions: Transaction[], lang: Language = 'vi'): Promise<string> => {
-  if (transactions.length === 0) return lang === 'vi' ? "Chưa có dữ liệu giao dịch." : "Keine Transaktionsdaten vorhanden.";
-
-  const totalIncome = transactions.filter(t => t.type === TransactionType.INCOME).reduce((sum, t) => sum + t.amount, 0);
-  const totalExpense = transactions.filter(t => t.type === TransactionType.EXPENSE).reduce((sum, t) => sum + t.amount, 0);
-  const profit = totalIncome - totalExpense;
-
+export const analyzeFinances = async (stats: any, lang: Language = 'vi'): Promise<string> => {
+  const { totalIn, totalOut, profit, margin, topCategories, breakdown, totalDebt } = stats;
+  
   const prompt = `
-    Bạn là một chuyên gia tư vấn tài chính (CFO) cho nhà hàng "Tokymon".
-    Dữ liệu:
-    - Tổng doanh thu: ${totalIncome} EUR
-    - Tổng chi phí: ${totalExpense} EUR
-    - Lợi nhuận: ${profit} EUR
+    Bạn là một chuyên gia tư vấn tài chính (CFO) giàu kinh nghiệm cho chuỗi nhà hàng "Tokymon".
+    Hãy phân tích dữ liệu kinh doanh sau đây và đưa ra nhận xét, lời khuyên chiến lược bằng ${lang === 'vi' ? 'tiếng Việt' : 'tiếng Đức'}.
 
-    Hãy đưa ra một bản phân tích ngắn gọn bằng ${lang === 'vi' ? 'tiếng Việt' : 'tiếng Đức'}.
-    1. Nhận xét tình hình.
-    2. Lời khuyên tăng lợi nhuận.
-    Giọng văn chuyên nghiệp.
+    Dữ liệu kinh doanh:
+    - Tổng doanh thu: ${totalIn} EUR (Trong đó: Tiền mặt ${breakdown.cashIn} EUR, Thẻ ${breakdown.cardIn} EUR, Delivery ${breakdown.appIn} EUR)
+    - Tổng chi phí: ${totalOut} EUR
+    - Lợi nhuận ròng: ${profit} EUR
+    - Tỷ suất lợi nhuận: ${(margin * 100).toFixed(2)}%
+    - Tổng công nợ hiện tại: ${totalDebt} EUR
+    - Top 3 hạng mục chi phí lớn nhất: ${topCategories.slice(0, 3).map((c: any) => `${c.name} (${c.value} EUR)`).join(', ')}
+
+    Yêu cầu bản phân tích:
+    1. Nhận xét ngắn gọn về sức khỏe tài chính.
+    2. Chỉ ra điểm bất thường hoặc cần tối ưu (nếu có, ví dụ chi phí nguyên liệu quá cao hoặc nợ nhiều).
+    3. Đưa ra 3 lời khuyên cụ thể để tăng lợi nhuận hoặc tối ưu dòng tiền.
+    
+    Phong cách: Chuyên nghiệp, súc tích, đi thẳng vào vấn đề. Sử dụng Markdown để trình bày (bullet points).
   `;
 
   try {
-    // Fix: Using named parameter for API key and process.env.API_KEY directly
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
     });
-    // Fix: Access .text property directly as per latest guidelines
-    return response.text || "Error.";
+    return response.text || "Không thể khởi tạo bản phân tích.";
   } catch (error) {
     console.error("Gemini Error:", error);
-    return "Error connecting to AI.";
+    return lang === 'vi' ? "Lỗi kết nối với AI. Vui lòng thử lại sau." : "Fehler bei der KI-Verbindung. Bitte versuchen Sie es später erneut.";
   }
 };
 
@@ -54,7 +55,6 @@ export const scanReceipt = async (base64Image: string, mimeType: string): Promis
   Lưu ý: Nếu hóa đơn bằng tiếng Đức, hãy hiểu các từ như 'Summe', 'Gesamtbetrag' là tổng tiền. Nếu không tìm thấy ngày, hãy lấy ngày hôm nay.`;
 
   try {
-    // Fix: Using named parameter for API key and process.env.API_KEY directly
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -84,7 +84,6 @@ export const scanReceipt = async (base64Image: string, mimeType: string): Promis
       }
     });
 
-    // Fix: Access .text property directly as per latest guidelines
     return JSON.parse(response.text || "{}");
   } catch (error) {
     console.error("OCR Error:", error);

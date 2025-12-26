@@ -127,9 +127,10 @@ export interface AppData {
   recurringExpenses: RecurringTransaction[];
   auditLogs: AuditLogEntry[];
   reportSettings?: ReportSettings;
+  logoUrl?: string; // New field for custom logo
 }
 
-export const SCHEMA_VERSION = "2.6";
+export const SCHEMA_VERSION = "3.1";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const formatCurrency = (val: number, lang: Language = 'vi') => 

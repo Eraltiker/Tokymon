@@ -37,7 +37,8 @@ export const StorageService = {
       auditLogs: [...(local.auditLogs || []), ...(remote.auditLogs || [])]
         .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)
         .slice(-500),
-      reportSettings: remote.reportSettings || local.reportSettings
+      reportSettings: remote.reportSettings || local.reportSettings,
+      logoUrl: remote.logoUrl || local.logoUrl
     };
   },
 

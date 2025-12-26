@@ -1,6 +1,6 @@
 {
-  "name": "Tokymon",
-  "description": "Ứng dụng quản lý doanh thu và chi phí chuyên nghiệp cho nhà hàng Tokymon, tích hợp AI phân tích tài chính.",
+  "name": "Tokymon Finance",
+  "description": "Ứng dụng quản lý tài chính đa chi nhánh cho Tokymon với AI Vision.",
   "requestFramePermissions": [
     "camera"
   ]

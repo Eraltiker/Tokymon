@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Transaction, TransactionType, UserRole, Branch } from '../types';
+import { Transaction, TransactionType, UserRole, Branch, Language } from '../types';
 import TransactionForm from './TransactionForm';
 import TransactionList from './TransactionList';
 import EditTransactionModal from './EditTransactionModal';
@@ -13,7 +13,8 @@ interface IncomeManagerProps {
   branchId: string;
   initialBalances: { cash: number; card: number };
   userRole?: UserRole;
-  lang?: any;
+  // Using Language type instead of any
+  lang?: Language;
   branchName?: string;
 }
 
@@ -25,16 +26,17 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({
   branchId, 
   initialBalances, 
   userRole,
-  branchName
+  branchName,
+  lang = 'vi'
 }) => {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const incomeTransactions = transactions.filter(t => t.type === TransactionType.INCOME && t.branchId === branchId && !t.deletedAt);
   const isViewer = userRole === UserRole.VIEWER;
 
   return (
-    <div className={`flex flex-col lg:grid ${isViewer ? 'lg:grid-cols-1' : 'lg:grid-cols-3'} gap-6`}>
+    <div className={`flex flex-col lg:grid lg:grid-cols-12 gap-6 items-start`}>
       {!isViewer && (
-        <div className="lg:col-span-1">
+        <div className="w-full lg:col-span-4 lg:sticky lg:top-20">
           <TransactionForm 
             onAddTransaction={onAddTransaction} 
             expenseCategories={[]} 
@@ -43,16 +45,18 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({
             initialBalances={initialBalances}
             transactions={transactions}
             branchName={branchName}
+            lang={lang}
           />
         </div>
       )}
-      <div className={`${isViewer ? 'lg:col-span-1' : 'lg:col-span-2'} min-h-[500px]`}>
+      <div className={`w-full ${isViewer ? 'lg:col-span-12' : 'lg:col-span-8'} min-h-[600px] h-full`}>
         <TransactionList 
           transactions={incomeTransactions} 
           onDelete={onDeleteTransaction}
           onEdit={(tx) => setEditingTx(tx)}
           title={`Doanh Thu - ${branchName}`} 
           userRole={userRole}
+          lang={lang}
         />
       </div>
 
