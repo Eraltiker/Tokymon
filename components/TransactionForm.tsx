@@ -7,7 +7,8 @@ import {
   Save, Camera, Loader2,
   ChevronLeft, ChevronRight, Store, 
   ChevronDown, CreditCard, Calendar,
-  Wallet, Receipt, Sparkles, AlertCircle, X
+  Wallet, Receipt, Sparkles, AlertCircle, X,
+  Image as ImageIcon
 } from 'lucide-react';
 
 interface TransactionFormProps {
@@ -67,14 +68,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
 
   const compressImage = (file: File): Promise<{base64: string, type: string}> => {
     return new Promise((resolve, reject) => {
-      // iOS Memory Fix: Sử dụng ObjectURL thay vì đọc trực tiếp chuỗi Base64 cực lớn của ảnh gốc
+      // iOS Memory Fix: Sử dụng ObjectURL
       const objectUrl = URL.createObjectURL(file);
       const img = new Image();
       img.src = objectUrl;
       
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        // Mobile Safe Limit: Giới hạn 1000px để tránh crash Safari mobile
+        // Giới hạn 1000px để ổn định trên iPhone SE/8
         const MAX_SIZE = 1000; 
         let width = img.width;
         let height = img.height;
@@ -95,7 +96,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         }
         
         const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        URL.revokeObjectURL(objectUrl); // Giải phóng bộ nhớ ngay lập tức
+        URL.revokeObjectURL(objectUrl);
         resolve({ base64: dataUrl.split(',')[1], type: 'image/jpeg' });
       };
       
@@ -111,10 +112,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
     if (!file) return;
     
     setIsScanning(true);
+    // Độ trễ nhẹ 100ms để iOS hoàn tất ghi file từ camera vào cache
+    await new Promise(r => setTimeout(r, 100));
+
     try {
-      // Xử lý nén ảnh ngay lập tức
       const { base64, type: compressedType } = await compressImage(file);
-      // Gửi sang AI
       const result = await scanReceipt(base64, compressedType);
       
       if (result) {
@@ -125,7 +127,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
       }
     } catch (error) { 
       console.error("Scan error:", error);
-      alert(lang === 'vi' ? "AI quét thất bại. Vui lòng chụp ảnh rõ hơn hoặc dung lượng ảnh quá lớn." : "KI-Scan fehlgeschlagen. Bitte machen Sie ein deutlicheres Foto.");
+      alert(lang === 'vi' ? "AI quét thất bại. Vui lòng thử lại hoặc chọn ảnh khác." : "KI-Scan fehlgeschlagen. Bitte erneut versuchen.");
     } finally {
       setIsScanning(false);
       setInputKey(Date.now());
@@ -174,24 +176,38 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
       )}
 
       <div className="px-5 py-3.5 border-b border-slate-100 dark:border-slate-800/50 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20">
-        <div className="min-w-0 pr-2">
+        <div className="min-w-0 pr-2 flex-1">
           <span className="text-[9px] font-black uppercase text-brand-600 dark:text-brand-400 tracking-widest block mb-1 opacity-80">{branchName}</span>
           <h2 className="text-lg font-extrabold uppercase tracking-tight dark:text-white leading-none truncate">
             {type === TransactionType.INCOME ? t('chot_so') : t('chi_phi')}
           </h2>
         </div>
+        
         {type === TransactionType.EXPENSE && (
-          <div className="relative w-10 h-10 bg-brand-600 text-white rounded-xl active-scale transition-all flex items-center justify-center shadow-lg shadow-brand-500/20 overflow-hidden shrink-0">
-            <Camera className="w-5 h-5 pointer-events-none" />
-            {/* iOS Fix: Đặt input file đè chính xác 100% diện tích icon để luôn nhận click */}
-            <input 
-              key={inputKey}
-              type="file" 
-              onChange={handleFileUpload} 
-              accept="image/*" 
-              capture="environment" 
-              className="absolute inset-0 opacity-0 cursor-pointer z-20 w-full h-full" 
-            />
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Nút DUYỆT FILE */}
+            <div className="relative w-10 h-10 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl active-scale transition-all flex items-center justify-center shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <ImageIcon className="w-5 h-5 pointer-events-none" />
+              <input 
+                key={`gallery-${inputKey}`}
+                type="file" 
+                onChange={handleFileUpload} 
+                accept="image/*" 
+                className="absolute inset-0 opacity-0 cursor-pointer z-20 w-full h-full" 
+              />
+            </div>
+            {/* Nút CHỤP ẢNH */}
+            <div className="relative w-10 h-10 bg-brand-600 text-white rounded-xl active-scale transition-all flex items-center justify-center shadow-lg shadow-brand-500/20 overflow-hidden">
+              <Camera className="w-5 h-5 pointer-events-none" />
+              <input 
+                key={`camera-${inputKey}`}
+                type="file" 
+                onChange={handleFileUpload} 
+                accept="image/*" 
+                capture="environment" 
+                className="absolute inset-0 opacity-0 cursor-pointer z-20 w-full h-full" 
+              />
+            </div>
           </div>
         )}
       </div>
