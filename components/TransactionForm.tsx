@@ -175,22 +175,22 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   };
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 flex flex-col relative overflow-hidden transition-all max-w-full lg:max-w-md mx-auto">
+    <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-lg border border-slate-100 dark:border-slate-800 flex flex-col relative overflow-hidden transition-all max-w-full lg:max-w-md mx-auto">
       {isScanning && (
         <div className="absolute inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex flex-col items-center justify-center text-white p-6 animate-in fade-in duration-300">
-          <div className="relative mb-8">
-            <div className="w-20 h-20 border-4 border-brand-500/20 border-t-brand-500 rounded-full animate-spin" />
-            <Sparkles className="w-8 h-8 text-amber-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+          <div className="relative mb-6">
+            <div className="w-16 h-16 border-4 border-brand-500/20 border-t-brand-500 rounded-full animate-spin" />
+            <Sparkles className="w-6 h-6 text-amber-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
           </div>
-          <h3 className="text-lg font-black uppercase tracking-widest mb-2">AI Vision</h3>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Đang phân tích hóa đơn...</p>
+          <h3 className="text-sm font-black uppercase tracking-widest mb-1">AI Vision</h3>
+          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Đang phân tích...</p>
         </div>
       )}
 
-      <div className="px-6 py-5 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20">
+      <div className="px-5 py-3.5 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20">
         <div>
-          <span className="text-[9px] font-black uppercase text-brand-600 dark:text-brand-400 tracking-widest block mb-1">{branchName}</span>
-          <h2 className="text-xl font-black uppercase tracking-tight dark:text-white leading-none">
+          <span className="text-[8px] font-black uppercase text-brand-600 dark:text-brand-400 tracking-widest block mb-0.5">{branchName}</span>
+          <h2 className="text-lg font-black uppercase tracking-tight dark:text-white leading-none">
             {type === TransactionType.INCOME ? t('chot_so') : t('chi_phi')}
           </h2>
         </div>
@@ -198,9 +198,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
           <button 
             type="button" 
             onClick={() => fileInputRef.current?.click()} 
-            className="w-14 h-14 bg-brand-600 text-white rounded-2xl active:scale-90 transition-all flex items-center justify-center shadow-lg shadow-brand-500/30"
+            className="w-11 h-11 bg-brand-600 text-white rounded-2xl active:scale-90 transition-all flex items-center justify-center shadow-lg shadow-brand-500/30"
           >
-            <Camera className="w-7 h-7" />
+            <Camera className="w-6 h-6" />
           </button>
         )}
         <input 
@@ -213,69 +213,69 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         />
       </div>
       
-      <form onSubmit={handleSubmit} className="p-6 space-y-6">
+      <form onSubmit={handleSubmit} className="p-4 space-y-3.5">
         <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl border border-slate-200/50 dark:border-slate-800">
-          <button type="button" onClick={() => adjustDate(-1)} className="w-12 h-12 bg-white dark:bg-slate-900 rounded-xl text-slate-400 active:scale-90 flex items-center justify-center shadow-sm"><ChevronLeft className="w-6 h-6" /></button>
-          <div className="flex-1 text-center relative h-12 flex items-center justify-center">
-            <span className="text-sm font-black dark:text-white uppercase tracking-tight flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-brand-500" />
+          <button type="button" onClick={() => adjustDate(-1)} className="w-10 h-10 bg-white dark:bg-slate-900 rounded-xl text-slate-400 active:scale-90 flex items-center justify-center shadow-sm"><ChevronLeft className="w-5 h-5" /></button>
+          <div className="flex-1 text-center relative h-10 flex items-center justify-center">
+            <span className="text-xs font-black dark:text-white uppercase tracking-tight flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-brand-500" />
               {formatDateDisplay(date)}
             </span>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer w-full" />
           </div>
-          <button type="button" onClick={() => adjustDate(1)} className="w-12 h-12 bg-white dark:bg-slate-900 rounded-xl text-slate-400 active:scale-90 flex items-center justify-center shadow-sm"><ChevronRight className="w-6 h-6" /></button>
+          <button type="button" onClick={() => adjustDate(1)} className="w-10 h-10 bg-white dark:bg-slate-900 rounded-xl text-slate-400 active:scale-90 flex items-center justify-center shadow-sm"><ChevronRight className="w-5 h-5" /></button>
         </div>
 
         {type === TransactionType.INCOME ? (
-          <div className="space-y-5">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase px-1 tracking-widest">{t('kasse_total')} (€)</label>
-              <input type="text" inputMode="decimal" value={kasseInput} onChange={e => validateAndSetAmount(e.target.value, setKasseInput)} placeholder="0.00" className="w-full px-6 py-5 bg-slate-50 dark:bg-slate-950 border-2 border-transparent focus:border-brand-500 rounded-[1.5rem] font-black text-3xl text-brand-600 dark:text-brand-400 outline-none transition-all shadow-inner text-center" required />
+          <div className="space-y-3.5">
+            <div className="space-y-1.5">
+              <label className="text-[8px] font-black text-slate-400 uppercase px-1 tracking-widest">{t('kasse_total')} (€)</label>
+              <input type="text" inputMode="decimal" value={kasseInput} onChange={e => validateAndSetAmount(e.target.value, setKasseInput)} placeholder="0.00" className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-950 border-2 border-transparent focus:border-brand-500 rounded-[1.2rem] font-black text-2xl text-brand-600 dark:text-brand-400 outline-none transition-all shadow-inner text-center" required />
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase px-1 tracking-widest">{t('card_total')}</label>
-                <input type="text" inputMode="decimal" value={cardTotalInput} onChange={e => validateAndSetAmount(e.target.value, setCardTotalInput)} placeholder="0" className="w-full p-4 bg-slate-50 dark:bg-slate-950 border-2 border-transparent focus:border-brand-500 rounded-2xl font-black text-lg outline-none transition-all text-center" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-[8px] font-black text-slate-400 uppercase px-1 tracking-widest">{t('card_total')}</label>
+                <input type="text" inputMode="decimal" value={cardTotalInput} onChange={e => validateAndSetAmount(e.target.value, setCardTotalInput)} placeholder="0" className="w-full p-3 bg-slate-50 dark:bg-slate-950 border-2 border-transparent focus:border-brand-500 rounded-xl font-black text-base outline-none transition-all text-center" />
               </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase px-1 tracking-widest">{t('app_total')}</label>
-                <input type="text" inputMode="decimal" value={appInput} onChange={e => validateAndSetAmount(e.target.value, setAppInput)} placeholder="0" className="w-full p-4 bg-slate-50 dark:bg-slate-950 border-2 border-transparent focus:border-brand-500 rounded-2xl font-black text-lg outline-none transition-all text-center" />
+              <div className="space-y-1.5">
+                <label className="text-[8px] font-black text-slate-400 uppercase px-1 tracking-widest">{t('app_total')}</label>
+                <input type="text" inputMode="decimal" value={appInput} onChange={e => validateAndSetAmount(e.target.value, setAppInput)} placeholder="0" className="w-full p-3 bg-slate-50 dark:bg-slate-950 border-2 border-transparent focus:border-brand-500 rounded-xl font-black text-base outline-none transition-all text-center" />
               </div>
             </div>
           </div>
         ) : (
-          <div className="space-y-5">
-            <div className="space-y-2 text-center">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tổng chi (€)</label>
-              <input type="text" inputMode="decimal" value={expenseAmount} onChange={e => validateAndSetAmount(e.target.value, setExpenseAmount)} className="w-full py-5 bg-slate-50 dark:bg-slate-950 border-2 border-transparent focus:border-rose-500 rounded-[1.5rem] font-black text-4xl text-rose-600 text-center outline-none transition-all shadow-inner" required />
+          <div className="space-y-3.5">
+            <div className="space-y-1.5 text-center">
+              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Tổng chi (€)</label>
+              <input type="text" inputMode="decimal" value={expenseAmount} onChange={e => validateAndSetAmount(e.target.value, setExpenseAmount)} className="w-full py-3.5 bg-slate-50 dark:bg-slate-950 border-2 border-transparent focus:border-rose-500 rounded-[1.2rem] font-black text-3xl text-rose-600 text-center outline-none transition-all shadow-inner" required />
             </div>
             
-            <div className="flex p-1.5 bg-slate-100 dark:bg-slate-950 rounded-[1.4rem] border border-slate-200/50 dark:border-slate-800">
-              <button type="button" onClick={() => setIsPaid(true)} className={`flex-1 py-3.5 rounded-xl text-[11px] font-black uppercase transition-all active:scale-95 ${isPaid ? 'bg-white dark:bg-slate-800 text-brand-600 shadow-sm' : 'text-slate-400'}`}>{t('paid')}</button>
-              <button type="button" onClick={() => setIsPaid(false)} className={`flex-1 py-3.5 rounded-xl text-[11px] font-black uppercase transition-all active:scale-95 ${!isPaid ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400'}`}>{t('unpaid')}</button>
+            <div className="flex p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl border border-slate-200/50 dark:border-slate-800">
+              <button type="button" onClick={() => setIsPaid(true)} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all active:scale-95 ${isPaid ? 'bg-white dark:bg-slate-800 text-brand-600 shadow-sm' : 'text-slate-400'}`}>{t('paid')}</button>
+              <button type="button" onClick={() => setIsPaid(false)} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all active:scale-95 ${!isPaid ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400'}`}>{t('unpaid')}</button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="relative">
-                <select value={expenseCategory} onChange={e => setExpenseCategory(e.target.value)} className="w-full px-6 py-4.5 bg-slate-50 dark:bg-slate-950 border-2 border-transparent focus:border-brand-500 rounded-2xl font-black text-xs uppercase outline-none appearance-none transition-all">
+                <select value={expenseCategory} onChange={e => setExpenseCategory(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-950 border-2 border-transparent focus:border-brand-500 rounded-xl font-black text-[10px] uppercase outline-none appearance-none transition-all">
                   {expenseCategories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
 
               {!isPaid ? (
-                <input type="text" value={debtorName} onChange={e => setDebtorName(e.target.value)} placeholder="Tên chủ nợ..." className="w-full px-6 py-4.5 bg-slate-50 dark:bg-slate-950 border-2 border-transparent focus:border-brand-500 rounded-2xl font-black text-xs outline-none" required />
+                <input type="text" value={debtorName} onChange={e => setDebtorName(e.target.value)} placeholder="Tên chủ nợ..." className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-950 border-2 border-transparent focus:border-brand-500 rounded-xl font-black text-xs outline-none" required />
               ) : (
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-2">
                   {[
                     { id: ExpenseSource.SHOP_CASH, label: 'Quán', icon: Store },
                     { id: ExpenseSource.WALLET, label: 'Ví', icon: Wallet },
                     { id: ExpenseSource.CARD, label: 'Thẻ', icon: CreditCard }
                   ].map((s) => (
-                    <button key={s.id} type="button" onClick={() => setExpenseSource(s.id)} className={`py-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-1.5 active:scale-95 ${expenseSource === s.id ? `bg-brand-600 border-brand-600 text-white shadow-lg` : 'bg-slate-50 dark:bg-slate-950 border-transparent text-slate-400'}`}>
-                      <s.icon className="w-5 h-5" />
-                      <span className="text-[9px] font-black uppercase tracking-widest">{s.label}</span>
+                    <button key={s.id} type="button" onClick={() => setExpenseSource(s.id)} className={`py-2 rounded-xl border-2 transition-all flex flex-col items-center gap-1 active:scale-95 ${expenseSource === s.id ? `bg-brand-600 border-brand-600 text-white shadow-lg` : 'bg-slate-50 dark:bg-slate-950 border-transparent text-slate-400'}`}>
+                      <s.icon className="w-4 h-4" />
+                      <span className="text-[8px] font-black uppercase tracking-widest">{s.label}</span>
                     </button>
                   ))}
                 </div>
@@ -284,23 +284,23 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
           </div>
         )}
 
-        <div className="space-y-4 pt-2">
-          <div className="bg-slate-50 dark:bg-slate-950 p-5 rounded-[1.5rem] border border-slate-100 dark:border-slate-800 shadow-inner">
-            <textarea value={note} onChange={e => setNote(e.target.value)} placeholder={`${t('note')} (Metro, Edeka, Amazon...)`} className="w-full bg-transparent text-xs font-bold outline-none dark:text-white resize-none h-20 leading-relaxed" />
+        <div className="space-y-3 pt-1">
+          <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-inner">
+            <textarea value={note} onChange={e => setNote(e.target.value)} placeholder={`${t('note')} (Metro, Amazon...)`} className="w-full bg-transparent text-[11px] font-bold outline-none dark:text-white resize-none h-14 leading-relaxed" />
           </div>
 
           <button 
             type="submit" 
             disabled={isDuplicateDate || isScanning} 
-            className={`w-full h-16 rounded-[1.4rem] font-black uppercase tracking-[0.25em] text-sm active:scale-95 transition-all flex items-center justify-center gap-3 shadow-vivid ${isDuplicateDate || isScanning ? 'bg-slate-200 text-slate-400 shadow-none cursor-not-allowed' : 'bg-brand-600 text-white'}`}
+            className={`w-full h-14 rounded-2xl font-black uppercase tracking-[0.2em] text-xs active:scale-95 transition-all flex items-center justify-center gap-2.5 shadow-vivid ${isDuplicateDate || isScanning ? 'bg-slate-200 text-slate-400 shadow-none cursor-not-allowed' : 'bg-brand-600 text-white'}`}
           >
-            <Save className="w-6 h-6" /> {t('save_transaction')}
+            <Save className="w-5 h-5" /> {t('save_transaction')}
           </button>
           
           {isDuplicateDate && (
-             <div className="p-4 bg-rose-50 dark:bg-rose-950/20 rounded-2xl border border-rose-100 dark:border-rose-900/50 flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
-                <p className="text-[10px] font-black text-rose-500 uppercase leading-relaxed">Ngày này đã có dữ liệu chốt sổ! Vui lòng kiểm tra lại.</p>
+             <div className="p-3 bg-rose-50 dark:bg-rose-950/20 rounded-xl border border-rose-100 dark:border-rose-900/50 flex items-center gap-2.5">
+                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                <p className="text-[9px] font-black text-rose-500 uppercase leading-relaxed">Ngày này đã có dữ liệu chốt sổ!</p>
              </div>
           )}
         </div>

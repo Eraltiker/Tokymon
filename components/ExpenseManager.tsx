@@ -14,7 +14,6 @@ interface ExpenseManagerProps {
   branchId: string;
   initialBalances: { cash: number; card: number };
   userRole?: UserRole;
-  // Using Language type instead of any
   lang?: Language;
   branchName?: string;
 }
@@ -36,9 +35,9 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
   const isViewer = userRole === UserRole.VIEWER;
 
   return (
-    <div className={`flex flex-col lg:grid lg:grid-cols-12 gap-6 items-start`}>
+    <div className={`flex flex-col lg:grid lg:grid-cols-12 gap-4 items-start`}>
       {!isViewer && (
-        <div className="w-full lg:col-span-4 lg:sticky lg:top-20">
+        <div className="w-full lg:col-span-4 lg:sticky lg:top-16">
           <TransactionForm 
             onAddTransaction={onAddTransaction} 
             expenseCategories={expenseCategories} 
@@ -51,7 +50,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
           />
         </div>
       )}
-      <div className={`w-full ${isViewer ? 'lg:col-span-12' : 'lg:col-span-8'} min-h-[600px] h-full`}>
+      <div className={`w-full ${isViewer ? 'lg:col-span-12' : 'lg:col-span-8'} min-h-[500px] h-full`}>
         <TransactionList 
           transactions={expenseTransactions} 
           onDelete={onDeleteTransaction}

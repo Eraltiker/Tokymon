@@ -304,34 +304,34 @@ const App = () => {
         </div>
       )}
       
-      <header className="px-6 py-4 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-slate-200/50 dark:border-slate-800/50 shadow-sm pt-[calc(1rem+env(safe-area-inset-top))]">
-        <div className="flex items-center gap-4">
+      <header className="px-5 py-3 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-slate-200/50 dark:border-slate-800/50 shadow-sm pt-[calc(0.75rem+env(safe-area-inset-top))]">
+        <div className="flex items-center gap-3">
           {data.logoUrl ? (
-            <img src={data.logoUrl} alt="Logo" className="w-10 h-10 object-contain" />
+            <img src={data.logoUrl} alt="Logo" className="w-9 h-9 object-contain" />
           ) : (
-            <div className="w-10 h-10 bg-brand-600 rounded-2xl flex items-center justify-center text-white shadow-sm">
-               <UtensilsCrossed className="w-5 h-5" />
+            <div className="w-9 h-9 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-sm">
+               <UtensilsCrossed className="w-4 h-4" />
             </div>
           )}
           <div className="relative">
-            <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex items-center gap-3 px-4 py-2.5 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 active:scale-95 transition-all shadow-sm">
-              <div className={`w-2 h-2 rounded-full ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-500 animate-pulse' : 'bg-brand-500'}`} />
-              <span className="text-[11px] font-black uppercase dark:text-white truncate max-w-[120px] tracking-tight">{currentBranchName}</span>
-              <ChevronDown className="w-4 h-4 text-slate-400" />
+            <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 active:scale-95 transition-all shadow-sm">
+              <div className={`w-1.5 h-1.5 rounded-full ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-500 animate-pulse' : 'bg-brand-500'}`} />
+              <span className="text-[10px] font-black uppercase dark:text-white truncate max-w-[100px] tracking-tight">{currentBranchName}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
             {showBranchDropdown && (
               <>
                 <div className="fixed inset-0 z-[1001]" onClick={() => setShowBranchDropdown(false)} />
-                <div className="absolute top-full left-0 mt-3 w-64 bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800 z-[1002] overflow-hidden animate-in slide-in-from-top-2">
+                <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 z-[1002] overflow-hidden animate-in slide-in-from-top-2">
                   {isAdmin && (
-                    <button onClick={() => { setCurrentBranchId(ALL_BRANCHES_ID); localStorage.setItem('tokymon_current_branch', ALL_BRANCHES_ID); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-5 hover:bg-brand-600 hover:text-white transition-all flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600' : 'dark:text-slate-300 text-slate-600'}`}>
-                        <div className="flex items-center gap-3"><Globe className="w-4 h-4" /><span className="text-[10px] font-black uppercase">{t('all_branches')}</span></div>
+                    <button onClick={() => { setCurrentBranchId(ALL_BRANCHES_ID); localStorage.setItem('tokymon_current_branch', ALL_BRANCHES_ID); setShowBranchDropdown(false); }} className={`w-full text-left px-5 py-4 hover:bg-brand-600 hover:text-white transition-all flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600' : 'dark:text-slate-300 text-slate-600'}`}>
+                        <div className="flex items-center gap-2"><Globe className="w-3.5 h-3.5" /><span className="text-[9px] font-black uppercase">{t('all_branches')}</span></div>
                         {currentBranchId === ALL_BRANCHES_ID && <Check className="w-3 h-3" />}
                     </button>
                   )}
                   {dropdownBranches.map(b => (
-                    <button key={b.id} onClick={() => { setCurrentBranchId(b.id); setLastSelectedBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-5 hover:bg-brand-600 hover:text-white transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-brand-50 dark:bg-brand-900/10 text-brand-600' : 'dark:text-slate-300 text-slate-600'}`}>
-                      <span className="text-[10px] font-black uppercase">{b.name}</span>
+                    <button key={b.id} onClick={() => { setCurrentBranchId(b.id); setLastSelectedBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); setShowBranchDropdown(false); }} className={`w-full text-left px-5 py-4 hover:bg-brand-600 hover:text-white transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-brand-50 dark:bg-brand-900/10 text-brand-600' : 'dark:text-slate-300 text-slate-600'}`}>
+                      <span className="text-[9px] font-black uppercase">{b.name}</span>
                       {currentBranchId === b.id && <Check className="w-3 h-3" />}
                     </button>
                   ))}
@@ -340,23 +340,23 @@ const App = () => {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={() => setIsDark(!isDark)} className="w-11 h-11 glass rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-center active:scale-90 transition-all">
-            {isDark ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-brand-600" />}
+        <div className="flex items-center gap-2">
+          <button onClick={() => setIsDark(!isDark)} className="w-10 h-10 glass rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center active:scale-90 transition-all">
+            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-brand-600" />}
           </button>
-          <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })} className="w-11 h-11 bg-rose-600 text-white rounded-2xl shadow-lg active:scale-90 transition-all flex items-center justify-center">
-            <LogOut className="w-5 h-5" />
+          <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })} className="w-10 h-10 bg-rose-600 text-white rounded-xl shadow-lg active:scale-90 transition-all flex items-center justify-center">
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
       </header>
 
-      <main className="flex-1 px-5 max-w-6xl mx-auto w-full pt-8 pb-32">
+      <main className="flex-1 px-4 max-w-6xl mx-auto w-full pt-4 pb-28">
         {activeTab === 'income' && (
           currentBranchId === ALL_BRANCHES_ID ? (
-            <div className="flex flex-col items-center justify-center py-24 bg-white dark:bg-slate-900 rounded-[3rem] border-2 border-dashed dark:border-slate-800 animate-in fade-in zoom-in-95">
-               <LayoutPanelTop className="w-20 h-20 text-slate-200 dark:text-slate-800 mb-8" />
-               <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest text-center px-12 leading-relaxed">Vui lòng chọn chi nhánh cụ thể để nhập liệu</p>
-               <button onClick={() => setShowBranchDropdown(true)} className="mt-10 px-10 py-5 bg-brand-600 text-white rounded-[1.5rem] font-black uppercase text-[11px] tracking-widest active:scale-95 transition-all shadow-vivid">Chọn chi nhánh ngay</button>
+            <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed dark:border-slate-800 animate-in fade-in zoom-in-95">
+               <LayoutPanelTop className="w-16 h-16 text-slate-200 dark:text-slate-800 mb-6" />
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center px-10 leading-relaxed">Vui lòng chọn chi nhánh để nhập liệu</p>
+               <button onClick={() => setShowBranchDropdown(true)} className="mt-8 px-8 py-4 bg-brand-600 text-white rounded-[1.2rem] font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-vivid">Chọn chi nhánh</button>
             </div>
           ) : (
             <IncomeManager transactions={activeTransactions} onAddTransaction={tx => setData(p => ({...p, transactions: [tx, ...p.transactions]}))} onDeleteTransaction={id => setData(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}))} onEditTransaction={u => setData(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}))} branchId={currentBranchId} initialBalances={{cash: currentBranch?.initialCash || 0, card: currentBranch?.initialCard || 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />
@@ -365,10 +365,10 @@ const App = () => {
         
         {activeTab === 'expense' && (
           currentBranchId === ALL_BRANCHES_ID ? (
-            <div className="flex flex-col items-center justify-center py-24 bg-white dark:bg-slate-900 rounded-[3rem] border-2 border-dashed dark:border-slate-800 animate-in fade-in zoom-in-95">
-               <ArrowDownCircle className="w-20 h-20 text-slate-200 dark:text-slate-800 mb-8" />
-               <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest text-center px-12 leading-relaxed">Vui lòng chọn chi nhánh cụ thể để nhập liệu</p>
-               <button onClick={() => setShowBranchDropdown(true)} className="mt-10 px-10 py-5 bg-brand-600 text-white rounded-[1.5rem] font-black uppercase text-[11px] tracking-widest active:scale-95 transition-all shadow-vivid">Chọn chi nhánh ngay</button>
+            <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed dark:border-slate-800 animate-in fade-in zoom-in-95">
+               <ArrowDownCircle className="w-16 h-16 text-slate-200 dark:text-slate-800 mb-6" />
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center px-10 leading-relaxed">Vui lòng chọn chi nhánh để nhập liệu</p>
+               <button onClick={() => setShowBranchDropdown(true)} className="mt-8 px-8 py-4 bg-brand-600 text-white rounded-[1.2rem] font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-vivid">Chọn chi nhánh</button>
             </div>
           ) : (
             <ExpenseManager transactions={activeTransactions} onAddTransaction={tx => setData(p => ({...p, transactions: [tx, ...p.transactions]}))} onDeleteTransaction={id => setData(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}))} onEditTransaction={u => setData(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}))} expenseCategories={data.expenseCategories} branchId={currentBranchId} initialBalances={{cash: currentBranch?.initialCash || 0, card: currentBranch?.initialCard || 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />
@@ -387,8 +387,8 @@ const App = () => {
         />}
         
         {activeTab === 'settings' && (
-          <div className="space-y-8 animate-in slide-in-from-bottom-4">
-            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 px-1">
+          <div className="space-y-6 animate-in slide-in-from-bottom-4">
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 px-1">
               {[
                 { id: 'general', label: t('branding'), icon: ImageIcon },
                 { id: 'export', label: 'Excel', icon: FileSpreadsheet },
@@ -398,103 +398,94 @@ const App = () => {
                 { id: 'audit', label: 'Log', icon: HistoryIcon },
                 { id: 'about', label: t('about'), icon: Info }
               ].map(sub => (
-                <button key={sub.id} onClick={() => setSettingsSubTab(sub.id as any)} style={{ display: (sub.id === 'branches' || sub.id === 'users') && !isAdmin ? 'none' : 'flex' }} className={`px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-3 shrink-0 active:scale-95 ${settingsSubTab === sub.id ? 'bg-brand-600 border-brand-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500'}`}>
-                  <sub.icon className="w-4 h-4" /> {sub.label}
+                <button key={sub.id} onClick={() => setSettingsSubTab(sub.id as any)} style={{ display: (sub.id === 'branches' || sub.id === 'users') && !isAdmin ? 'none' : 'flex' }} className={`px-4 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 shrink-0 active:scale-95 ${settingsSubTab === sub.id ? 'bg-brand-600 border-brand-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500'}`}>
+                  <sub.icon className="w-3.5 h-3.5" /> {sub.label}
                 </button>
               ))}
             </div>
-            <div className="bg-white dark:bg-slate-900 rounded-[3rem] p-8 border border-slate-100 dark:border-slate-800 shadow-soft min-h-[500px]">
+            <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 border border-slate-100 dark:border-slate-800 shadow-soft min-h-[450px]">
                 {settingsSubTab === 'sync' && (
-                  <div className="space-y-10 max-w-sm mx-auto pt-10 text-center">
-                    <div className="w-24 h-24 bg-brand-50 dark:bg-brand-900/20 text-brand-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-inner">
-                      <Cloud className="w-12 h-12" />
+                  <div className="space-y-8 max-w-sm mx-auto pt-6 text-center">
+                    <div className="w-20 h-20 bg-brand-50 dark:bg-brand-900/20 text-brand-600 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner">
+                      <Cloud className="w-10 h-10" />
                     </div>
-                    <div className="space-y-4">
-                      <h3 className="text-xl font-black uppercase tracking-tight dark:text-white">Cloud Master Sync</h3>
-                      <input type="text" value={syncKey} onChange={e => {setSyncKey(e.target.value); localStorage.setItem('tokymon_sync_key', e.target.value);}} className="w-full p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl font-bold border-2 border-transparent focus:border-brand-500 outline-none text-sm dark:text-white transition-all text-center" placeholder="Cloud Key ID..." />
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-black uppercase tracking-tight dark:text-white">Cloud Master Sync</h3>
+                      <input type="text" value={syncKey} onChange={e => {setSyncKey(e.target.value); localStorage.setItem('tokymon_sync_key', e.target.value);}} className="w-full p-4 bg-slate-50 dark:bg-slate-950 rounded-xl font-bold border-2 border-transparent focus:border-brand-500 outline-none text-xs dark:text-white transition-all text-center" placeholder="Cloud Key ID..." />
                     </div>
-                    <button onClick={() => handleCloudSync()} disabled={isSyncing} className="w-full py-6 bg-brand-600 text-white rounded-[2rem] font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-4 active:scale-95 transition-all shadow-vivid">
-                      <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /> {t('cloud_sync')}
+                    <button onClick={() => handleCloudSync()} disabled={isSyncing} className="w-full py-5 bg-brand-600 text-white rounded-[1.5rem] font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all shadow-vivid">
+                      <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} /> {t('cloud_sync')}
                     </button>
                   </div>
                 )}
                 {settingsSubTab === 'export' && <ExportManager transactions={activeTransactions} branches={activeBranches} lang={lang} />}
                 {settingsSubTab === 'branches' && <BranchManager branches={data.branches} setBranches={setBranchesWithDataCleanup} onAudit={addAuditLog} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} onResetBranchData={handleResetBranchData} lang={lang} />}
-                {/* Fixed typo: setGlobalConfirm called setConfirmModal correctly instead of non-existent setGlobalConfirm */}
                 {settingsSubTab === 'users' && <UserManager users={data.users} setUsers={val => setData(p => ({...p, users: typeof val === 'function' ? val(p.users) : val}))} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} lang={lang} />}
                 {settingsSubTab === 'general' && (
-                  <div className="space-y-12">
+                  <div className="space-y-10">
                     <CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => {setData(prev => ({...prev, expenseCategories: cats}));}} lang={lang} />
                     <RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={data.expenseCategories} onUpdate={(recs) => {setData(prev => ({...prev, recurringExpenses: recs}));}} onGenerateTransactions={txs => {setData(prev => ({...prev, transactions: [...txs, ...prev.transactions]}));}} branchId={currentBranchId === ALL_BRANCHES_ID ? allowedBranches[0]?.id : currentBranchId} lang={lang} />
                   </div>
                 )}
                 {settingsSubTab === 'audit' && (
-                  <div className="space-y-4 max-h-[600px] overflow-y-auto no-scrollbar">
+                  <div className="space-y-3 max-h-[500px] overflow-y-auto no-scrollbar">
                     {data.auditLogs.slice().reverse().map(log => (
-                      <div key={log.id} className="p-5 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                        <div className="flex justify-between items-start mb-2">
-                           <span className="text-[9px] font-black px-2.5 py-1 bg-brand-50 dark:bg-brand-900/20 text-brand-600 rounded-lg uppercase">{log.action}</span>
-                           <span className="text-[8px] text-slate-400 font-bold">{new Date(log.timestamp).toLocaleString()}</span>
+                      <div key={log.id} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                        <div className="flex justify-between items-start mb-1.5">
+                           <span className="text-[8px] font-black px-2 py-0.5 bg-brand-50 dark:bg-brand-900/20 text-brand-600 rounded-md uppercase">{log.action}</span>
+                           <span className="text-[7px] text-slate-400 font-bold">{new Date(log.timestamp).toLocaleString()}</span>
                         </div>
-                        <div className="text-xs font-bold dark:text-slate-200 uppercase tracking-tight">{log.details}</div>
-                        <div className="text-[8px] text-slate-500 font-black uppercase mt-2">Bởi: {log.username}</div>
+                        <div className="text-[11px] font-bold dark:text-slate-200 uppercase tracking-tight">{log.details}</div>
+                        <div className="text-[7px] text-slate-500 font-black uppercase mt-1.5">Bởi: {log.username}</div>
                       </div>
                     ))}
                   </div>
                 )}
                 {settingsSubTab === 'about' && (
-                  <div className="space-y-12 animate-in fade-in duration-500 max-w-xl mx-auto py-6">
-                    <div className="text-center space-y-6">
+                  <div className="space-y-10 animate-in fade-in duration-500 max-w-xl mx-auto py-4">
+                    <div className="text-center space-y-4">
                        <div className="relative inline-block">
                          {data.logoUrl ? (
-                           <img src={data.logoUrl} className="w-24 h-24 object-contain mx-auto" alt="Logo" />
+                           <img src={data.logoUrl} className="w-20 h-20 object-contain mx-auto" alt="Logo" />
                          ) : (
-                           <div className="w-24 h-24 bg-brand-600 rounded-[2.5rem] mx-auto flex items-center justify-center shadow-lg transform rotate-6">
-                              <UtensilsCrossed className="w-12 h-12 text-white" />
+                           <div className="w-20 h-20 bg-brand-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg transform rotate-6">
+                              <UtensilsCrossed className="w-10 h-10 text-white" />
                            </div>
                          )}
-                         <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white text-[9px] font-black px-3 py-1.5 rounded-full border-2 border-white dark:border-slate-900 shadow-sm uppercase tracking-widest">{t('active')}</div>
+                         <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white text-[8px] font-black px-2.5 py-1 rounded-full border-2 border-white dark:border-slate-900 shadow-sm uppercase tracking-widest">{t('active')}</div>
                        </div>
                        <div>
-                         <h2 className="text-3xl font-black dark:text-white tracking-tighter uppercase">Tokymon Finance</h2>
-                         <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em] mt-2">Version {SCHEMA_VERSION}</p>
+                         <h2 className="text-2xl font-black dark:text-white tracking-tighter uppercase">Tokymon Finance</h2>
+                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mt-1.5">Version {SCHEMA_VERSION}</p>
                        </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                       <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700/50">
-                          <p className="text-[9px] font-black text-slate-400 uppercase mb-3 flex items-center gap-2"><Zap className="w-4 h-4 text-amber-500" /> {t('system_status')}</p>
-                          <div className="flex items-center gap-3 text-emerald-500">
-                             <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
-                             <span className="text-sm font-black uppercase">{t('online')}</span>
+                    <div className="grid grid-cols-2 gap-3">
+                       <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-[1.5rem] border border-slate-100 dark:border-slate-700/50">
+                          <p className="text-[8px] font-black text-slate-400 uppercase mb-2 flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-amber-500" /> {t('system_status')}</p>
+                          <div className="flex items-center gap-2.5 text-emerald-500">
+                             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                             <span className="text-xs font-black uppercase">{t('online')}</span>
                           </div>
                        </div>
-                       <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700/50">
-                          <p className="text-[9px] font-black text-slate-400 uppercase mb-3 flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-brand-500" /> Security</p>
-                          <div className="flex items-center gap-3 text-brand-500">
-                             <span className="text-sm font-black uppercase">AES-256 Encrypted</span>
+                       <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-[1.5rem] border border-slate-100 dark:border-slate-700/50">
+                          <p className="text-[8px] font-black text-slate-400 uppercase mb-2 flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-brand-500" /> Security</p>
+                          <div className="flex items-center gap-2.5 text-brand-500">
+                             <span className="text-xs font-black uppercase">AES-256</span>
                           </div>
                        </div>
                     </div>
 
-                    <div className="space-y-6">
-                       <h3 className="text-xs font-black uppercase dark:text-white flex items-center gap-3"><Sparkles className="w-5 h-5 text-brand-500" /> {t('whats_new')}</h3>
-                       <div className="bg-brand-50 dark:bg-brand-900/10 p-8 rounded-[2.5rem] border border-brand-100 dark:border-brand-800/50">
-                          <ul className="space-y-4">
+                    <div className="space-y-5">
+                       <h3 className="text-[11px] font-black uppercase dark:text-white flex items-center gap-2.5"><Sparkles className="w-4 h-4 text-brand-500" /> {t('whats_new')}</h3>
+                       <div className="bg-brand-50 dark:bg-brand-900/10 p-6 rounded-[1.8rem] border border-brand-100 dark:border-brand-800/50">
+                          <ul className="space-y-3">
                              {APP_CHANGELOG[0].changes[lang].map((change, i) => (
-                               <li key={i} className="flex gap-4 text-xs font-bold text-slate-700 dark:text-slate-300">
-                                  <Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /> {change}
+                               <li key={i} className="flex gap-3 text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                                  <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> {change}
                                </li>
                              ))}
                           </ul>
-                       </div>
-                    </div>
-
-                    <div className="pt-10 border-t dark:border-slate-800 flex flex-col items-center gap-6">
-                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('dev_info')}</p>
-                       <div className="flex gap-10">
-                          <button className="flex items-center gap-2 text-[11px] font-black text-brand-500 uppercase active:scale-95 transition-all"><ExternalLink className="w-4 h-4" /> Website</button>
-                          <button className="flex items-center gap-2 text-[11px] font-black text-brand-500 uppercase active:scale-95 transition-all"><ShieldCheck className="w-4 h-4" /> Privacy</button>
                        </div>
                     </div>
                   </div>
@@ -505,16 +496,16 @@ const App = () => {
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 px-6 z-[2000] flex justify-center pointer-events-none ios-bottom-nav">
-        <nav className="h-20 max-w-md w-full glass border border-white/10 dark:border-slate-800/80 flex items-center justify-around px-4 rounded-[2.5rem] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] pointer-events-auto backdrop-blur-3xl">
+        <nav className="h-16 max-w-md w-full glass border border-white/10 dark:border-slate-800/80 flex items-center justify-around px-3 rounded-[2rem] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] pointer-events-auto backdrop-blur-3xl">
           {[
             { id: 'income', label: t('income'), icon: Wallet },
             { id: 'expense', label: t('expense'), icon: ArrowDownCircle },
             { id: 'stats', label: t('stats'), icon: LayoutDashboard },
             { id: 'settings', label: t('settings'), icon: Settings }
           ].map(tab => (
-            <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex flex-col items-center gap-1.5 relative py-2 rounded-2xl flex-1 transition-all active:scale-[0.8] ${activeTab === tab.id ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400'}`}>
-              <tab.icon className={`w-6 h-6 ${activeTab === tab.id ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
-              <span className={`text-[9px] font-black uppercase tracking-widest ${activeTab === tab.id ? 'opacity-100' : 'opacity-40'}`}>{tab.label}</span>
+            <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex flex-col items-center gap-1 relative py-1 rounded-xl flex-1 transition-all active:scale-[0.8] ${activeTab === tab.id ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400'}`}>
+              <tab.icon className={`w-5 h-5 ${activeTab === tab.id ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
+              <span className={`text-[8px] font-black uppercase tracking-widest ${activeTab === tab.id ? 'opacity-100' : 'opacity-40'}`}>{tab.label}</span>
               {activeTab === tab.id && <div className="absolute -bottom-1 w-1 h-1 bg-brand-600 rounded-full" />}
             </button>
           ))}
