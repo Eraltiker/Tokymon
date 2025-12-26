@@ -75,7 +75,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         img.onerror = reject;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          const MAX_SIZE = 1000; // Tinh chỉnh kích thước tối ưu cho Flash AI đọc tốt nhất
+          // Tăng nhẹ kích thước lên 1200 để Gemini đọc chữ nhỏ tốt hơn
+          const MAX_SIZE = 1200; 
           let width = img.width;
           let height = img.height;
           if (width > height) {
@@ -87,11 +88,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'medium'; // Medium là đủ để OCR và tiết kiệm tài nguyên
+            ctx.imageSmoothingQuality = 'high';
             ctx.drawImage(img, 0, 0, width, height);
           }
-          // Sử dụng chất lượng 0.75 để cân bằng giữa độ nét và dung lượng truyền tải
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+          // Sử dụng chất lượng 0.8 để đảm bảo text cực kỳ sắc nét cho OCR
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
           resolve({ base64: dataUrl.split(',')[1], type: 'image/jpeg' });
         };
       };
@@ -118,6 +119,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
       alert(lang === 'vi' ? "AI quét thất bại. Vui lòng chụp ảnh rõ hơn." : "KI-Scan fehlgeschlagen. Bitte machen Sie ein deutlicheres Foto.");
     } finally {
       setIsScanning(false);
+      // Reset input key để người dùng có thể chụp lại ảnh ngay sau đó nếu chưa ưng ý
       setInputKey(Date.now());
     }
   };
@@ -154,7 +156,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   return (
     <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-[2rem] shadow-ios border border-white dark:border-slate-800/50 flex flex-col relative overflow-hidden transition-all max-w-full lg:max-w-md mx-auto animate-ios">
       {isScanning && (
-        <div className="absolute inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex flex-col items-center justify-center text-white p-6 animate-in fade-in duration-300">
+        <div className="absolute inset-0 z-[100] bg-slate-950/80 backdrop-blur-xl flex flex-col items-center justify-center text-white p-6 animate-in fade-in duration-300">
           <div className="relative mb-6">
             <div className="w-12 h-12 border-4 border-brand-500/20 border-t-brand-500 rounded-full animate-spin" />
             <Sparkles className="w-5 h-5 text-amber-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
@@ -173,14 +175,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         {type === TransactionType.EXPENSE && (
           <div className="relative w-10 h-10 bg-brand-600 text-white rounded-xl active-scale transition-all flex items-center justify-center shadow-lg shadow-brand-500/20 overflow-hidden shrink-0">
             <Camera className="w-5 h-5 pointer-events-none" />
-            {/* Input Overlay: Phương pháp tối ưu nhất cho iOS/Android mobile web */}
+            {/* iOS Fix: Thẻ input vô hình với z-index cực cao và kích thước phủ toàn bộ nút bấm */}
             <input 
               key={inputKey}
               type="file" 
               onChange={handleFileUpload} 
               accept="image/*" 
               capture="environment" 
-              className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full h-full scale-[5]" 
+              className="absolute inset-0 opacity-0 cursor-pointer z-[20] w-full h-full scale-[5]" 
             />
           </div>
         )}

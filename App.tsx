@@ -285,40 +285,41 @@ const App = () => {
         </div>
       )}
       
-      <header className="px-3 py-2.5 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800/80 shadow-sm pt-[calc(0.5rem+env(safe-area-inset-top))]">
-        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
+      <header className="px-3 py-2.5 grid grid-cols-[auto_1fr_auto] items-center gap-3 sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800/80 shadow-sm pt-[calc(0.5rem+env(safe-area-inset-top))]">
+        <div className="flex items-center gap-2">
           {data.logoUrl ? ( <img src={data.logoUrl} alt="Logo" className="w-8 h-8 sm:w-10 sm:h-10 object-contain shrink-0" /> ) : (
             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-vivid shrink-0"><UtensilsCrossed className="w-4 h-4 sm:w-5 sm:h-5" /></div>
           )}
-          <div className="relative min-w-0">
-            <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 active-scale transition-all shadow-sm max-w-full">
-              <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-500 animate-pulse' : 'bg-brand-500'}`} />
-              <span className="text-[10px] sm:text-[11px] font-black uppercase dark:text-white truncate max-w-[80px] sm:max-w-[140px] tracking-tight">{currentBranchName}</span>
-              <ChevronDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 shrink-0" />
-            </button>
-            {showBranchDropdown && (
-              <>
-                <div className="fixed inset-0 z-[1001]" onClick={() => setShowBranchDropdown(false)} />
-                <div className="absolute top-full left-0 mt-3 w-60 sm:w-64 bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl border-2 border-slate-100 dark:border-slate-800 z-[1002] overflow-hidden animate-in slide-in-from-top-2">
-                  {isAdmin && (
-                    <button onClick={() => { setCurrentBranchId(ALL_BRANCHES_ID); localStorage.setItem('tokymon_current_branch', ALL_BRANCHES_ID); setShowBranchDropdown(false); }} className={`w-full text-left px-5 sm:px-6 py-4 sm:py-5 hover:bg-brand-600 hover:text-white transition-all flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`}>
-                        <div className="flex items-center gap-3"><Globe className="w-4.5 h-4.5" /><span className="text-xs font-black uppercase">{t('all_branches')}</span></div>
-                        {currentBranchId === ALL_BRANCHES_ID && <Check className="w-4 h-4" />}
-                    </button>
-                  )}
-                  {dropdownBranches.map(b => (
-                    <button key={b.id} onClick={() => { setCurrentBranchId(b.id); setLastSelectedBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); setShowBranchDropdown(false); }} className={`w-full text-left px-5 sm:px-6 py-4 sm:py-5 hover:bg-brand-600 hover:text-white transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-brand-50 dark:bg-brand-900/10 text-brand-600 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`}>
-                      <span className="text-xs font-black uppercase">{b.name}</span>
-                      {currentBranchId === b.id && <Check className="w-4 h-4" />}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+        </div>
+
+        <div className="relative min-w-0">
+          <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="w-full flex items-center gap-1.5 px-2.5 py-1.5 bg-white dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 active-scale transition-all shadow-sm">
+            <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-500 animate-pulse' : 'bg-brand-500'}`} />
+            <span className="text-[10px] sm:text-[11px] font-black uppercase dark:text-white truncate tracking-tight">{currentBranchName}</span>
+            <ChevronDown className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 shrink-0 ml-auto" />
+          </button>
+          {showBranchDropdown && (
+            <>
+              <div className="fixed inset-0 z-[1001]" onClick={() => setShowBranchDropdown(false)} />
+              <div className="absolute top-full left-0 mt-3 w-60 sm:w-64 bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl border-2 border-slate-100 dark:border-slate-800 z-[1002] overflow-hidden animate-in slide-in-from-top-2">
+                {isAdmin && (
+                  <button onClick={() => { setCurrentBranchId(ALL_BRANCHES_ID); localStorage.setItem('tokymon_current_branch', ALL_BRANCHES_ID); setShowBranchDropdown(false); }} className={`w-full text-left px-5 sm:px-6 py-4 sm:py-5 hover:bg-brand-600 hover:text-white transition-all flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`}>
+                      <div className="flex items-center gap-3"><Globe className="w-4.5 h-4.5" /><span className="text-xs font-black uppercase">{t('all_branches')}</span></div>
+                      {currentBranchId === ALL_BRANCHES_ID && <Check className="w-4 h-4" />}
+                  </button>
+                )}
+                {dropdownBranches.map(b => (
+                  <button key={b.id} onClick={() => { setCurrentBranchId(b.id); setLastSelectedBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); setShowBranchDropdown(false); }} className={`w-full text-left px-5 sm:px-6 py-4 sm:py-5 hover:bg-brand-600 hover:text-white transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-brand-50 dark:bg-brand-900/10 text-brand-600 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`}>
+                    <span className="text-xs font-black uppercase">{b.name}</span>
+                    {currentBranchId === b.id && <Check className="w-4 h-4" />}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
         
-        <div className="flex items-center gap-1.5 sm:gap-2 ml-2 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <button onClick={toggleLanguage} className="w-9 h-9 sm:w-10 sm:h-10 glass rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center active-scale transition-all shadow-sm">
              <span className="text-[10px] sm:text-[11px] font-black uppercase dark:text-white">{lang === 'vi' ? 'VN' : 'DE'}</span>
           </button>
@@ -384,7 +385,6 @@ const App = () => {
                 )}
                 {settingsSubTab === 'export' && <ExportManager transactions={activeTransactions} branches={activeBranches} lang={lang} />}
                 {settingsSubTab === 'branches' && <BranchManager branches={data.branches} setBranches={setBranchesWithDataCleanup} onAudit={addAuditLog} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} onResetBranchData={handleResetBranchData} lang={lang} />}
-                {/* Fixed reference from setGlobalConfirm to setConfirmModal */}
                 {settingsSubTab === 'users' && <UserManager users={data.users} setUsers={val => setData(p => ({...p, users: typeof val === 'function' ? val(p.users) : val}))} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} lang={lang} />}
                 {settingsSubTab === 'general' && ( <div className="space-y-12"><CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => {setData(prev => ({...prev, expenseCategories: cats}));}} lang={lang} /><RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={data.expenseCategories} onUpdate={(recs) => {setData(prev => ({...prev, recurringExpenses: recs}));}} onGenerateTransactions={txs => {setData(prev => ({...prev, transactions: [...txs, ...prev.transactions]}));}} branchId={currentBranchId === ALL_BRANCHES_ID ? allowedBranches[0]?.id : currentBranchId} lang={lang} /></div> )}
                 {settingsSubTab === 'audit' && (
