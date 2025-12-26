@@ -95,6 +95,20 @@ export const translations = {
     role: "Quyền hạn",
     staff: "Nhân viên",
     action: "Thao tác",
+
+    // About & Changelog
+    about: "Giới thiệu",
+    whats_new: "Có gì mới",
+    version_history: "Lịch sử phiên bản",
+    system_status: "Trạng thái",
+    online: "Trực tuyến",
+    developer: "Nhà phát triển",
+    support: "Hỗ trợ kỹ thuật",
+    legal: "Pháp lý & Bảo mật",
+    // Added security key
+    security: "Bảo mật",
+    system_core: "Lõi hệ thống",
+    active: "Hoạt động",
     
     // Messages & Modals
     confirm_logout: "Rời khỏi hệ thống Tokymon?",
@@ -206,6 +220,20 @@ export const translations = {
     role: "Rolle",
     staff: "Mitarbeiter",
     action: "Aktion",
+
+    // About & Changelog
+    about: "Über uns",
+    whats_new: "Was ist neu",
+    version_history: "Versionsverlauf",
+    system_status: "Status",
+    online: "Online",
+    developer: "Entwickler",
+    support: "Technischer Support",
+    legal: "Rechtliches & Datenschutz",
+    // Added security key
+    security: "Sicherheit",
+    system_core: "Systemkern",
+    active: "Aktiv",
     
     // Messages & Modals
     confirm_logout: "Vom Tokymon-System abmelden?",

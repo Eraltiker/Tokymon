@@ -127,11 +127,30 @@ export interface AppData {
   recurringExpenses: RecurringTransaction[];
   auditLogs: AuditLogEntry[];
   reportSettings?: ReportSettings;
-  logoUrl?: string; // New field for custom logo
+  logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "3.1";
+export const SCHEMA_VERSION = "3.2.0";
 export const ALL_BRANCHES_ID = "all_branches_system";
+
+export const APP_CHANGELOG = [
+  {
+    version: "3.2.0",
+    date: "2024-05-20",
+    changes: {
+      vi: ["Tối ưu AI Vision: Tăng tốc độ quét hóa đơn x2", "Trích xuất tên cửa hàng tự động vào ghi chú", "Thêm module About & Changelog trong cài đặt", "Nâng cấp giao diện Mobile mượt mà hơn"],
+      de: ["KI-Vision optimiert: Scangeschwindigkeit verdoppelt", "Automatische Shop-Erkennung in Notizen", "About-Modul & Changelog hinzugefügt", "Mobile UI Performance-Upgrade"]
+    }
+  },
+  {
+    version: "3.1.0",
+    date: "2024-05-10",
+    changes: {
+      vi: ["Hỗ trợ quản lý đa chi nhánh", "Đồng bộ hóa Cloud thời gian thực", "Hệ thống phân quyền User", "Báo cáo Dashboard thông minh"],
+      de: ["Filialmanagement-Support", "Echtzeit-Cloud-Synchronisierung", "Benutzerberechtigungssystem", "Intelligentes Dashboard"]
+    }
+  }
+];
 
 export const formatCurrency = (val: number, lang: Language = 'vi') => 
   new Intl.NumberFormat(lang === 'vi' ? 'vi-VN' : 'de-DE', { 

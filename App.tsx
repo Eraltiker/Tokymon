@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   Transaction, Branch, User, UserRole, Language, 
-  AuditLogEntry, AppData, SCHEMA_VERSION, TransactionType, ReportSettings, ALL_BRANCHES_ID 
+  AuditLogEntry, AppData, SCHEMA_VERSION, TransactionType, ReportSettings, ALL_BRANCHES_ID,
+  APP_CHANGELOG
 } from './types';
 import { StorageService } from './services/storageService';
 import Dashboard from './components/Dashboard';
@@ -14,6 +15,7 @@ import BranchManager from './components/BranchManager';
 import UserManager from './components/UserManager';
 import ExportManager from './components/ExportManager';
 import { useTranslation } from './i18n';
+// Added Sparkles to the lucide-react import list
 import { 
   UtensilsCrossed, LayoutDashboard, Settings, 
   Wallet, ArrowDownCircle, Sun, Moon, LogOut, 
@@ -21,12 +23,13 @@ import {
   ChevronDown, Cloud, FileSpreadsheet, LayoutPanelTop,
   AlertTriangle, Heart, Languages, Code2, UserCircle2, 
   ImageIcon, Upload, Trash2, Lock, ArrowRight, Cpu,
-  Globe, Check
+  Globe, Check, Info, ShieldCheck, ExternalLink, Zap,
+  Sparkles
 } from 'lucide-react';
 
 const App = () => {
   const [activeTab, setActiveTab] = useState<'income' | 'expense' | 'stats' | 'settings'>('income');
-  const [settingsSubTab, setSettingsSubTab] = useState<'general' | 'export' | 'branches' | 'users' | 'sync' | 'audit'>('general');
+  const [settingsSubTab, setSettingsSubTab] = useState<'general' | 'export' | 'branches' | 'users' | 'sync' | 'audit' | 'about'>('general');
   const [isDark, setIsDark] = useState(() => localStorage.getItem('tokymon_theme') === 'dark');
   const [lang, setLang] = useState<Language>(() => (localStorage.getItem('tokymon_lang') as Language) || 'vi');
   
@@ -117,8 +120,6 @@ const App = () => {
   };
 
   const activeBranches = useMemo(() => data.branches.filter(b => !b.deletedAt), [data.branches]);
-  
-  // TỐI ƯU HÓA DỮ LIỆU CỐT LÕI: Lọc sạch giao dịch ngay tại nguồn
   const activeTransactions = useMemo(() => {
     const activeBranchIds = new Set(activeBranches.map(b => b.id));
     return data.transactions.filter(tx => 
@@ -127,7 +128,6 @@ const App = () => {
   }, [data.transactions, activeBranches]);
 
   const activeUsers = useMemo(() => data.users.filter(u => !u.deletedAt), [data.users]);
-
   const isAdmin = useMemo(() => currentUser?.role === UserRole.SUPER_ADMIN || currentUser?.role === UserRole.ADMIN, [currentUser]);
 
   const allowedBranches = useMemo(() => {
@@ -164,41 +164,34 @@ const App = () => {
     setData(prev => ({ ...prev, auditLogs: [newLog, ...prev.auditLogs].slice(0, 500) }));
   }, [currentUser]);
 
-  // HÀM RESET DỮ LIỆU: Chỉ reset cho chi nhánh cụ thể
   const handleResetBranchData = (branchId: string) => {
     const branch = data.branches.find(b => b.id === branchId);
     if (!branch) return;
-
     const now = new Date().toISOString();
     setData(prev => {
       const nextTransactions = prev.transactions.map(t => 
         t.branchId === branchId ? { ...t, deletedAt: now, updatedAt: now } : t
       );
       const nextData = { ...prev, transactions: nextTransactions };
-      
       addAuditLog('DELETE', 'BRANCH', branchId, `Reset toàn bộ dữ liệu của chi nhánh: ${branch.name}`);
       handleCloudSync(true, nextData);
       return nextData;
     });
   };
 
-  // CẢI TIẾN QUAN TRỌNG: Xóa chi nhánh kéo theo xóa giao dịch (Cascade)
   const setBranchesWithDataCleanup = (updateFn: (prev: Branch[]) => Branch[]) => {
     setData(prev => {
       const nextBranches = updateFn(prev.branches);
       const now = new Date().toISOString();
-      
       const deletedBranchIds = nextBranches
         .filter(b => b.deletedAt && !prev.branches.find(oldB => oldB.id === b.id)?.deletedAt)
         .map(b => b.id);
-
       let nextTransactions = prev.transactions;
       if (deletedBranchIds.length > 0) {
         nextTransactions = prev.transactions.map(t => 
           deletedBranchIds.includes(t.branchId) ? { ...t, deletedAt: now, updatedAt: now } : t
         );
       }
-
       return { ...prev, branches: nextBranches, transactions: nextTransactions };
     });
   };
@@ -216,7 +209,6 @@ const App = () => {
   }, [activeBranches]);
 
   const currentBranch = activeBranches.find(b => b.id === currentBranchId);
-
   const reportSettings: ReportSettings = data.reportSettings || {
     showSystemTotal: true, showShopRevenue: true, showAppRevenue: true,
     showCardRevenue: true, showActualCash: true, showProfit: true
@@ -427,7 +419,8 @@ const App = () => {
                 { id: 'sync', label: 'Cloud', icon: Cloud },
                 { id: 'branches', label: t('branches'), icon: MapPin },
                 { id: 'users', label: t('users'), icon: Users },
-                { id: 'audit', label: 'Log', icon: HistoryIcon }
+                { id: 'audit', label: 'Log', icon: HistoryIcon },
+                { id: 'about', label: t('about'), icon: Info }
               ].map(sub => (
                 <button key={sub.id} onClick={() => setSettingsSubTab(sub.id as any)} style={{ display: (sub.id === 'branches' || sub.id === 'users') && !isAdmin ? 'none' : 'flex' }} className={`px-5 py-4 rounded-2xl text-[9px] font-black uppercase tracking-wider border transition-all flex items-center gap-2.5 shrink-0 ${settingsSubTab === sub.id ? 'bg-brand-600 border-brand-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500'}`}>
                   <sub.icon className="w-4 h-4" /> {sub.label}
@@ -465,6 +458,82 @@ const App = () => {
                         <div className="text-[8px] text-slate-500 font-black uppercase mt-1">Bởi: {log.username}</div>
                       </div>
                     ))}
+                  </div>
+                )}
+                {settingsSubTab === 'about' && (
+                  <div className="space-y-10 animate-in fade-in duration-500 max-w-xl mx-auto">
+                    <div className="text-center space-y-4">
+                       <div className="relative inline-block">
+                         {data.logoUrl ? (
+                           <img src={data.logoUrl} className="w-24 h-24 object-contain mx-auto" alt="Logo" />
+                         ) : (
+                           <div className="w-20 h-20 bg-brand-600 rounded-3xl mx-auto flex items-center justify-center shadow-lg transform rotate-6">
+                              <UtensilsCrossed className="w-10 h-10 text-white" />
+                           </div>
+                         )}
+                         <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white text-[8px] font-black px-2 py-1 rounded-full border-2 border-white dark:border-slate-900 shadow-sm uppercase tracking-widest">{t('active')}</div>
+                       </div>
+                       <div>
+                         <h2 className="text-2xl font-black dark:text-white tracking-tight uppercase">Tokymon Finance</h2>
+                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1">Version {SCHEMA_VERSION}</p>
+                       </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                       <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/50">
+                          <p className="text-[9px] font-black text-slate-400 uppercase mb-2 flex items-center gap-2"><Zap className="w-3 h-3 text-amber-500" /> {t('system_status')}</p>
+                          <div className="flex items-center gap-2 text-emerald-500">
+                             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                             <span className="text-xs font-black uppercase">{t('online')}</span>
+                          </div>
+                       </div>
+                       <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/50">
+                          <p className="text-[9px] font-black text-slate-400 uppercase mb-2 flex items-center gap-2"><ShieldCheck className="w-3 h-3 text-indigo-500" /> {t('security') || t('legal')}</p>
+                          <div className="flex items-center gap-2 text-indigo-500">
+                             <span className="text-xs font-black uppercase">AES-256 Encrypted</span>
+                          </div>
+                       </div>
+                    </div>
+
+                    <div className="space-y-4">
+                       <h3 className="text-xs font-black uppercase dark:text-white flex items-center gap-3"><Sparkles className="w-4 h-4 text-brand-500" /> {t('whats_new')}</h3>
+                       <div className="bg-brand-50 dark:bg-brand-900/10 p-6 rounded-3xl border border-brand-100 dark:border-brand-800/50">
+                          <ul className="space-y-3">
+                             {APP_CHANGELOG[0].changes[lang].map((change, i) => (
+                               <li key={i} className="flex gap-3 text-xs font-bold text-slate-700 dark:text-slate-300">
+                                  <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /> {change}
+                               </li>
+                             ))}
+                          </ul>
+                       </div>
+                    </div>
+
+                    <div className="space-y-4">
+                       <h3 className="text-xs font-black uppercase dark:text-white flex items-center gap-3"><HistoryIcon className="w-4 h-4 text-slate-400" /> {t('version_history')}</h3>
+                       <div className="space-y-2.5">
+                          {APP_CHANGELOG.slice(1).map((entry, idx) => (
+                            <div key={idx} className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800/50">
+                               <div className="flex justify-between items-center mb-2">
+                                  <span className="text-[10px] font-black dark:text-white">v{entry.version}</span>
+                                  <span className="text-[8px] font-bold text-slate-400">{entry.date}</span>
+                               </div>
+                               <ul className="space-y-1.5 opacity-60">
+                                  {entry.changes[lang].map((c, i) => (
+                                    <li key={i} className="text-[9px] font-bold text-slate-600 dark:text-slate-400">• {c}</li>
+                                  ))}
+                               </ul>
+                            </div>
+                          ))}
+                       </div>
+                    </div>
+
+                    <div className="pt-6 border-t dark:border-slate-800 flex flex-col items-center gap-4">
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('dev_info')}</p>
+                       <div className="flex gap-6">
+                          <button className="flex items-center gap-2 text-[10px] font-black text-brand-500 uppercase active:scale-95 transition-all"><ExternalLink className="w-3 h-3" /> Website</button>
+                          <button className="flex items-center gap-2 text-[10px] font-black text-brand-500 uppercase active:scale-95 transition-all"><ShieldCheck className="w-3 h-3" /> Privacy</button>
+                       </div>
+                    </div>
                   </div>
                 )}
             </div>
