@@ -36,6 +36,11 @@ export const translations = {
     add_new: "Thêm mới",
     
     // Dashboard & Stats
+    overview_tab: "T.Quan",
+    daily_tab: "Ngày",
+    branch_tab: "Cơ sở",
+    wallet_tab: "Ví tiền",
+    liabilities_tab: "Nợ",
     revenue_month: "Doanh thu tháng này",
     tab_monthly: "Tháng",
     profit: "Lợi nhuận",
@@ -51,6 +56,13 @@ export const translations = {
     liabilities: "Công nợ NCC",
     debt_total: "Tổng công nợ NCC",
     vendor_name: "Nhà cung cấp / Chủ nợ",
+    revenue_source: "Phân bổ nguồn thu",
+    top_categories: "Chi phí lớn nhất",
+    ai_analysis_title: "Phân tích tài chính AI",
+    ai_scanning_text: "Đang quét dữ liệu hệ thống...",
+    ai_hint: "Nhấn phân tích để nhận lời khuyên từ AI",
+    ai_btn: "Phân tích",
+    ranking: "Xếp hạng",
     
     // Forms & Inputs
     chot_so: "Chốt Sổ Ngày",
@@ -69,6 +81,8 @@ export const translations = {
     min_amount: "Tiền từ",
     max_amount: "Đến",
     reset_filter: "Xóa bộ lọc",
+    debt_label: "Công nợ",
+    handover_label: "Bàn giao",
     
     // Management & Branding
     branding: "Thương hiệu",
@@ -105,7 +119,6 @@ export const translations = {
     developer: "Nhà phát triển",
     support: "Hỗ trợ kỹ thuật",
     legal: "Pháp lý & Bảo mật",
-    // Added security key
     security: "Bảo mật",
     system_core: "Lõi hệ thống",
     active: "Hoạt động",
@@ -114,7 +127,7 @@ export const translations = {
     confirm_logout: "Rời khỏi hệ thống Tokymon?",
     confirm_delete_branch: "Xóa vĩnh viễn cơ sở này?",
     confirm_delete_cat: "Xóa danh mục này?",
-    confirm_reset_data: "CẢNH BÁO: Hành động này sẽ XÓA TOÀN BỘ doanh thu và chi phí của cơ sở này. Tiếp tục?",
+    confirm_reset_data: "CẢNH BÁO: Hành động này sẽ XÓA TOÀN BỘ doanh thu và chi phí. Tiếp tục?",
     no_data: "Không tìm thấy dữ liệu",
     error_login: "Sai tài khoản hoặc mật khẩu!",
     system_info: "Hệ thống quản lý tài chính Tokymon",
@@ -125,7 +138,12 @@ export const translations = {
     export_empty: "Không có dữ liệu để xuất!",
     from_date: "Từ ngày",
     to_date: "Đến ngày",
-    download_now: "Tải báo cáo ngay"
+    download_now: "Tải báo cáo ngay",
+    duplicate_date_error: "Ngày này đã có dữ liệu chốt sổ!",
+    choose_branch_hint: "Vui lòng chọn chi nhánh để nhập liệu",
+    select_branch_btn: "Chọn chi nhánh",
+    edit_title: "Chỉnh sửa",
+    save_changes_btn: "Cập nhật ngay"
   },
   de: {
     // General & Navigation
@@ -161,6 +179,11 @@ export const translations = {
     add_new: "Hinzufügen",
     
     // Dashboard & Stats
+    overview_tab: "Überbl.",
+    daily_tab: "Tag",
+    branch_tab: "Filiale",
+    wallet_tab: "Kasse",
+    liabilities_tab: "Schuld.",
     revenue_month: "Monatsumsatz",
     tab_monthly: "Monat",
     profit: "Gewinn",
@@ -176,6 +199,13 @@ export const translations = {
     liabilities: "Verbindlichkeiten",
     debt_total: "Gesamtverbindlichkeiten",
     vendor_name: "Lieferant / Gläubiger",
+    revenue_source: "Einnahmequellen",
+    top_categories: "Höchste Kosten",
+    ai_analysis_title: "KI-Finanzanalyse",
+    ai_scanning_text: "Systemdaten werden gescannt...",
+    ai_hint: "Klicken Sie auf Analyse für KI-Beratung",
+    ai_btn: "Analyse",
+    ranking: "Ranking",
     
     // Forms & Inputs
     chot_so: "Tagesabschluss",
@@ -194,13 +224,15 @@ export const translations = {
     min_amount: "Betrag ab",
     max_amount: "Bis",
     reset_filter: "Filter zurücksetzen",
+    debt_label: "Schulden",
+    handover_label: "Übergabe",
     
     // Management & Branding
     branding: "Markenführung",
     custom_logo: "Unternehmenslogo",
     upload_logo: "Logo hochladen",
     reset_logo: "Zurücksetzen",
-    logo_hint: "Logo wird automatisch angepasst, um harmonisch zu wirken.",
+    logo_hint: "Logo wird automatisch angepasst.",
     dev_info: "System entwickelt von thPhuoc",
     categories_man: "Kategorien",
     display_settings: "Anzeige",
@@ -230,7 +262,6 @@ export const translations = {
     developer: "Entwickler",
     support: "Technischer Support",
     legal: "Rechtliches & Datenschutz",
-    // Added security key
     security: "Sicherheit",
     system_core: "Systemkern",
     active: "Aktiv",
@@ -239,7 +270,7 @@ export const translations = {
     confirm_logout: "Vom Tokymon-System abmelden?",
     confirm_delete_branch: "Diese Filiale dauerhaft löschen?",
     confirm_delete_cat: "Kategorie löschen?",
-    confirm_reset_data: "WARNUNG: Alle Daten dieser Filiale werden GELÖSCHT. Fortfahren?",
+    confirm_reset_data: "WARNUNG: Alle Daten werden GELÖSCHT. Fortfahren?",
     no_data: "Keine Daten gefunden",
     error_login: "Falscher Benutzername oder Passwort!",
     system_info: "Tokymon Finanzmanagementsystem",
@@ -250,7 +281,12 @@ export const translations = {
     export_empty: "Keine Daten zum Exportieren!",
     from_date: "Von",
     to_date: "Bis",
-    download_now: "Bericht herunterladen"
+    download_now: "Bericht herunterladen",
+    duplicate_date_error: "Abschluss für dieses Datum bereits vorhanden!",
+    choose_branch_hint: "Filiale zum Eingeben wählen",
+    select_branch_btn: "Filiale wählen",
+    edit_title: "Bearbeiten",
+    save_changes_btn: "Jetzt aktualisieren"
   }
 };
 

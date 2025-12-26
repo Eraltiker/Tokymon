@@ -130,24 +130,16 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "3.2.1";
+export const SCHEMA_VERSION = "3.2.3";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
   {
-    version: "3.2.1",
-    date: "2024-05-22",
+    version: "3.2.3",
+    date: "2024-05-25",
     changes: {
-      vi: ["Tối ưu AI Scanning: Xử lý hóa đơn siêu tốc ( < 2s )", "Tự động trích xuất tên cửa hàng vào phần Ghi chú", "Bổ sung module About chi tiết trong phần Cài đặt", "Sửa lỗi không nhận diện được hóa đơn mờ trên mobile"],
-      de: ["KI-Scan optimiert: Ultraschnelle Belegverarbeitung ( < 2s )", "Automatische Shop-Erkennung im Notizfeld", "Detailliertes About-Modul in den Einstellungen", "Fehlerbehebung für unscharfe Handyfotos"]
-    }
-  },
-  {
-    version: "3.2.0",
-    date: "2024-05-20",
-    changes: {
-      vi: ["Nâng cấp AI Vision v3", "Cải thiện giao diện Mobile mượt mà", "Bổ sung Changelog hệ thống"],
-      de: ["KI-Vision v3 Upgrade", "Flüssiges Mobile-UI Upgrade", "System Changelog hinzugefügt"]
+      vi: ["Dịch thuật triệt để toàn bộ hệ thống (Việt/Đức)", "Thêm nút chuyển đổi ngôn ngữ nhanh trên Header", "Tối ưu hóa Mesh Gradient Background", "Sửa lỗi hiển thị các nhãn nợ trên mobile"],
+      de: ["Vollständige Systemübersetzung (Deutsch/Vietnamesisch)", "Sprachumschalter zum Header hinzugefügt", "Optimierter Mesh-Gradient-Hintergrund", "Fehlerbehebung bei der Anzeige von Schuldenetiketten"]
     }
   }
 ];
