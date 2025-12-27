@@ -64,61 +64,68 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   };
 
   /**
-   * Thuật toán nén ảnh Siêu Cấp cho iOS Safari
-   * Khắc phục lỗi blank canvas và crash RAM
+   * Cải tiến Ultra-Stable cho Brave/Safari iOS
    */
-  const compressImageForIOS = async (file: File): Promise<{base64: string, type: string}> => {
+  const processImageForMobile = async (file: File): Promise<{base64: string, type: string}> => {
     return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
       const img = new Image();
-      const reader = new FileReader();
+      
+      img.onload = async () => {
+        try {
+          if ('decode' in img) await img.decode();
 
-      reader.onload = (e) => {
-        img.onload = async () => {
-          try {
-            // Đảm bảo Safari đã giải mã xong ảnh trước khi vẽ
-            if ('decode' in img) await img.decode();
+          const canvas = document.createElement('canvas');
+          const MAX_SIZE = 1200; // Tăng nhẹ độ phân giải để AI đọc chữ tốt hơn
+          let width = img.width;
+          let height = img.height;
 
-            const canvas = document.createElement('canvas');
-            const MAX_DIM = 1024; // Kích thước vàng cho iOS
-            let width = img.width;
-            let height = img.height;
-
-            if (width > height) {
-              if (width > MAX_DIM) {
-                height *= MAX_DIM / width;
-                width = MAX_DIM;
-              }
-            } else {
-              if (height > MAX_DIM) {
-                width *= MAX_DIM / height;
-                height = MAX_DIM;
-              }
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
             }
-
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d', { alpha: false });
-            if (!ctx) throw new Error("Canvas context error");
-
-            // Vẽ với background trắng (tối ưu cho JPEG)
-            ctx.fillStyle = "#FFFFFF";
-            ctx.fillRect(0, 0, width, height);
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
-            ctx.drawImage(img, 0, 0, width, height);
-
-            // Xuất JPEG chất lượng 0.7 để giảm dung lượng tải lên mà vẫn giữ được text
-            const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
-            resolve({ base64, type: 'image/jpeg' });
-          } catch (err) {
-            reject(err);
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
           }
-        };
-        img.onerror = () => reject(new Error("Image load error"));
-        img.src = e.target?.result as string;
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d', { 
+            alpha: false,
+            desynchronized: true // Tối ưu hiệu năng cho Brave/Chrome
+          });
+          
+          if (!ctx) throw new Error("Canvas context failed");
+
+          // Xử lý background trắng cho JPEG
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fillRect(0, 0, width, height);
+          
+          // Vẽ ảnh
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Chuyển đổi sang Base64
+          const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+          
+          // Dọn dẹp bộ nhớ ngay lập tức
+          URL.revokeObjectURL(url);
+          resolve({ base64, type: 'image/jpeg' });
+        } catch (err) {
+          URL.revokeObjectURL(url);
+          reject(err);
+        }
       };
-      reader.onerror = () => reject(new Error("File read error"));
-      reader.readAsDataURL(file);
+
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("Image load error"));
+      };
+      
+      img.src = url;
     });
   };
 
@@ -127,14 +134,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
     if (!file) return;
     
     setIsScanning(true);
-    // UI Feedback cho iOS
-    await new Promise(r => setTimeout(r, 100));
+    // UI Feedback cho iOS (Tránh treo main thread)
+    await new Promise(r => setTimeout(r, 150));
 
     try {
-      // 1. Nén ảnh tối ưu
-      const processed = await compressImageForIOS(file);
-      
-      // 2. Gửi tới Gemini API
+      const processed = await processImageForMobile(file);
       const result = await scanReceipt(processed.base64, processed.type);
       
       if (result) {
@@ -146,11 +150,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         if (result.date) setDate(result.date);
       }
     } catch (error) { 
-      console.error("Smart Scan Error:", error);
-      alert(lang === 'vi' ? "Thiết bị không đủ bộ nhớ hoặc ảnh lỗi. Hãy thử chọn file từ thư viện thay vì chụp trực tiếp!" : "Fehler beim Scannen. Bitte Datei aus Galerie wählen.");
+      console.error("Smart Scan Failure:", error);
+      const errorMsg = lang === 'vi' 
+        ? "Lỗi quét hóa đơn. Vui lòng thử lại hoặc chọn ảnh từ thư viện thay vì chụp trực tiếp." 
+        : "Fehler beim Scannen. Bitte versuchen Sie es erneut oder wählen Sie ein Bild aus der Galerie.";
+      alert(errorMsg);
     } finally {
       setIsScanning(false);
-      setInputKey(Date.now()); // Reset input
+      setInputKey(Date.now()); // Reset input để có thể chọn lại cùng 1 file nếu cần
     }
   };
 

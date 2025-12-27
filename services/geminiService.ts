@@ -24,27 +24,28 @@ export const analyzeFinances = async (stats: any, lang: Language = 'vi'): Promis
     });
     return response.text || "No analysis available.";
   } catch (error) {
+    console.error("Analysis Error:", error);
     return "Analysis service unavailable.";
   }
 };
 
 /**
- * Quét hóa đơn - Chế độ "Deep Vision" cho Mobile
+ * Quét hóa đơn - Chế độ "Deep Vision" tối ưu cho WebKit/Brave
  */
 export const scanReceipt = async (base64Image: string, mimeType: string): Promise<any> => {
   const categoriesList = EXPENSE_CATEGORIES.join(', ');
   const prompt = `You are a professional accountant for Tokymon restaurant.
   TASK: Extract data from this receipt image. 
   
-  GUIDELINES for Mobile Photos:
-  - The photo might be blurry or taken at an angle. Look for currency symbols (€, EUR) to find the amount.
-  - Date format is likely DD.MM.YYYY (German) or DD/MM/YYYY (Vietnamese). Convert to YYYY-MM-DD.
-  - The amount is the 'Total', 'Gesamtbetrag', or the largest number at the bottom.
-  - Categories: [${categoriesList}]. Use keywords: 'Miete' -> Tiền nhà, 'Lohn' -> Lương, 'Fleisch/Gemüse' -> Nguyên liệu.
-  - Note: Extract the Shop/Vendor name.
+  CONTEXT: The photo is from a mobile device (iOS Brave/Safari). 
+  GUIDELINES:
+  - Find the amount (Total, Summe, Gesamtbetrag).
+  - Date: Convert to YYYY-MM-DD. (German receipts often use DD.MM.YYYY).
+  - Categories: Pick ONLY from [${categoriesList}].
+  - Note: Shop/Vendor name and brief item description.
 
-  RETURN FORMAT: Strictly JSON. No markdown tags.
-  JSON Schema: { amount: number, date: string, category: string, note: string }`;
+  RETURN: Strictly JSON. No markdown.
+  { "amount": number, "date": "string", "category": "string", "note": "string" }`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -73,11 +74,14 @@ export const scanReceipt = async (base64Image: string, mimeType: string): Promis
     });
 
     const text = response.text || "{}";
-    // Đảm bảo không có rác trong chuỗi JSON
     const sanitized = text.replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(sanitized);
-  } catch (error) {
-    console.error("AI deep scan failed:", error);
+  } catch (error: any) {
+    console.error("AI Scan Error:", error);
+    // Xử lý lỗi đặc thù của Brave/Safari khi mất kết nối hoặc bị chặn
+    if (error.message?.includes('fetch') || error.message?.includes('origin')) {
+      throw new Error("Network blocked. Please disable Brave Shields or check your connection.");
+    }
     throw error;
   }
 };

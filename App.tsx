@@ -24,7 +24,7 @@ import {
   ImageIcon, Lock, ArrowRight, Cpu,
   Globe, Check, Info, ShieldCheck, ExternalLink, Zap,
   Sparkles, WifiOff, Wifi, Loader2, PartyPopper, X,
-  KeyRound, Fingerprint
+  KeyRound, Fingerprint, Heart, Code
 } from 'lucide-react';
 
 const App = () => {
@@ -214,14 +214,15 @@ const App = () => {
 
   if (!currentUser) {
     return (
-      <div className={`min-h-screen relative flex flex-col items-center justify-center p-6 font-sans transition-colors duration-500 overflow-hidden`}>
+      <div className="min-h-[100dvh] relative flex flex-col items-center justify-between p-6 font-sans transition-colors duration-500 overflow-x-hidden">
         <div className="login-mesh" />
         
-        {/* Floating Decorative Blobs */}
-        <div className="absolute top-[-5%] left-[-5%] w-72 h-72 bg-brand-600/20 blur-[100px] rounded-full animate-pulse pointer-events-none" />
-        <div className="absolute bottom-[5%] right-[-5%] w-96 h-96 bg-purple-600/10 blur-[120px] rounded-full animate-pulse delay-1000 pointer-events-none" />
+        {/* Animated Background Elements */}
+        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-600/10 blur-[120px] rounded-full animate-pulse pointer-events-none" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-purple-600/10 blur-[150px] rounded-full animate-pulse delay-700 pointer-events-none" />
 
-        <div className="absolute top-8 right-8 z-50 flex items-center gap-3 safe-mt">
+        {/* Top Header - Login Screen */}
+        <div className="w-full flex justify-end gap-3 safe-pt relative z-50">
            <button onClick={() => setIsDark(!isDark)} className="w-12 h-12 glass rounded-2xl flex items-center justify-center active-scale transition-all shadow-xl">
              {isDark ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-brand-600" />}
            </button>
@@ -231,26 +232,27 @@ const App = () => {
            </button>
         </div>
 
-        <div className="w-full max-w-[440px] z-10 space-y-12 animate-ios">
-          <div className="text-center space-y-10">
+        {/* Main Content Area */}
+        <div className="w-full max-w-[420px] z-10 space-y-10 py-10 animate-ios">
+          <div className="text-center space-y-6">
             <div className="relative inline-block group">
-              <div className="absolute -inset-4 bg-gradient-to-tr from-brand-600 to-purple-600 rounded-[3.5rem] blur-2xl opacity-20 group-hover:opacity-40 transition-opacity duration-700" />
-              <div className="relative p-10 bg-white/40 dark:bg-white/5 rounded-[3.5rem] backdrop-blur-3xl border border-white/50 dark:border-white/10 shadow-glass active-scale transition-all duration-500">
+              <div className="absolute -inset-6 bg-gradient-to-tr from-brand-500 via-purple-500 to-indigo-500 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity duration-1000 animate-pulse" />
+              <div className="relative p-10 bg-white/40 dark:bg-white/5 rounded-[3.5rem] backdrop-blur-3xl border border-white/50 dark:border-white/10 shadow-glass active-scale transition-all duration-700">
                 {data.logoUrl ? (
-                  <img src={data.logoUrl} alt="Tokymon" className="w-24 h-24 mx-auto object-contain" />
+                  <img src={data.logoUrl} alt="Tokymon" className="w-20 h-20 mx-auto object-contain" />
                 ) : (
                   <UtensilsCrossed className="w-16 h-16 text-brand-600 dark:text-brand-400 mx-auto" />
                 )}
               </div>
             </div>
-            <div className="space-y-4">
-              <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-900 to-slate-500 dark:from-white dark:to-slate-400 uppercase tracking-[-0.08em] leading-none">
+            <div className="space-y-3">
+              <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-900 to-slate-500 dark:from-white dark:to-slate-500 uppercase tracking-[-0.08em] leading-none">
                 TOKYMON
               </h1>
               <div className="flex items-center justify-center gap-4">
-                <div className="h-[1.5px] w-8 bg-brand-500/40" />
-                <p className="text-[11px] font-black text-brand-600 dark:text-brand-400 uppercase tracking-[0.6em] translate-x-[0.3em]">Finance Core</p>
-                <div className="h-[1.5px] w-8 bg-brand-500/40" />
+                <div className="h-[1.5px] w-6 bg-brand-500/30" />
+                <p className="text-[10px] font-black text-brand-600 dark:text-brand-400 uppercase tracking-[0.6em] translate-x-[0.3em]">Finance Core</p>
+                <div className="h-[1.5px] w-6 bg-brand-500/30" />
               </div>
             </div>
           </div>
@@ -267,65 +269,83 @@ const App = () => {
                 setLoginError(t('error_login')); 
               }
             }} 
-            className={`glass p-10 sm:p-12 rounded-[4rem] shadow-2xl space-y-10 relative overflow-hidden group ${loginError ? 'animate-shake' : ''}`}
+            className={`glass p-8 sm:p-10 rounded-[3.5rem] shadow-2xl space-y-8 relative overflow-hidden group ${loginError ? 'animate-shake' : ''}`}
           >
-            {/* Form decorative light */}
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-brand-500/50 to-transparent opacity-50" />
-
-            <div className="space-y-8">
-              <div className="space-y-4">
-                <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.25em] ml-2 block">System Identity</label>
-                <div className="relative group/input">
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] ml-2 block opacity-70">Identity</label>
+                <div className="relative">
                   <input 
                     type="text" 
                     value={loginForm.username} 
                     onChange={e => {setLoginForm({...loginForm, username: e.target.value}); setLoginError('');}} 
-                    className="w-full p-7 bg-white/50 dark:bg-black/20 focus:bg-white dark:focus:bg-black/40 rounded-[2.2rem] font-bold border border-white/50 dark:border-white/5 focus:border-brand-500 dark:focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-16 text-base" 
+                    className="w-full p-6 bg-white/40 dark:bg-black/20 focus:bg-white dark:focus:bg-brand-500/10 rounded-3xl font-bold border border-white/40 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-14 text-base" 
                     placeholder="Username" 
                     required 
                   />
-                  <UserCircle2 className="absolute left-7 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-400 group-focus-within/input:text-brand-500 transition-colors" />
+                  <UserCircle2 className="absolute left-5 top-1/2 -translate-y-1/2 w-5.5 h-5.5 text-slate-400" />
                 </div>
               </div>
-              <div className="space-y-4">
-                <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.25em] ml-2 block">Security Token</label>
-                <div className="relative group/input">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] ml-2 block opacity-70">Security Key</label>
+                <div className="relative">
                   <input 
                     type="password" 
                     value={loginForm.password} 
                     onChange={e => {setLoginForm({...loginForm, password: e.target.value}); setLoginError('');}} 
-                    className="w-full p-7 bg-white/50 dark:bg-black/20 focus:bg-white dark:focus:bg-black/40 rounded-[2.2rem] font-bold border border-white/50 dark:border-white/5 focus:border-brand-500 dark:focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-16 text-base" 
+                    className="w-full p-6 bg-white/40 dark:bg-black/20 focus:bg-white dark:focus:bg-brand-500/10 rounded-3xl font-bold border border-white/40 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-14 text-base" 
                     placeholder="••••••••" 
                     required 
                   />
-                  <Fingerprint className="absolute left-7 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-400 group-focus-within/input:text-brand-500 transition-colors" />
+                  <Fingerprint className="absolute left-5 top-1/2 -translate-y-1/2 w-5.5 h-5.5 text-slate-400" />
                 </div>
               </div>
             </div>
 
             {loginError && (
-              <div className="bg-rose-500/10 p-5 rounded-3xl border border-rose-500/20 flex items-center gap-4">
-                <AlertTriangle className="w-6 h-6 text-rose-500" />
-                <p className="text-rose-600 dark:text-rose-400 text-xs font-black uppercase tracking-tight">{loginError}</p>
+              <div className="bg-rose-500/10 p-5 rounded-3xl border border-rose-500/20 flex items-center gap-4 animate-in fade-in zoom-in duration-300">
+                <AlertTriangle className="w-5 h-5 text-rose-500" />
+                <p className="text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-tight leading-none">{loginError}</p>
               </div>
             )}
 
             <button 
               type="submit" 
-              className="w-full py-7 bg-slate-900 dark:bg-brand-600 hover:bg-black dark:hover:bg-brand-500 text-white rounded-[2.5rem] font-black uppercase text-sm tracking-[0.3em] active-scale transition-all flex items-center justify-center gap-4 shadow-vivid mt-4 shimmer-btn"
+              className="w-full py-6 bg-slate-950 dark:bg-brand-600 hover:bg-black dark:hover:bg-brand-500 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.25em] active-scale transition-all flex items-center justify-center gap-3 shadow-vivid mt-4 shimmer-btn"
             >
-              {t('login')} <ArrowRight className="w-6 h-6" />
+              {t('login')} <ArrowRight className="w-5 h-5" />
             </button>
           </form>
+        </div>
 
-          <div className="text-center space-y-4 opacity-40 pb-12">
-             <div className="flex items-center justify-center gap-4">
-                <span className="w-10 h-[1px] bg-slate-400" />
-                <Cpu className="w-5 h-5 text-slate-400" />
-                <span className="w-10 h-[1px] bg-slate-400" />
-             </div>
-             <p className="text-[11px] font-black dark:text-slate-400 text-slate-600 uppercase tracking-[0.4em]">Enterprise Security Layer v{SCHEMA_VERSION}</p>
-          </div>
+        {/* Developer Credit Footer */}
+        <div className="w-full max-w-[420px] pb-8 text-center space-y-5 relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+           <div className="flex items-center justify-center gap-5 opacity-30">
+              <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-slate-500" />
+              <div className="flex gap-4">
+                 <Zap className="w-4 h-4 text-brand-500" />
+                 <Cpu className="w-4 h-4 text-purple-500" />
+                 <ShieldCheck className="w-4 h-4 text-emerald-500" />
+              </div>
+              <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-slate-500" />
+           </div>
+
+           <div className="space-y-1">
+              <p className="text-[11px] font-black dark:text-slate-400 text-slate-500 uppercase tracking-[0.3em] flex items-center justify-center gap-2">
+                 Enterprise Security v{SCHEMA_VERSION}
+              </p>
+              <div className="pt-2 flex flex-col items-center gap-1.5">
+                 <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] flex items-center gap-1.5">
+                    Designed & Developed with <Heart className="w-2.5 h-2.5 text-rose-500 fill-rose-500" /> by
+                 </p>
+                 <div className="relative group">
+                    <span className="text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-purple-600 uppercase tracking-widest px-4 py-1.5 rounded-full border border-brand-500/20 glass transition-all group-hover:shadow-vivid group-hover:border-brand-500/40">
+                       thPhuoc
+                    </span>
+                 </div>
+                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.4em] pt-2">© 2024 Tokymon Team</p>
+              </div>
+           </div>
         </div>
       </div>
     );
