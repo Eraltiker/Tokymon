@@ -131,39 +131,25 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "3.5.9";
+export const SCHEMA_VERSION = "4.0.0";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
   {
-    version: "3.5.9",
-    date: "2024-07-20",
+    version: "4.0.0",
+    date: "2024-07-25",
     changes: {
       vi: [
-        "Obsidian AI Vision: Chuyển đổi sang GPU-Filters để tiết kiệm RAM tối đa cho Android.",
-        "Header Ultra-Slim: Thu gọn tối đa diện tích, giấu nhãn chữ trên Mobile.",
-        "Gallery Mode: Cho phép chọn ảnh từ thư viện để tránh crash camera trên máy yếu.",
-        "RAM Recovery Pro: Tăng thời gian chờ giải phóng bộ nhớ lên 1s sau khi chụp."
+        "Header Premium v4: Thiết kế lại theo layout 2 phần (Identity & Controls) cực kỳ sang trọng.",
+        "Simplified AI Vision: Gỡ bỏ các filter phức tạp, tối giản quy trình xử lý ảnh để đảm bảo hoạt động trên Android.",
+        "Unified Identity: Gộp Logo và Chi nhánh vào một khối đồng nhất.",
+        "Status Indicator Pro: Đèn báo trạng thái mạng tích hợp tinh tế vào cụm điều khiển."
       ],
       de: [
-        "Obsidian AI Vision: GPU-Filter für maximalen RAM-Schutz auf Android.",
-        "Header Ultra-Slim: Maximale Platzersparnis, versteckte Beschriftungen auf Mobilgeräten.",
-        "Gallery Mode: Erlaubt Bildauswahl aus Galerie, um Kamera-Crashes zu vermeiden.",
-        "RAM Recovery Pro: Erhöhte Wartezeit zur Speicherrückgewinnung nach der Aufnahme."
-      ]
-    }
-  },
-  {
-    version: "3.5.8",
-    date: "2024-07-15",
-    changes: {
-      vi: [
-        "Iron Vision Pipeline: Quy trình quét ảnh 4 bước.",
-        "Header Mobile v3: Tối ưu diện tích."
-      ],
-      de: [
-        "Iron Vision Pipeline: 4-Schritte-Scan-Prozess.",
-        "Header Mobile v3: Platzoptimierung."
+        "Header Premium v4: Neugestaltetes 2-Teile-Layout (Identität & Steuerung) für mehr Eleganz.",
+        "Vereinfachte KI-Vision: Komplexe Filter entfernt, Bildverarbeitung für Android-Kompatibilität minimiert.",
+        "Unified Identity: Logo und Filiale in einem Block vereint.",
+        "Status Indicator Pro: Dezente Netzwerk-Statusanzeige in der Steuereinheit."
       ]
     }
   }

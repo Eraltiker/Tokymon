@@ -64,11 +64,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   };
 
   /**
-   * OBSIDIAN VISION PIPELINE - RAM-SAFE CLOUD OCR
-   * Sử dụng GPU filters thay vì JS loops để tránh crash tab Chrome Android.
+   * SIMPLIFIED VISION PIPELINE v4.0
+   * Gỡ bỏ mọi Filter phức tạp, chỉ resize và gửi để tránh xung đột RAM/Browser.
    */
-  const processImageForMobile = async (file: File): Promise<{base64: string, type: string}> => {
-    // 1. TRÌ HOÃN RAM: Chờ 1s để Android giải phóng bộ nhớ Camera hoàn toàn
+  const processImageSimple = async (file: File): Promise<{base64: string, type: string}> => {
+    // Chờ 1s để giải phóng camera hệ thống
     await new Promise(r => setTimeout(r, 1000));
 
     return new Promise((resolve, reject) => {
@@ -78,8 +78,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
       reader.onload = (e) => { img.src = e.target?.result as string; };
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        // MICRO-SCALE (720px): Vừa đủ để OCR, cực kỳ tiết kiệm bộ nhớ
-        const MAX_SIZE = 720; 
+        const MAX_SIZE = 800; // Cân bằng giữa chất lượng và bộ nhớ
         let width = img.width;
         let height = img.height;
 
@@ -97,27 +96,20 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
 
         canvas.width = width;
         canvas.height = height;
-        const ctx = canvas.getContext('2d', { alpha: false });
+        const ctx = canvas.getContext('2d');
         if (!ctx) return reject(new Error("Canvas Failure"));
 
-        // 2. GPU-ACCELERATED FILTERS: Sử dụng phần cứng đồ họa để xử lý ảnh (Không tốn CPU/RAM chính)
-        // Chuyển trắng đen và tăng tương phản để text nổi bật
-        (ctx as any).filter = 'grayscale(1) contrast(1.4) brightness(1.1)';
-
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(0, 0, width, height);
+        // Chỉ vẽ ảnh gốc (Tối giản nhất)
         ctx.drawImage(img, 0, 0, width, height);
 
-        // 3. XUẤT ẢNH CƯỜNG ĐỘ THẤP (Low-Compression)
-        canvas.toBlob((blob) => {
-          if (!blob) return reject(new Error("Blob Null"));
-          const finalReader = new FileReader();
-          finalReader.onloadend = () => {
-            const base64Data = (finalReader.result as string).split(',')[1];
-            resolve({ base64: base64Data, type: 'image/jpeg' });
-          };
-          finalReader.readAsDataURL(blob);
-        }, 'image/jpeg', 0.5); // Nén mạnh hơn để dung lượng file siêu nhỏ (~40KB)
+        // Chuyển sang DataURL (Standard compatibility)
+        try {
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+          const base64Data = dataUrl.split(',')[1];
+          resolve({ base64: base64Data, type: 'image/jpeg' });
+        } catch (e) {
+          reject(e);
+        }
       };
 
       img.onerror = () => reject(new Error("Image Load Error"));
@@ -134,8 +126,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
     try {
       if (!navigator.onLine) throw new Error("OFFLINE");
 
-      // Khởi chạy quy trình Obsidian RAM-Safe
-      const processed = await processImageForMobile(file);
+      const processed = await processImageSimple(file);
       const result = await scanReceipt(processed.base64, processed.type);
       
       if (result) {
@@ -147,12 +138,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         if (result.date) setDate(result.date);
       }
     } catch (error: any) { 
-      console.error("Tokymon Obsidian Vision Error:", error);
+      console.error("Tokymon AI Error:", error);
       const msg = error.message === "OFFLINE" 
         ? (lang === 'vi' ? "Yêu cầu Internet để quét AI." : "Internetverbindung erforderlich.")
         : (lang === 'vi' 
-            ? "Lỗi bộ nhớ hoặc AI không thể đọc hóa đơn này. Hãy chụp RÕ NÉT hơn hoặc thử lại." 
-            : "Speicherfehler oder Beleg nicht lesbar. Bitte schärfer fotografieren oder erneut versuchen.");
+            ? "Xin lỗi, AI không nhận dạng được hóa đơn này. Vui lòng nhập tay." 
+            : "Entschuldigung, die KI konnte diesen Beleg nicht erkennen. Bitte manuell eingeben.");
       alert(msg);
     } finally {
       setIsScanning(false);
@@ -198,7 +189,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
             </div>
           </div>
           <div className="text-center space-y-2">
-            <h4 className="text-[12px] font-black uppercase tracking-[0.3em] text-brand-400">Obsidian Vision</h4>
+            <h4 className="text-[12px] font-black uppercase tracking-[0.3em] text-brand-400">Tokymon Vision</h4>
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('ai_scanning_text')}</p>
           </div>
         </div>
@@ -214,7 +205,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         
         {type === TransactionType.EXPENSE && (
           <div className="shrink-0">
-            <label className="relative flex items-center gap-2 px-3 py-2 bg-brand-600 hover:bg-brand-500 dark:bg-brand-500 rounded-xl shadow-vivid text-white active-scale cursor-pointer transition-all">
+            <label className="relative flex items-center gap-2 px-3 py-2 bg-slate-900 dark:bg-brand-600 text-white rounded-xl shadow-vivid active-scale cursor-pointer transition-all">
                <Camera className="w-4 h-4" />
                <span className="text-[9px] font-black uppercase tracking-widest">AI Vision</span>
                <input 
