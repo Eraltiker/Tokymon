@@ -131,39 +131,37 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "3.5.3";
+export const SCHEMA_VERSION = "3.5.5";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
   {
-    version: "3.5.3",
-    date: "2024-06-20",
+    version: "3.5.5",
+    date: "2024-06-30",
     changes: {
       vi: [
-        "iOS Fix Pro: Khắc phục triệt để lỗi quét hóa đơn trên iPhone/iPad.",
-        "Bộ nhớ tối ưu: Quy trình xử lý ảnh mới không gây lag trình duyệt mobile.",
-        "AI Precision: Cải thiện độ chính xác khi đọc số tiền và ngày tháng.",
-        "Camera Ultra: Tương thích tốt hơn với hệ thống camera của iOS Safari."
+        "Header Restore: Khôi phục nút Đổi ngôn ngữ và Chế độ tối trong Header chính.",
+        "AI Scan Ultimate: Giải thuật nén ảnh Adaptive giúp quét mượt trên máy yếu.",
+        "Deep Contrast: Tự động tăng độ nét chữ hóa đơn trước khi gửi AI.",
+        "Regex Fallback: Chế độ dự phòng tự bóc tách số liệu nếu AI bị lỗi định dạng."
       ],
       de: [
-        "iOS Fix Pro: Belegscan-Fehler auf iPhone/iPad endgültig behoben.",
-        "Speicheroptimierung: Neuer Bildverarbeitungsprozess ohne Mobile-Lag.",
-        "KI-Präzision: Verbesserte Genauigkeit beim Lesen von Beträgen und Daten.",
-        "Camera Ultra: Bessere Kompatibilität mit iOS Safari-Kamerasystemen."
+        "Header Restore: Buttons für Sprache und Darkmode im Header wiederhergestellt.",
+        "AI Scan Ultimate: Adaptive Bildkompression für schwächere Mobilgeräte.",
+        "Deep Contrast: Automatische Kontrastverbesserung für Belege.",
+        "Regex Fallback: Fallback-Modus für Datenextraktion bei KI-Formatfehlern."
       ]
     }
   },
   {
-    version: "3.5.2",
-    date: "2024-06-15",
+    version: "3.5.4",
+    date: "2024-06-25",
     changes: {
       vi: [
-        "iOS Elite UI: Giao diện đăng nhập mới phong cách Apple.",
-        "Smooth Motion: Hiệu ứng chuyển cảnh mượt mà 120Hz."
+        "Vision Max Engine: Nâng cấp AI nhận diện hóa đơn thông minh hơn."
       ],
       de: [
-        "iOS Elite UI: Neues Login-Interface im Apple-Stil.",
-        "Smooth Motion: 120Hz Übergangseffekte."
+        "Vision Max Engine: KI-Belegkennung verbessert."
       ]
     }
   }

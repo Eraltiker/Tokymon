@@ -155,7 +155,6 @@ const App = () => {
     setData(prev => ({ ...prev, auditLogs: [newLog, ...prev.auditLogs].slice(0, 500) }));
   }, [currentUser]);
 
-  // Fix: Defined missing function to update branches data
   const setBranchesWithDataCleanup = useCallback((update: any) => {
     setData(prev => ({
       ...prev,
@@ -163,7 +162,6 @@ const App = () => {
     }));
   }, []);
 
-  // Fix: Defined missing function to reset branch transactions
   const handleResetBranchData = useCallback((branchId: string) => {
     setData(prev => ({
       ...prev,
@@ -353,8 +351,15 @@ const App = () => {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })} className="w-10 h-10 bg-rose-600/10 text-rose-600 rounded-full active-scale flex items-center justify-center border border-rose-600/20"><LogOut className="w-4.5 h-4.5" /></button>
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Restore missing header controls */}
+          <button onClick={() => setIsDark(!isDark)} className="w-9 h-9 sm:w-10 sm:h-10 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center active-scale transition-all shadow-sm">
+             {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-brand-600" />}
+          </button>
+          <button onClick={toggleLanguage} className="px-3 sm:px-4 h-9 sm:h-10 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center gap-2 active-scale shadow-sm">
+             <span className="text-[9px] sm:text-[10px] font-black uppercase dark:text-white">{lang === 'vi' ? 'VN' : 'DE'}</span>
+          </button>
+          <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })} className="w-9 h-9 sm:w-10 sm:h-10 bg-rose-600/10 text-rose-600 rounded-full active-scale flex items-center justify-center border border-rose-600/20"><LogOut className="w-4 h-4" /></button>
         </div>
       </header>
 

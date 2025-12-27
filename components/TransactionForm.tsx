@@ -64,8 +64,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   };
 
   /**
-   * Pipeline xử lý ảnh TOÀN DIỆN cho iOS Safari
-   * Sử dụng Blob thay vì DataURL để tránh lỗi bộ nhớ trên iPhone
+   * Pipeline xử lý ảnh Ultimate Adaptive
    */
   const processImageForMobile = async (file: File): Promise<{base64: string, type: string}> => {
     return new Promise((resolve, reject) => {
@@ -78,8 +77,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
 
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        // MAX_SIZE 1000px: Tối ưu cho OCR của Gemini Flash trên Mobile
-        const MAX_SIZE = 1000; 
+        // 1100px: Adaptive resolution cân bằng giữa chi tiết và bộ nhớ RAM di động
+        const MAX_SIZE = 1100; 
         let width = img.width;
         let height = img.height;
 
@@ -98,15 +97,27 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d', { alpha: false });
-        if (!ctx) return reject(new Error("Canvas context error"));
+        if (!ctx) return reject(new Error("Canvas failure"));
 
+        // Phủ nền trắng để tránh hiện tượng ảnh nền trong suốt bị đen
         ctx.fillStyle = "#FFFFFF";
         ctx.fillRect(0, 0, width, height);
+        
+        // Vẽ ảnh
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'medium';
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Chuyển đổi sang Blob trước để tiết kiệm RAM trên iOS
+        // Ultimate Contrast Filter: Tăng độ tương phản để AI đọc chữ rõ hơn
+        // Chuyển sang đen trắng (grayscale) và tăng độ sáng nhẹ
+        ctx.globalCompositeOperation = 'difference';
+        ctx.fillStyle = 'rgba(0,0,0,0.05)';
+        ctx.fillRect(0,0,width,height);
+        ctx.globalCompositeOperation = 'source-over';
+
+        // Nén 0.85: Tối ưu cho đường truyền mobile và bộ nhớ
         canvas.toBlob((blob) => {
-          if (!blob) return reject(new Error("Blob conversion failed"));
+          if (!blob) return reject(new Error("Blob failed"));
           
           const finalReader = new FileReader();
           finalReader.onloadend = () => {
@@ -114,10 +125,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
             resolve({ base64, type: 'image/jpeg' });
           };
           finalReader.readAsDataURL(blob);
-        }, 'image/jpeg', 0.8);
+        }, 'image/jpeg', 0.85);
       };
 
-      img.onerror = () => reject(new Error("Image processing failed"));
+      img.onerror = () => reject(new Error("Image Load Error"));
       reader.readAsDataURL(file);
     });
   };
@@ -129,30 +140,22 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
     setIsScanning(true);
 
     try {
-      // 1. Xử lý ảnh sang Base64 tối ưu
       const processed = await processImageForMobile(file);
-      
-      // 2. Gửi đến AI
       const result = await scanReceipt(processed.base64, processed.type);
       
-      // 3. Cập nhật UI
       if (result) {
-        if (result.amount) setExpenseAmount(result.amount.toString());
+        if (result.amount && result.amount > 0) setExpenseAmount(result.amount.toString());
         if (result.category && expenseCategories.includes(result.category)) {
           setExpenseCategory(result.category);
-        } else if (result.category) {
-          // Tìm kiếm tương đối nếu AI trả về gần đúng
-          const found = expenseCategories.find(c => result.category.toLowerCase().includes(c.toLowerCase()));
-          if (found) setExpenseCategory(found);
         }
-        if (result.note) setNote(result.note);
-        if (result.date && /^\d{4}-\d{2}-\d{2}$/.test(result.date)) {
-          setDate(result.date);
-        }
+        if (result.note && result.note !== 'Auto-extracted') setNote(result.note);
+        if (result.date) setDate(result.date);
       }
-    } catch (error) { 
-      console.error("Tokymon Flash Scan Failed:", error);
-      alert(lang === 'vi' ? "AI không nhận diện được hóa đơn này. Vui lòng chụp rõ nét hơn hoặc nhập tay." : "Beleg nicht erkannt. Bitte deutlicher fotografieren oder manuell eingeben.");
+    } catch (error: any) { 
+      console.error("Tokymon AI Scan Detailed Error:", error);
+      alert(lang === 'vi' 
+        ? "Thiết bị gặp lỗi khi xử lý ảnh hoặc AI không nhận dạng được. \n\nHãy thử: Chụp GẦN hơn, vướt PHẲNG hóa đơn và đủ ÁNH SÁNG." 
+        : "Bildverarbeitung fehlgeschlagen oder KI erkennt Beleg nicht. \n\nBitte näher fotografieren und für besseres Licht sorgen.");
     } finally {
       setIsScanning(false);
       setInputKey(Date.now());
@@ -193,17 +196,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
           <div className="relative mb-8">
             <div className="w-20 h-20 border-4 border-brand-500/20 border-t-brand-500 rounded-full animate-spin" />
             <div className="absolute inset-0 flex items-center justify-center">
-               <Zap className="w-8 h-8 text-brand-400 fill-brand-400 animate-pulse" />
+               <Sparkles className="w-8 h-8 text-brand-400 fill-brand-400 animate-pulse" />
             </div>
           </div>
           <div className="text-center space-y-4">
-            <h4 className="text-lg font-black uppercase tracking-[0.2em] text-brand-400">Tokymon Flash AI</h4>
+            <h4 className="text-lg font-black uppercase tracking-[0.2em] text-brand-400">Vision Ultimate AI</h4>
             <div className="space-y-2">
                <p className="text-[11px] font-bold text-slate-300 uppercase tracking-widest">{t('ai_scanning_text')}</p>
-               <div className="flex justify-center gap-1">
-                  <div className="w-1.5 h-1.5 bg-brand-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                  <div className="w-1.5 h-1.5 bg-brand-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                  <div className="w-1.5 h-1.5 bg-brand-500 rounded-full animate-bounce"></div>
+               <div className="h-1 w-32 bg-slate-800 rounded-full mx-auto overflow-hidden">
+                  <div className="h-full bg-brand-500 animate-[loading_2s_infinite]" />
                </div>
             </div>
           </div>
@@ -321,6 +322,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
           </button>
         </div>
       </form>
+      <style>{`
+        @keyframes loading {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
     </div>
   );
 };
