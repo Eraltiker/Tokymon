@@ -130,24 +130,34 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "3.2.5";
+export const SCHEMA_VERSION = "3.3.0";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
   {
-    version: "3.2.5",
-    date: "2024-05-27",
+    version: "3.3.0",
+    date: "2024-05-28",
     changes: {
-      vi: ["Tái thiết kế màn hình Đăng nhập theo phong cách Glassmorphism cao cấp", "Cải thiện độ tương phản và hiển thị của các ô nhập liệu", "Tối ưu hóa bố cục logo và tiêu đề chuyên nghiệp hơn", "Chuyển đổi ngôn ngữ mượt mà ngay tại màn hình chờ"],
-      de: ["Neugestaltung des Login-Bildschirms im Premium-Glassmorphism-Stil", "Verbesserter Kontrast und Anzeige von Eingabefeldern", "Optimiertes Logo-Layout und professionelle Titel", "Reibungslose Sprachumschaltung im Standby-Bildschirm"]
+      vi: [
+        "Nâng cấp Smart Scan: Hỗ trợ triệt để Camera & File Browser trên iOS",
+        "Tối ưu hóa bộ nhớ: Chống crash Safari khi quét hóa đơn độ phân giải cao",
+        "Giao diện Zero-Overlap: Sửa lỗi chồng chéo layout trên màn hình tai thỏ",
+        "Cơ chế Tự động cập nhật: Tự động hiển thị tính năng mới sau mỗi bản update"
+      ],
+      de: [
+        "Smart Scan Upgrade: Volle Unterstützung für Kamera & Dateibrowser auf iOS",
+        "Speicheroptimierung: Verhindert Safari-Crashes bei hochauflösenden Scans",
+        "Zero-Overlap UI: Layout-Fehler auf Notch-Displays behoben",
+        "Auto-Update-Mechanismus: Zeigt neue Funktionen nach jedem Update automatisch an"
+      ]
     }
   },
   {
-    version: "3.2.4",
-    date: "2024-05-26",
+    version: "3.2.5",
+    date: "2024-05-27",
     changes: {
-      vi: ["Tối ưu Typography: Tăng kích thước font chữ toàn hệ thống", "Theme Light mới: Chống chói, tăng độ tương phản đọc", "Cải thiện bố cục Dashboard trực quan hơn", "Tăng kích thước các nút bấm và ô nhập liệu"],
-      de: ["Typography-Optimierung: Größere Schriftarten im gesamten System", "Neues Light-Theme: Blendfrei mit besserem Kontrast", "Verbessertes Dashboard-Layout", "Größere Schaltflächen und Eingabefelder"]
+      vi: ["Tái thiết kế màn hình Đăng nhập theo phong cách Glassmorphism cao cấp", "Cải thiện độ tương phản và hiển thị của các ô nhập liệu"],
+      de: ["Neugestaltung des Login-Bildschirms im Premium-Glassmorphism-Stil", "Verbesserter Kontrast und Anzeige von Eingabefeldern"]
     }
   }
 ];

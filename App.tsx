@@ -23,7 +23,7 @@ import {
   AlertTriangle, Languages, UserCircle2, 
   ImageIcon, Lock, ArrowRight, Cpu,
   Globe, Check, Info, ShieldCheck, ExternalLink, Zap,
-  Sparkles, WifiOff, Wifi, Loader2
+  Sparkles, WifiOff, Wifi, Loader2, PartyPopper, X
 } from 'lucide-react';
 
 const App = () => {
@@ -32,6 +32,7 @@ const App = () => {
   const [isDark, setIsDark] = useState(() => localStorage.getItem('tokymon_theme') === 'dark');
   const [lang, setLang] = useState<Language>(() => (localStorage.getItem('tokymon_lang') as Language) || 'vi');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   
   const t = useTranslation(lang);
   const [data, setData] = useState<AppData>(StorageService.getEmptyData());
@@ -55,6 +56,17 @@ const App = () => {
   const [loginError, setLoginError] = useState('');
   const pollTimerRef = useRef<number | null>(null);
   const dataRef = useRef(data);
+
+  // Cơ chế Version Guard: Tự động phát hiện phiên bản mới
+  useEffect(() => {
+    const lastVersion = localStorage.getItem('tokymon_system_version');
+    if (lastVersion && lastVersion !== SCHEMA_VERSION && currentUser) {
+      // Nếu phiên bản cũ khác phiên bản code hiện tại, hiện modal thông báo
+      setShowUpdateModal(true);
+    }
+    // Cập nhật lại phiên bản mới nhất vào bộ nhớ
+    localStorage.setItem('tokymon_system_version', SCHEMA_VERSION);
+  }, [currentUser]);
 
   useEffect(() => {
     StorageService.loadLocal().then(loadedData => {
@@ -288,6 +300,32 @@ const App = () => {
 
   return (
     <div className="min-h-screen flex flex-col transition-colors duration-300 font-sans pb-[env(safe-area-inset-bottom)]">
+      {/* Modal thông báo cập nhật phiên bản mới */}
+      {showUpdateModal && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-xl animate-in fade-in" onClick={() => setShowUpdateModal(false)} />
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[3rem] p-8 relative z-10 border border-white dark:border-slate-800 shadow-2xl animate-ios">
+             <button onClick={() => setShowUpdateModal(false)} className="absolute top-6 right-6 p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500"><X className="w-4 h-4" /></button>
+             <div className="w-16 h-16 bg-brand-600 text-white rounded-3xl flex items-center justify-center mb-6 shadow-vivid mx-auto"><PartyPopper className="w-8 h-8" /></div>
+             <h3 className="text-xl font-black text-center uppercase tracking-tight dark:text-white mb-2">{t('whats_new')}</h3>
+             <p className="text-[10px] font-black text-center uppercase tracking-widest text-brand-600 mb-6">Version {SCHEMA_VERSION}</p>
+             
+             <div className="space-y-4 mb-8">
+               {APP_CHANGELOG[0].changes[lang].map((change, i) => (
+                 <div key={i} className="flex gap-3 text-xs font-bold text-slate-600 dark:text-slate-300">
+                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <p className="leading-relaxed">{change}</p>
+                 </div>
+               ))}
+             </div>
+
+             <button onClick={() => { setShowUpdateModal(false); setActiveTab('settings'); setSettingsSubTab('about'); }} className="w-full py-5 bg-brand-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest active-scale shadow-lg">
+               {t('update_now_btn') || 'Khám phá ngay'}
+             </button>
+          </div>
+        </div>
+      )}
+
       {confirmModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setConfirmModal(null)} />

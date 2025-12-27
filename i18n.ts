@@ -143,7 +143,9 @@ export const translations = {
     choose_branch_hint: "Vui lòng chọn chi nhánh để nhập liệu",
     select_branch_btn: "Chọn chi nhánh",
     edit_title: "Chỉnh sửa",
-    save_changes_btn: "Cập nhật ngay"
+    save_changes_btn: "Cập nhật ngay",
+    // Fix: Added missing translation key for App.tsx
+    update_now_btn: "Khám phá ngay"
   },
   de: {
     // General & Navigation
@@ -286,7 +288,9 @@ export const translations = {
     choose_branch_hint: "Filiale zum Eingeben wählen",
     select_branch_btn: "Filiale wählen",
     edit_title: "Bearbeiten",
-    save_changes_btn: "Jetzt aktualisieren"
+    save_changes_btn: "Jetzt aktualisieren",
+    // Fix: Added missing translation key for App.tsx
+    update_now_btn: "Jetzt entdecken"
   }
 };
 
