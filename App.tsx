@@ -319,60 +319,65 @@ const App = () => {
         </div>
       )}
 
-      <header className="px-3 py-2 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800/50 shadow-sm safe-pt overflow-hidden">
-        <div className="flex items-center gap-2 min-w-0">
+      <header className="px-3 py-2 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800/50 shadow-sm safe-pt">
+        {/* Left Section: Logo & Branch */}
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
           <div className="relative w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-white shadow-vivid shrink-0" style={{ backgroundColor: activeBranchColor }}>
             {data.logoUrl ? ( <img src={data.logoUrl} className="w-5 h-5 object-contain" alt="L" /> ) : ( <UtensilsCrossed className="w-4 h-4" /> )}
           </div>
-          <div className="relative min-w-0">
-            <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex items-center gap-1.5 px-2 py-1.5 bg-white dark:bg-slate-800/80 rounded-full border border-slate-200 dark:border-slate-700 active-scale transition-all shadow-sm max-w-[140px]">
-              <div className={`w-2 h-2 rounded-full shrink-0`} style={{ backgroundColor: activeBranchColor }} />
-              <span className="text-[9px] font-black uppercase dark:text-white truncate tracking-tighter">{currentBranchName}</span>
-              <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
-            </button>
-            {showBranchDropdown && (
-              <>
-                <div className="fixed inset-0 z-[1001]" onClick={() => setShowBranchDropdown(false)} />
-                <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-[1.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 z-[1002] overflow-hidden animate-in slide-in-from-top-1">
-                  {isAdmin && (
-                    <button onClick={() => { setCurrentBranchId(ALL_BRANCHES_ID); localStorage.setItem('tokymon_current_branch', ALL_BRANCHES_ID); setShowBranchDropdown(false); }} className={`w-full text-left px-5 py-4 hover:bg-slate-900 hover:text-white transition-all flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`}>
-                        <div className="flex items-center gap-3"><Globe className="w-4 h-4" /><span className="text-[10px] font-black uppercase">{t('all_branches')}</span></div>
-                        {currentBranchId === ALL_BRANCHES_ID && <Check className="w-3 h-3" />}
-                    </button>
-                  )}
-                  {dropdownBranches.map(b => (
-                    <button key={b.id} onClick={() => { setCurrentBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); setShowBranchDropdown(false); }} className={`w-full text-left px-5 py-4 hover:text-white transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-slate-50 dark:bg-slate-800/50 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`} style={{ color: currentBranchId === b.id ? b.color : 'inherit' }}>
-                      <span className="text-[10px] font-black uppercase">{b.name}</span>
-                      {currentBranchId === b.id && <Check className="w-3 h-3" />}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
+          <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex items-center gap-1.5 px-2 py-1.5 bg-white dark:bg-slate-800/80 rounded-full border border-slate-200 dark:border-slate-700 active-scale transition-all shadow-sm max-w-[120px] sm:max-w-none">
+            <div className={`w-1.5 h-1.5 rounded-full shrink-0`} style={{ backgroundColor: activeBranchColor }} />
+            <span className="text-[9px] font-black uppercase dark:text-white truncate tracking-tighter">{currentBranchName}</span>
+            <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
+          </button>
+        </div>
+
+        {/* Middle Section: Status (Compact) */}
+        <div className="flex items-center justify-center px-2 shrink-0">
+          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full border ${isOnline ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' : 'text-rose-500 bg-rose-500/10 border-rose-500/20 animate-pulse'}`}>
+             <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+             <span className="text-[8px] font-black uppercase tracking-tighter sm:inline hidden">{isOnline ? 'Online' : 'Offline'}</span>
           </div>
         </div>
         
-        <div className="flex items-center gap-1.5 shrink-0">
-          <div className={`px-2 py-1 rounded-full flex items-center gap-1.5 border ${isOnline ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' : 'text-rose-500 bg-rose-500/10 border-rose-500/20 animate-pulse'}`}>
-             {isOnline ? <WifiIcon className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-             <span className="text-[8px] font-black uppercase tracking-tighter">{isOnline ? 'Online' : 'Offline'}</span>
-          </div>
-          
-          <button onClick={() => setIsDark(!isDark)} className="w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center active-scale transition-all shadow-sm">
+        {/* Right Section: Utility Buttons */}
+        <div className="flex items-center gap-1 flex-1 justify-end shrink-0">
+          <button onClick={() => setIsDark(!isDark)} className="w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center active-scale transition-all">
              {isDark ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5 text-brand-600" />}
           </button>
-          <button onClick={toggleLanguage} className="px-2 h-8 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center active-scale shadow-sm">
+          <button onClick={toggleLanguage} className="w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center active-scale">
              <span className="text-[9px] font-black uppercase dark:text-white">{lang === 'vi' ? 'VN' : 'DE'}</span>
           </button>
           <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })} className="w-8 h-8 bg-rose-600/10 text-rose-600 rounded-full active-scale flex items-center justify-center border border-rose-600/20"><LogOut className="w-3.5 h-3.5" /></button>
         </div>
+
+        {/* Branch Dropdown Portal */}
+        {showBranchDropdown && (
+          <>
+            <div className="fixed inset-0 z-[1001]" onClick={() => setShowBranchDropdown(false)} />
+            <div className="absolute top-full left-3 mt-2 w-56 bg-white dark:bg-slate-900 rounded-[1.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 z-[1002] overflow-hidden animate-in slide-in-from-top-1">
+              {isAdmin && (
+                <button onClick={() => { setCurrentBranchId(ALL_BRANCHES_ID); localStorage.setItem('tokymon_current_branch', ALL_BRANCHES_ID); setShowBranchDropdown(false); }} className={`w-full text-left px-5 py-4 hover:bg-slate-900 hover:text-white transition-all flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`}>
+                    <div className="flex items-center gap-3"><Globe className="w-4 h-4" /><span className="text-[10px] font-black uppercase">{t('all_branches')}</span></div>
+                    {currentBranchId === ALL_BRANCHES_ID && <Check className="w-3 h-3" />}
+                </button>
+              )}
+              {dropdownBranches.map(b => (
+                <button key={b.id} onClick={() => { setCurrentBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); setShowBranchDropdown(false); }} className={`w-full text-left px-5 py-4 hover:text-white transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-slate-50 dark:bg-slate-800/50 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`} style={{ color: currentBranchId === b.id ? b.color : 'inherit' }}>
+                  <span className="text-[10px] font-black uppercase">{b.name}</span>
+                  {currentBranchId === b.id && <Check className="w-3 h-3" />}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </header>
 
-      <main className="flex-1 px-4 sm:px-6 max-w-6xl mx-auto w-full pt-4 pb-32">
+      <main className="flex-1 px-4 max-w-6xl mx-auto w-full pt-4 pb-32">
         {!isDataLoaded ? (
           <div className="flex flex-col items-center justify-center py-40">
             <Loader2 className="w-10 h-10 text-brand-600 animate-spin mb-4" />
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 animate-pulse">Initializing System...</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 animate-pulse">System Core Warming Up...</p>
           </div>
         ) : (
           <div className="animate-ios">
@@ -441,26 +446,25 @@ const App = () => {
                       </div>
                     )}
                     {settingsSubTab === 'about' && (
-                      <div className="space-y-8 animate-ios max-w-xl mx-auto py-4">
-                        <div className="text-center space-y-6">
+                      <div className="space-y-6 animate-ios max-w-xl mx-auto py-4">
+                        <div className="text-center space-y-4">
                            <div className="relative inline-block">{data.logoUrl ? ( <img src={data.logoUrl} className="w-16 h-16 object-contain mx-auto" alt="L" /> ) : (
                                <div className="w-16 h-16 bg-brand-600 rounded-[1.4rem] mx-auto flex items-center justify-center shadow-vivid" style={{ backgroundColor: activeBranchColor }}><UtensilsCrossed className="w-8 h-8 text-white" /></div>
-                             )}<div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full border border-white dark:border-slate-900 uppercase">{t('active')}</div>
+                             )}<div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full border border-white dark:border-slate-900 uppercase">{t('active')}</div>
                            </div>
-                           <div><h2 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none mb-1">Tokymon Finance</h2><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Enterprise Core {SCHEMA_VERSION}</p></div>
+                           <div><h2 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none mb-1">Tokymon Enterprise</h2><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Version Core {SCHEMA_VERSION}</p></div>
                         </div>
 
-                        {/* Updated Changelog Display - List all from type.ts */}
-                        <div className="space-y-6">
+                        <div className="space-y-4">
                            <h3 className="text-[10px] font-black uppercase text-brand-600 dark:text-brand-400 tracking-[0.2em] flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
                              <HistoryIcon className="w-4 h-4" /> {t('version_history')}
                            </h3>
                            <div className="space-y-4">
                              {APP_CHANGELOG.map((entry, idx) => (
-                               <div key={idx} className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-100 dark:border-slate-700/60">
-                                 <div className="flex justify-between items-center mb-3">
-                                   <span className="text-[10px] font-black px-2 py-1 bg-indigo-600 text-white rounded-lg">v{entry.version}</span>
-                                   <span className="text-[9px] font-bold text-slate-400">{entry.date}</span>
+                               <div key={idx} className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-700/60">
+                                 <div className="flex justify-between items-center mb-2">
+                                   <span className="text-[9px] font-black px-2 py-1 bg-indigo-600 text-white rounded-lg">v{entry.version}</span>
+                                   <span className="text-[8px] font-bold text-slate-400">{entry.date}</span>
                                  </div>
                                  <ul className="space-y-2">
                                    {entry.changes[lang].map((item, i) => (
@@ -475,10 +479,10 @@ const App = () => {
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
-                           <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest">Uptime Status</p><div className="flex items-center gap-2 text-emerald-500"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /><span className="text-[9px] font-black uppercase tracking-widest">{isOnline ? t('online') : 'Offline'}</span></div></div>
-                           <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest">Storage</p><div className="flex items-center gap-2 text-brand-600" style={{ color: activeBranchColor }}><ShieldCheck className="w-3.5 h-3.5" /><span className="text-[9px] font-black uppercase tracking-widest">IndexedDB</span></div></div>
+                           <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest">System Engine</p><div className="flex items-center gap-2 text-emerald-500"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /><span className="text-[9px] font-black uppercase tracking-widest">Titanium {SCHEMA_VERSION}</span></div></div>
+                           <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest">Network</p><div className="flex items-center gap-2 text-brand-600" style={{ color: activeBranchColor }}><ShieldCheck className="w-3.5 h-3.5" /><span className="text-[9px] font-black uppercase tracking-widest">{isOnline ? 'Encrypted' : 'Offline'}</span></div></div>
                         </div>
-                        <div className="pt-6 border-t dark:border-slate-800 border-slate-100 text-center"><p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Developed with <Heart className="w-3 h-3 text-rose-500 inline mx-1 fill-rose-500" /> by <span className="text-brand-600 font-extrabold" style={{ color: activeBranchColor }}>thPhuoc</span></p></div>
+                        <div className="pt-6 border-t dark:border-slate-800 border-slate-100 text-center"><p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Built with <Heart className="w-3 h-3 text-rose-500 inline mx-1 fill-rose-500" /> by <span className="text-brand-600 font-extrabold" style={{ color: activeBranchColor }}>thPhuoc</span></p></div>
                       </div>
                     )}
                 </div>

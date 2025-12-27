@@ -131,39 +131,39 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "3.5.7";
+export const SCHEMA_VERSION = "3.5.8";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
+  {
+    version: "3.5.8",
+    date: "2024-07-15",
+    changes: {
+      vi: [
+        "Iron Vision Pipeline: Quy trình quét ảnh 4 bước (Giải phóng RAM -> Tối ưu tương phản -> Chuyển hệ xám -> AI).",
+        "Header Mobile v3: Tối ưu diện tích cực đại cho màn hình điện thoại.",
+        "Auto Grayscale: Tự động lọc trắng đen giúp AI đọc hóa đơn mờ cực nét.",
+        "Smart Network Status: Hiển thị chi tiết trạng thái kết nối ngay tại Header."
+      ],
+      de: [
+        "Iron Vision Pipeline: 4-Schritte-Scan-Prozess (RAM-Release -> Kontrast -> Graustufen -> KI).",
+        "Header Mobile v3: Maximale Platzoptimierung für Smartphone-Displays.",
+        "Auto Grayscale: Automatischer Schwarz-Weiß-Filter für besseres KI-Lesen.",
+        "Smart Network Status: Detaillierte Verbindungsanzeige direkt im Header."
+      ]
+    }
+  },
   {
     version: "3.5.7",
     date: "2024-07-10",
     changes: {
       vi: [
-        "Titanium Mobile Vision: Tối ưu bộ nhớ RAM khi quét hóa đơn trên Android.",
-        "Header Compact v2: Tối ưu diện tích hiển thị trên màn hình điện thoại nhỏ.",
-        "Live Network Status: Hiển thị trạng thái Online/Offline trực quan kèm màu sắc.",
-        "Dynamic Changelog: Toàn bộ lịch sử nâng cấp được hiển thị trong phần Giới thiệu."
+        "Titanium Mobile Vision: Tối ưu bộ nhớ RAM khi quét hóa đơn.",
+        "Header Compact v2: Tối ưu diện tích hiển thị."
       ],
       de: [
-        "Titanium Mobile Vision: RAM-Optimierung für Belegscan auf Android.",
-        "Header Compact v2: Besseres Layout für kleine Smartphone-Displays.",
-        "Live Network Status: Online/Offline-Anzeige mit Farbindikatoren.",
-        "Dynamic Changelog: Die gesamte Versionshistorie wird im Über-Bereich angezeigt."
-      ]
-    }
-  },
-  {
-    version: "3.5.6",
-    date: "2024-07-05",
-    changes: {
-      vi: [
-        "Android Shield: Khắc phục lỗi quét ảnh trên Google Chrome Android.",
-        "Network Status: Hiển thị chỉ báo Online/Offline."
-      ],
-      de: [
-        "Android Shield: Belegscan auf Chrome Android korrigiert.",
-        "Netzwerkstatus: Online/Offline-Anzeige."
+        "Titanium Mobile Vision: RAM-Optimierung für Belegscan.",
+        "Header Compact v2: Besseres Layout."
       ]
     }
   }
