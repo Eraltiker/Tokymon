@@ -35,6 +35,7 @@ export interface Branch {
   address: string;
   initialCash: number;
   initialCard: number;
+  color?: string; 
   updatedAt: string;
   deletedAt?: string;
 }
@@ -130,34 +131,26 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "3.3.0";
+export const SCHEMA_VERSION = "3.5.0";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
   {
-    version: "3.3.0",
-    date: "2024-05-28",
+    version: "3.5.0",
+    date: "2024-06-05",
     changes: {
       vi: [
-        "Nâng cấp Smart Scan: Hỗ trợ triệt để Camera & File Browser trên iOS",
-        "Tối ưu hóa bộ nhớ: Chống crash Safari khi quét hóa đơn độ phân giải cao",
-        "Giao diện Zero-Overlap: Sửa lỗi chồng chéo layout trên màn hình tai thỏ",
-        "Cơ chế Tự động cập nhật: Tự động hiển thị tính năng mới sau mỗi bản update"
+        "Hyper-Mobile: Tối ưu hóa toàn diện tốc độ phản hồi trên điện thoại.",
+        "Giao diện Pro: Hiệu ứng kính (Glassmorphism) thế hệ mới siêu mượt.",
+        "Smart Sync v2: Tăng tốc độ đồng bộ Cloud và giảm tiêu thụ PIN.",
+        "Màu sắc thông minh: Toàn bộ ứng dụng thay đổi theo màu thương hiệu chi nhánh."
       ],
       de: [
-        "Smart Scan Upgrade: Volle Unterstützung für Kamera & Dateibrowser auf iOS",
-        "Speicheroptimierung: Verhindert Safari-Crashes bei hochauflösenden Scans",
-        "Zero-Overlap UI: Layout-Fehler auf Notch-Displays behoben",
-        "Auto-Update-Mechanismus: Zeigt neue Funktionen nach jedem Update automatisch an"
+        "Hyper-Mobile: Umfassende Optimierung der Reaktionsgeschwindigkeit auf Smartphones.",
+        "Pro Interface: Glassmorphismus-Effekte der neuen Generation.",
+        "Smart Sync v2: Schnellere Cloud-Synchronisierung und geringerer Akkuverbrauch.",
+        "Smart Colors: Die gesamte App passt sich der Markenfarbe der Filiale an."
       ]
-    }
-  },
-  {
-    version: "3.2.5",
-    date: "2024-05-27",
-    changes: {
-      vi: ["Tái thiết kế màn hình Đăng nhập theo phong cách Glassmorphism cao cấp", "Cải thiện độ tương phản và hiển thị của các ô nhập liệu"],
-      de: ["Neugestaltung des Login-Bildschirms im Premium-Glassmorphism-Stil", "Verbesserter Kontrast und Anzeige von Eingabefeldern"]
     }
   }
 ];

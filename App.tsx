@@ -187,41 +187,27 @@ const App = () => {
     return activeBranches.find(b => b.id === currentBranchId)?.name || '---';
   }, [currentBranchId, activeBranches, t]);
 
+  const activeBranchColor = useMemo(() => {
+    if (currentBranchId === ALL_BRANCHES_ID) return '#4f46e5';
+    return activeBranches.find(b => b.id === currentBranchId)?.color || '#4f46e5';
+  }, [currentBranchId, activeBranches]);
+
   const systemInitialBalances = useMemo(() => {
     return activeBranches.reduce((acc, b) => ({
       cash: acc.cash + (b.initialCash || 0), card: acc.card + (b.initialCard || 0)
     }), { cash: 0, card: 0 });
   }, [activeBranches]);
 
-  const currentBranch = activeBranches.find(b => b.id === currentBranchId);
+  const currentBranchData = activeBranches.find(b => b.id === currentBranchId);
   const reportSettings: ReportSettings = data.reportSettings || {
     showSystemTotal: true, showShopRevenue: true, showAppRevenue: true,
     showCardRevenue: true, showActualCash: true, showProfit: true
-  };
-
-  const toggleGlobalReport = () => {
-    if (!isAdmin) return;
-    if (currentBranchId === ALL_BRANCHES_ID) {
-      const targetId = lastSelectedBranchId || allowedBranches[0]?.id;
-      setCurrentBranchId(targetId);
-      localStorage.setItem('tokymon_current_branch', targetId);
-    } else {
-      setLastSelectedBranchId(currentBranchId);
-      setCurrentBranchId(ALL_BRANCHES_ID);
-      localStorage.setItem('tokymon_current_branch', ALL_BRANCHES_ID);
-    }
   };
 
   if (!currentUser) {
     return (
       <div className="min-h-[100dvh] relative flex flex-col items-center justify-between p-6 font-sans transition-colors duration-500 overflow-x-hidden">
         <div className="login-mesh" />
-        
-        {/* Animated Background Elements */}
-        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-brand-600/10 blur-[120px] rounded-full animate-pulse pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-purple-600/10 blur-[150px] rounded-full animate-pulse delay-700 pointer-events-none" />
-
-        {/* Top Header - Login Screen */}
         <div className="w-full flex justify-end gap-3 safe-pt relative z-50">
            <button onClick={() => setIsDark(!isDark)} className="w-12 h-12 glass rounded-2xl flex items-center justify-center active-scale transition-all shadow-xl">
              {isDark ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-brand-600" />}
@@ -231,8 +217,6 @@ const App = () => {
               <span className="text-[11px] font-black uppercase tracking-widest">{lang === 'vi' ? 'VI' : 'DE'}</span>
            </button>
         </div>
-
-        {/* Main Content Area */}
         <div className="w-full max-w-[420px] z-10 space-y-10 py-10 animate-ios">
           <div className="text-center space-y-6">
             <div className="relative inline-block group">
@@ -246,9 +230,7 @@ const App = () => {
               </div>
             </div>
             <div className="space-y-3">
-              <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-900 to-slate-500 dark:from-white dark:to-slate-500 uppercase tracking-[-0.08em] leading-none">
-                TOKYMON
-              </h1>
+              <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-900 to-slate-500 dark:from-white dark:to-slate-500 uppercase tracking-[-0.08em] leading-none">TOKYMON</h1>
               <div className="flex items-center justify-center gap-4">
                 <div className="h-[1.5px] w-6 bg-brand-500/30" />
                 <p className="text-[10px] font-black text-brand-600 dark:text-brand-400 uppercase tracking-[0.6em] translate-x-[0.3em]">Finance Core</p>
@@ -256,18 +238,14 @@ const App = () => {
               </div>
             </div>
           </div>
-
-          <form 
-            onSubmit={(e) => {
+          <form onSubmit={(e) => {
               e.preventDefault();
               const user = activeUsers.find(u => u.username.toLowerCase() === loginForm.username.toLowerCase() && u.password === loginForm.password);
               if (user) { 
                 setCurrentUser(user); 
                 localStorage.setItem('tokymon_user', JSON.stringify(user)); 
                 addAuditLog('LOGIN', 'USER', user.id, `Đăng nhập thành công`); 
-              } else { 
-                setLoginError(t('error_login')); 
-              }
+              } else { setLoginError(t('error_login')); }
             }} 
             className={`glass p-8 sm:p-10 rounded-[3.5rem] shadow-2xl space-y-8 relative overflow-hidden group ${loginError ? 'animate-shake' : ''}`}
           >
@@ -275,75 +253,34 @@ const App = () => {
               <div className="space-y-3">
                 <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] ml-2 block opacity-70">Identity</label>
                 <div className="relative">
-                  <input 
-                    type="text" 
-                    value={loginForm.username} 
-                    onChange={e => {setLoginForm({...loginForm, username: e.target.value}); setLoginError('');}} 
-                    className="w-full p-6 bg-white/40 dark:bg-black/20 focus:bg-white dark:focus:bg-brand-500/10 rounded-3xl font-bold border border-white/40 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-14 text-base" 
-                    placeholder="Username" 
-                    required 
-                  />
+                  <input type="text" value={loginForm.username} onChange={e => {setLoginForm({...loginForm, username: e.target.value}); setLoginError('');}} className="w-full p-6 bg-white/40 dark:bg-black/20 focus:bg-white dark:focus:bg-brand-500/10 rounded-3xl font-bold border border-white/40 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-14 text-base" placeholder="Username" required />
                   <UserCircle2 className="absolute left-5 top-1/2 -translate-y-1/2 w-5.5 h-5.5 text-slate-400" />
                 </div>
               </div>
               <div className="space-y-3">
                 <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] ml-2 block opacity-70">Security Key</label>
                 <div className="relative">
-                  <input 
-                    type="password" 
-                    value={loginForm.password} 
-                    onChange={e => {setLoginForm({...loginForm, password: e.target.value}); setLoginError('');}} 
-                    className="w-full p-6 bg-white/40 dark:bg-black/20 focus:bg-white dark:focus:bg-brand-500/10 rounded-3xl font-bold border border-white/40 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-14 text-base" 
-                    placeholder="••••••••" 
-                    required 
-                  />
+                  <input type="password" value={loginForm.password} onChange={e => {setLoginForm({...loginForm, password: e.target.value}); setLoginError('');}} className="w-full p-6 bg-white/40 dark:bg-black/20 focus:bg-white dark:focus:bg-brand-500/10 rounded-3xl font-bold border border-white/40 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-14 text-base" placeholder="••••••••" required />
                   <Fingerprint className="absolute left-5 top-1/2 -translate-y-1/2 w-5.5 h-5.5 text-slate-400" />
                 </div>
               </div>
             </div>
-
-            {loginError && (
-              <div className="bg-rose-500/10 p-5 rounded-3xl border border-rose-500/20 flex items-center gap-4 animate-in fade-in zoom-in duration-300">
-                <AlertTriangle className="w-5 h-5 text-rose-500" />
-                <p className="text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-tight leading-none">{loginError}</p>
-              </div>
-            )}
-
-            <button 
-              type="submit" 
-              className="w-full py-6 bg-slate-950 dark:bg-brand-600 hover:bg-black dark:hover:bg-brand-500 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.25em] active-scale transition-all flex items-center justify-center gap-3 shadow-vivid mt-4 shimmer-btn"
-            >
-              {t('login')} <ArrowRight className="w-5 h-5" />
-            </button>
+            {loginError && <div className="bg-rose-500/10 p-5 rounded-3xl border border-rose-500/20 flex items-center gap-4 animate-in fade-in zoom-in duration-300"><AlertTriangle className="w-5 h-5 text-rose-500" /><p className="text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-tight leading-none">{loginError}</p></div>}
+            <button type="submit" className="w-full py-6 bg-slate-950 dark:bg-brand-600 hover:bg-black dark:hover:bg-brand-500 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.25em] active-scale transition-all flex items-center justify-center gap-3 shadow-vivid mt-4 shimmer-btn">{t('login')} <ArrowRight className="w-5 h-5" /></button>
           </form>
         </div>
-
-        {/* Developer Credit Footer */}
         <div className="w-full max-w-[420px] pb-8 text-center space-y-5 relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-1000">
            <div className="flex items-center justify-center gap-5 opacity-30">
               <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-slate-500" />
-              <div className="flex gap-4">
-                 <Zap className="w-4 h-4 text-brand-500" />
-                 <Cpu className="w-4 h-4 text-purple-500" />
-                 <ShieldCheck className="w-4 h-4 text-emerald-500" />
-              </div>
+              <div className="flex gap-4"><Zap className="w-4 h-4 text-brand-500" /><Cpu className="w-4 h-4 text-purple-500" /><ShieldCheck className="w-4 h-4 text-emerald-500" /></div>
               <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-slate-500" />
            </div>
-
            <div className="space-y-1">
-              <p className="text-[11px] font-black dark:text-slate-400 text-slate-500 uppercase tracking-[0.3em] flex items-center justify-center gap-2">
-                 Enterprise Security v{SCHEMA_VERSION}
-              </p>
+              <p className="text-[11px] font-black dark:text-slate-400 text-slate-500 uppercase tracking-[0.3em] flex items-center justify-center gap-2">Enterprise Security v{SCHEMA_VERSION}</p>
               <div className="pt-2 flex flex-col items-center gap-1.5">
-                 <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] flex items-center gap-1.5">
-                    Designed & Developed with <Heart className="w-2.5 h-2.5 text-rose-500 fill-rose-500" /> by
-                 </p>
-                 <div className="relative group">
-                    <span className="text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-purple-600 uppercase tracking-widest px-4 py-1.5 rounded-full border border-brand-500/20 glass transition-all group-hover:shadow-vivid group-hover:border-brand-500/40">
-                       thPhuoc
-                    </span>
-                 </div>
-                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.4em] pt-2">© 2024 Tokymon Team</p>
+                 <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] flex items-center gap-1.5">Designed & Developed with <Heart className="w-2.5 h-2.5 text-rose-500 fill-rose-500" /> by</p>
+                 <div className="relative group"><span className="text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-purple-600 uppercase tracking-widest px-4 py-1.5 rounded-full border border-brand-500/20 glass transition-all group-hover:shadow-vivid group-hover:border-brand-500/40">thPhuoc</span></div>
+                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-4em pt-2">© 2024 Tokymon Team</p>
               </div>
            </div>
         </div>
@@ -352,8 +289,7 @@ const App = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col transition-colors duration-300 font-sans pb-[env(safe-area-inset-bottom)]">
-      {/* Rest of the App UI remains the same... */}
+    <div className="min-h-screen flex flex-col transition-colors duration-300 font-sans pb-[env(safe-area-inset-bottom)]" style={{ '--brand-dynamic': activeBranchColor } as any}>
       {showUpdateModal && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-xl animate-in fade-in" onClick={() => setShowUpdateModal(false)} />
@@ -362,23 +298,15 @@ const App = () => {
              <div className="w-16 h-16 bg-brand-600 text-white rounded-3xl flex items-center justify-center mb-6 shadow-vivid mx-auto"><PartyPopper className="w-8 h-8" /></div>
              <h3 className="text-xl font-black text-center uppercase tracking-tight dark:text-white mb-2">{t('whats_new')}</h3>
              <p className="text-[10px] font-black text-center uppercase tracking-widest text-brand-600 mb-6">Version {SCHEMA_VERSION}</p>
-             
              <div className="space-y-4 mb-8">
                {APP_CHANGELOG[0].changes[lang].map((change, i) => (
-                 <div key={i} className="flex gap-3 text-xs font-bold text-slate-600 dark:text-slate-300">
-                    <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    <p className="leading-relaxed">{change}</p>
-                 </div>
+                 <div key={i} className="flex gap-3 text-xs font-bold text-slate-600 dark:text-slate-300"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /><p className="leading-relaxed">{change}</p></div>
                ))}
              </div>
-
-             <button onClick={() => { setShowUpdateModal(false); setActiveTab('settings'); setSettingsSubTab('about'); }} className="w-full py-5 bg-brand-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest active-scale shadow-lg">
-               {t('update_now_btn') || 'Khám phá ngay'}
-             </button>
+             <button onClick={() => { setShowUpdateModal(false); setActiveTab('settings'); setSettingsSubTab('about'); }} className="w-full py-5 bg-brand-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest active-scale shadow-lg">{t('update_now_btn')}</button>
           </div>
         </div>
       )}
-
       {confirmModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setConfirmModal(null)} />
@@ -393,16 +321,14 @@ const App = () => {
           </div>
         </div>
       )}
-      
       <header className="px-4 py-3 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800/50 shadow-sm safe-pt">
         <div className="flex items-center gap-3">
           {data.logoUrl ? ( <img src={data.logoUrl} alt="Logo" className="w-9 h-9 sm:w-11 sm:h-11 object-contain shrink-0" /> ) : (
-            <div className="w-9 h-9 sm:w-11 sm:h-11 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-vivid shrink-0"><UtensilsCrossed className="w-5 h-5" /></div>
+            <div className="w-9 h-9 sm:w-11 sm:h-11 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-vivid shrink-0" style={{ backgroundColor: activeBranchColor }}><UtensilsCrossed className="w-5 h-5" /></div>
           )}
-          
           <div className="relative">
             <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 active-scale transition-all shadow-sm max-w-[150px] sm:max-w-xs">
-              <div className={`w-2 h-2 rounded-full shrink-0 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-500 animate-pulse' : 'bg-brand-500'}`} />
+              <div className={`w-2 h-2 rounded-full shrink-0 ${currentBranchId === ALL_BRANCHES_ID ? 'animate-pulse' : ''}`} style={{ backgroundColor: activeBranchColor }} />
               <span className="text-[10px] sm:text-[11px] font-black uppercase dark:text-white truncate tracking-tight">{currentBranchName}</span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             </button>
@@ -411,13 +337,13 @@ const App = () => {
                 <div className="fixed inset-0 z-[1001]" onClick={() => setShowBranchDropdown(false)} />
                 <div className="absolute top-full left-0 mt-3 w-64 bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border-2 border-slate-100 dark:border-slate-800 z-[1002] overflow-hidden animate-in slide-in-from-top-2">
                   {isAdmin && (
-                    <button onClick={() => { setCurrentBranchId(ALL_BRANCHES_ID); localStorage.setItem('tokymon_current_branch', ALL_BRANCHES_ID); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-5 hover:bg-brand-600 hover:text-white transition-all flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`}>
+                    <button onClick={() => { setCurrentBranchId(ALL_BRANCHES_ID); localStorage.setItem('tokymon_current_branch', ALL_BRANCHES_ID); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-5 hover:bg-slate-900 hover:text-white transition-all flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`}>
                         <div className="flex items-center gap-3"><Globe className="w-5 h-5" /><span className="text-xs font-black uppercase">{t('all_branches')}</span></div>
                         {currentBranchId === ALL_BRANCHES_ID && <Check className="w-4 h-4" />}
                     </button>
                   )}
                   {dropdownBranches.map(b => (
-                    <button key={b.id} onClick={() => { setCurrentBranchId(b.id); setLastSelectedBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-5 hover:bg-brand-600 hover:text-white transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-brand-50 dark:bg-brand-900/10 text-brand-600 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`}>
+                    <button key={b.id} onClick={() => { setCurrentBranchId(b.id); setLastSelectedBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-5 hover:text-white transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-slate-50 dark:bg-slate-800/50 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`} style={{ color: currentBranchId === b.id ? b.color : 'inherit' }}>
                       <span className="text-xs font-black uppercase">{b.name}</span>
                       {currentBranchId === b.id && <Check className="w-4 h-4" />}
                     </button>
@@ -427,24 +353,18 @@ const App = () => {
             )}
           </div>
         </div>
-        
         <div className="flex items-center gap-2 shrink-0 ml-auto">
           <div className={`px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors ${isOnline ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600 animate-pulse'}`}>
             {isOnline ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
             <span className="text-[9px] font-black uppercase tracking-[0.1em] hidden sm:inline">{isOnline ? 'Online' : 'Offline'}</span>
           </div>
-
-          <button onClick={toggleLanguage} className="w-10 h-10 glass rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center active-scale transition-all shadow-sm">
-             <span className="text-[10px] sm:text-[11px] font-black uppercase dark:text-white">{lang === 'vi' ? 'VN' : 'DE'}</span>
-          </button>
-          <button onClick={() => setIsDark(!isDark)} className="w-10 h-10 glass rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center active-scale shadow-sm">
-             {isDark ? <Sun className="w-4.5 h-4.5 text-amber-500" /> : <Moon className="w-4.5 h-4.5 text-brand-600" />}
-          </button>
+          <button onClick={toggleLanguage} className="w-10 h-10 glass rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center active-scale shadow-sm"><span className="text-[10px] sm:text-[11px] font-black uppercase dark:text-white">{lang === 'vi' ? 'VN' : 'DE'}</span></button>
+          <button onClick={() => setIsDark(!isDark)} className="w-10 h-10 glass rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center active-scale shadow-sm">{isDark ? <Sun className="w-4.5 h-4.5 text-amber-500" /> : <Moon className="w-4.5 h-4.5 text-brand-600" />}</button>
           <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })} className="w-10 h-10 bg-rose-600 text-white rounded-xl shadow-lg active-scale flex items-center justify-center border border-rose-500/50"><LogOut className="w-4.5 h-4.5" /></button>
         </div>
       </header>
 
-      <main className="flex-1 px-4 sm:px-6 max-w-6xl mx-auto w-full pt-6 pb-40">
+      <main className="flex-1 px-4 sm:px-6 max-w-6xl mx-auto w-full pt-6 pb-44">
         {!isDataLoaded ? (
           <div className="flex flex-col items-center justify-center py-40">
             <Loader2 className="w-12 h-12 text-brand-600 animate-spin mb-4" />
@@ -454,39 +374,34 @@ const App = () => {
           <div className="animate-ios">
             {activeTab === 'income' && (
               currentBranchId === ALL_BRANCHES_ID ? (
-                <div className="flex flex-col items-center justify-center py-24 bg-white/60 dark:bg-slate-900/50 backdrop-blur-sm rounded-[3rem] border-2 border-dashed dark:border-slate-800 border-slate-200">
-                   <LayoutPanelTop className="w-16 h-16 text-slate-300 dark:text-slate-800 mb-8" />
-                   <p className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">{t('choose_branch_hint')}</p>
-                   <button onClick={() => setShowBranchDropdown(true)} className="mt-10 px-10 py-5 bg-brand-600 text-white rounded-[1.5rem] font-black uppercase text-[11px] active-scale shadow-vivid tracking-widest">{t('select_branch_btn')}</button>
-                </div>
+                <div className="flex flex-col items-center justify-center py-24 bg-white/60 dark:bg-slate-900/50 backdrop-blur-sm rounded-[3rem] border-2 border-dashed dark:border-slate-800 border-slate-200"><LayoutPanelTop className="w-16 h-16 text-slate-300 dark:text-slate-800 mb-8" /><p className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">{t('choose_branch_hint')}</p><button onClick={() => setShowBranchDropdown(true)} className="mt-10 px-10 py-5 bg-brand-600 text-white rounded-[1.5rem] font-black uppercase text-[11px] active-scale shadow-vivid tracking-widest" style={{ backgroundColor: activeBranchColor }}>{t('select_branch_btn')}</button></div>
               ) : (
-                <IncomeManager transactions={activeTransactions} onAddTransaction={tx => setData(p => ({...p, transactions: [tx, ...p.transactions]}))} onDeleteTransaction={id => setData(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}))} onEditTransaction={u => setData(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}))} branchId={currentBranchId} initialBalances={{cash: currentBranch?.initialCash || 0, card: currentBranch?.initialCard || 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />
+                <IncomeManager transactions={activeTransactions} onAddTransaction={tx => setData(p => ({...p, transactions: [tx, ...p.transactions]}))} onDeleteTransaction={id => setData(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}))} onEditTransaction={u => setData(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}))} branchId={currentBranchId} initialBalances={{cash: currentBranchData?.initialCash || 0, card: currentBranchData?.initialCard || 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />
               )
             )}
-            
             {activeTab === 'expense' && (
               currentBranchId === ALL_BRANCHES_ID ? (
-                <div className="flex flex-col items-center justify-center py-24 bg-white/60 dark:bg-slate-900/50 backdrop-blur-sm rounded-[3rem] border-2 border-dashed dark:border-slate-800 border-slate-200">
-                   <ArrowDownCircle className="w-16 h-16 text-slate-300 dark:text-slate-800 mb-8" />
-                   <p className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">{t('choose_branch_hint')}</p>
-                   <button onClick={() => setShowBranchDropdown(true)} className="mt-10 px-10 py-5 bg-brand-600 text-white rounded-[1.5rem] font-black uppercase text-[11px] active-scale shadow-vivid tracking-widest">{t('select_branch_btn')}</button>
-                </div>
+                <div className="flex flex-col items-center justify-center py-24 bg-white/60 dark:bg-slate-900/50 backdrop-blur-sm rounded-[3rem] border-2 border-dashed dark:border-slate-800 border-slate-200"><ArrowDownCircle className="w-16 h-16 text-slate-300 dark:text-slate-800 mb-8" /><p className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">{t('choose_branch_hint')}</p><button onClick={() => setShowBranchDropdown(true)} className="mt-10 px-10 py-5 bg-brand-600 text-white rounded-[1.5rem] font-black uppercase text-[11px] active-scale shadow-vivid tracking-widest" style={{ backgroundColor: activeBranchColor }}>{t('select_branch_btn')}</button></div>
               ) : (
-                <ExpenseManager transactions={activeTransactions} onAddTransaction={tx => setData(p => ({...p, transactions: [tx, ...p.transactions]}))} onDeleteTransaction={id => setData(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}))} onEditTransaction={u => setData(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}))} expenseCategories={data.expenseCategories} branchId={currentBranchId} initialBalances={{cash: currentBranch?.initialCash || 0, card: currentBranch?.initialCard || 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />
+                <ExpenseManager transactions={activeTransactions} onAddTransaction={tx => setData(p => ({...p, transactions: [tx, ...p.transactions]}))} onDeleteTransaction={id => setData(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}))} onEditTransaction={u => setData(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}))} expenseCategories={data.expenseCategories} branchId={currentBranchId} initialBalances={{cash: currentBranchData?.initialCash || 0, card: currentBranchData?.initialCard || 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />
               )
             )}
-            
-            {activeTab === 'stats' && <Dashboard 
-              transactions={activeTransactions} initialBalances={currentBranchId === ALL_BRANCHES_ID ? systemInitialBalances : {cash: currentBranch?.initialCash || 0, card: currentBranch?.initialCard || 0}} 
-              lang={lang} currentBranchId={currentBranchId} allowedBranches={allowedBranches} userRole={currentUser.role} reportSettings={reportSettings} onToggleGlobal={toggleGlobalReport} 
-            />}
-            
+            {activeTab === 'stats' && <Dashboard transactions={activeTransactions} initialBalances={currentBranchId === ALL_BRANCHES_ID ? systemInitialBalances : {cash: currentBranchData?.initialCash || 0, card: currentBranchData?.initialCard || 0}} lang={lang} currentBranchId={currentBranchId} allowedBranches={allowedBranches} userRole={currentUser.role} reportSettings={reportSettings} />}
             {activeTab === 'settings' && (
               <div className="space-y-8">
                 <div className="flex gap-3 overflow-x-auto no-scrollbar px-1 pb-2">
                   {[ { id: 'general', label: t('branding'), icon: ImageIcon }, { id: 'export', label: 'Excel', icon: FileSpreadsheet }, { id: 'sync', label: 'Cloud', icon: Cloud }, { id: 'branches', label: t('branches'), icon: MapPin }, { id: 'users', label: t('users'), icon: Users }, { id: 'audit', label: 'Log', icon: HistoryIcon }, { id: 'about', label: t('about'), icon: Info }
                   ].map(sub => (
-                    <button key={sub.id} onClick={() => setSettingsSubTab(sub.id as any)} style={{ display: (sub.id === 'branches' || sub.id === 'users') && !isAdmin ? 'none' : 'flex' }} className={`px-5 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.1em] border transition-all flex items-center gap-3 shrink-0 active-scale shadow-sm ${settingsSubTab === sub.id ? 'bg-brand-600 border-brand-600 text-white shadow-vivid' : 'bg-white/90 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500'}`}>
+                    /* Fix duplicate style attribute by merging both style objects into one */
+                    <button 
+                      key={sub.id} 
+                      onClick={() => setSettingsSubTab(sub.id as any)} 
+                      style={{ 
+                        display: (sub.id === 'branches' || sub.id === 'users') && !isAdmin ? 'none' : 'flex',
+                        backgroundColor: settingsSubTab === sub.id ? activeBranchColor : ''
+                      }} 
+                      className={`px-5 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.1em] border transition-all flex items-center gap-3 shrink-0 active-scale shadow-sm ${settingsSubTab === sub.id ? 'bg-slate-900 border-slate-800 text-white shadow-vivid' : 'bg-white/90 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500'}`}
+                    >
                       <sub.icon className="w-4.5 h-4.5" /> {sub.label}
                     </button>
                   ))}
@@ -494,12 +409,12 @@ const App = () => {
                 <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-[2.5rem] p-8 border border-white dark:border-slate-800 shadow-soft min-h-[500px]">
                     {settingsSubTab === 'sync' && (
                       <div className="space-y-12 max-w-sm mx-auto pt-10 text-center">
-                        <div className="w-24 h-24 bg-brand-50 dark:bg-brand-900/20 text-brand-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-inner border border-brand-100 dark:border-brand-900/30"><Cloud className="w-12 h-12" /></div>
+                        <div className="w-24 h-24 bg-brand-50 dark:bg-brand-900/20 text-brand-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-inner border border-brand-100 dark:border-brand-900/30" style={{ color: activeBranchColor }}><Cloud className="w-12 h-12" /></div>
                         <div className="space-y-5">
                           <h3 className="text-2xl font-black uppercase tracking-tight dark:text-white">Cloud Master Sync</h3>
                           <input type="text" value={syncKey} onChange={e => {setSyncKey(e.target.value); localStorage.setItem('tokymon_sync_key', e.target.value);}} className="w-full p-6 bg-slate-50 dark:bg-slate-950 rounded-3xl font-bold border-2 border-slate-100 dark:border-slate-800 focus:border-brand-500 outline-none text-base dark:text-white transition-all text-center uppercase tracking-widest shadow-inner" placeholder="Cloud Key ID..." />
                         </div>
-                        <button onClick={() => handleCloudSync()} disabled={isSyncing || !isOnline} className="w-full py-6 bg-brand-600 text-white rounded-[2.2rem] font-black uppercase text-xs tracking-[0.2em] flex items-center justify-center gap-4 active-scale shadow-vivid disabled:opacity-50">
+                        <button onClick={() => handleCloudSync()} disabled={isSyncing || !isOnline} className="w-full py-6 bg-brand-600 text-white rounded-[2.2rem] font-black uppercase text-xs tracking-[0.2em] flex items-center justify-center gap-4 active-scale shadow-vivid disabled:opacity-50" style={{ backgroundColor: activeBranchColor }}>
                           <RefreshCw className={`w-6 h-6 ${isSyncing ? 'animate-spin' : ''}`} /> {isOnline ? t('cloud_sync') : 'Offline'}
                         </button>
                       </div>
@@ -511,11 +426,7 @@ const App = () => {
                     {settingsSubTab === 'audit' && (
                       <div className="space-y-5 max-h-[600px] overflow-y-auto no-scrollbar pr-2">
                         {data.auditLogs.slice().reverse().map(log => (
-                          <div key={log.id} className="p-6 bg-slate-50/50 dark:bg-slate-950/50 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm">
-                            <div className="flex justify-between items-start mb-4"><span className="text-[10px] font-black px-3 py-1.5 bg-brand-600 text-white rounded-xl uppercase shadow-sm tracking-widest">{log.action}</span><span className="text-[10px] text-slate-500 font-bold uppercase">{new Date(log.timestamp).toLocaleString()}</span></div>
-                            <div className="text-sm font-bold dark:text-slate-200 uppercase tracking-tight leading-relaxed">{log.details}</div>
-                            <div className="text-[10px] text-slate-500 font-black uppercase mt-4 pt-4 border-t border-slate-200 dark:border-slate-800/60">By: {log.username}</div>
-                          </div>
+                          <div key={log.id} className="p-6 bg-slate-50/50 dark:bg-slate-950/50 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm"><div className="flex justify-between items-start mb-4"><span className="text-[10px] font-black px-3 py-1.5 bg-brand-600 text-white rounded-xl uppercase shadow-sm tracking-widest" style={{ backgroundColor: activeBranchColor }}>{log.action}</span><span className="text-[10px] text-slate-500 font-bold uppercase">{new Date(log.timestamp).toLocaleString()}</span></div><div className="text-sm font-bold dark:text-slate-200 uppercase tracking-tight leading-relaxed">{log.details}</div><div className="text-[10px] text-slate-500 font-black uppercase mt-4 pt-4 border-t border-slate-200 dark:border-slate-800/60">By: {log.username}</div></div>
                         ))}
                       </div>
                     )}
@@ -523,17 +434,17 @@ const App = () => {
                       <div className="space-y-12 animate-ios max-w-xl mx-auto py-6">
                         <div className="text-center space-y-8">
                            <div className="relative inline-block">{data.logoUrl ? ( <img src={data.logoUrl} className="w-24 h-24 object-contain mx-auto" alt="Logo" /> ) : (
-                               <div className="w-24 h-24 bg-brand-600 rounded-[2rem] mx-auto flex items-center justify-center shadow-vivid border-2 border-white dark:border-slate-800"><UtensilsCrossed className="w-12 h-12 text-white" /></div>
+                               <div className="w-24 h-24 bg-brand-600 rounded-[2rem] mx-auto flex items-center justify-center shadow-vivid border-2 border-white dark:border-slate-800" style={{ backgroundColor: activeBranchColor }}><UtensilsCrossed className="w-12 h-12 text-white" /></div>
                              )}<div className="absolute -bottom-3 -right-3 bg-emerald-500 text-white text-[10px] font-black px-3.5 py-1.5 rounded-full border-4 border-white dark:border-slate-950 uppercase tracking-widest shadow-lg">{t('active')}</div>
                            </div>
                            <div><h2 className="text-3xl font-black dark:text-white uppercase tracking-tighter leading-none mb-3">Tokymon Finance</h2><p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.5em]">System Version {SCHEMA_VERSION}</p></div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                            <div className="bg-slate-50/50 dark:bg-slate-800/40 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700/60 shadow-sm"><p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase mb-2 tracking-widest">{t('system_status')}</p><div className="flex items-center gap-3 text-emerald-500"><div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" /><span className="text-xs font-black uppercase tracking-widest">{isOnline ? t('online') : 'Offline'}</span></div></div>
-                           <div className="bg-slate-50/50 dark:bg-slate-800/40 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700/60 shadow-sm"><p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase mb-2 tracking-widest">Storage</p><div className="flex items-center gap-3 text-brand-600"><ShieldCheck className="w-5 h-5" /><span className="text-xs font-black uppercase tracking-widest">IndexedDB</span></div></div>
+                           <div className="bg-slate-50/50 dark:bg-slate-800/40 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700/60 shadow-sm"><p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase mb-2 tracking-widest">Storage</p><div className="flex items-center gap-3 text-brand-600" style={{ color: activeBranchColor }}><ShieldCheck className="w-5 h-5" /><span className="text-xs font-black uppercase tracking-widest">IndexedDB</span></div></div>
                         </div>
                         <div className="space-y-6">
-                           <h3 className="text-xs font-black uppercase dark:text-white flex items-center gap-3 tracking-[0.2em]"><Sparkles className="w-5 h-5 text-brand-500" /> {t('whats_new')}</h3>
+                           <h3 className="text-xs font-black uppercase dark:text-white flex items-center gap-3 tracking-[0.2em]"><Sparkles className="w-5 h-5 text-brand-500" style={{ color: activeBranchColor }} /> {t('whats_new')}</h3>
                            <div className="bg-brand-50/50 dark:bg-brand-900/10 p-8 rounded-[2.5rem] border border-brand-100 dark:border-brand-800/50 shadow-inner">
                               <ul className="space-y-5">
                                  {APP_CHANGELOG[0].changes[lang].map((change, i) => (
@@ -542,9 +453,7 @@ const App = () => {
                               </ul>
                            </div>
                         </div>
-                        <div className="pt-8 border-t dark:border-slate-800 border-slate-200 text-center">
-                           <p className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-[0.25em]">Developed by <span className="text-brand-600 font-extrabold underline underline-offset-8 decoration-2">thPhuoc</span></p>
-                        </div>
+                        <div className="pt-8 border-t dark:border-slate-800 border-slate-200 text-center"><p className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-[0.25em]">Developed by <span className="text-brand-600 font-extrabold underline underline-offset-8 decoration-2" style={{ color: activeBranchColor, textDecorationColor: activeBranchColor }}>thPhuoc</span></p></div>
                       </div>
                     )}
                 </div>
@@ -562,10 +471,10 @@ const App = () => {
             { id: 'stats', label: t('stats'), icon: LayoutDashboard },
             { id: 'settings', label: t('settings'), icon: Settings }
           ].map(tab => (
-            <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex flex-col items-center gap-2 relative py-2 rounded-2xl flex-1 transition-all active-scale ${activeTab === tab.id ? 'text-brand-600 dark:text-brand-400' : 'text-slate-500 dark:text-slate-500'}`}>
+            <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex flex-col items-center gap-2 relative py-2 rounded-2xl flex-1 transition-all active-scale ${activeTab === tab.id ? 'opacity-100' : 'text-slate-500'}`} style={{ color: activeTab === tab.id ? activeBranchColor : '' }}>
               <tab.icon className={`w-6 h-6 sm:w-7 sm:h-7 ${activeTab === tab.id ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
               <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-[0.1em] ${activeTab === tab.id ? 'opacity-100' : 'opacity-60'}`}>{tab.label}</span>
-              {activeTab === tab.id && <div className="absolute -bottom-2 w-2 h-2 bg-brand-600 rounded-full shadow-[0_0_15px_rgba(79,70,229,0.8)]" />}
+              {activeTab === tab.id && <div className="absolute -bottom-2 w-2 h-2 rounded-full shadow-lg" style={{ backgroundColor: activeBranchColor, boxShadow: `0 0 15px ${activeBranchColor}` }} />}
             </button>
           ))}
         </nav>

@@ -20,7 +20,7 @@ export const analyzeFinances = async (stats: any, lang: Language = 'vi'): Promis
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
-      config: { thinkingConfig: { thinkingBudget: 0 } }
+      // Removed invalid thinkingBudget: 0
     });
     return response.text || "No analysis available.";
   } catch (error) {
@@ -30,27 +30,29 @@ export const analyzeFinances = async (stats: any, lang: Language = 'vi'): Promis
 };
 
 /**
- * Quét hóa đơn - Chế độ "Deep Vision" tối ưu cho WebKit/Brave
+ * Quét hóa đơn - Sử dụng Gemini 3 Pro cho độ chính xác cao nhất
  */
 export const scanReceipt = async (base64Image: string, mimeType: string): Promise<any> => {
   const categoriesList = EXPENSE_CATEGORIES.join(', ');
-  const prompt = `You are a professional accountant for Tokymon restaurant.
-  TASK: Extract data from this receipt image. 
+  const prompt = `You are an expert accountant specializing in the gastronomy industry (Tokymon Restaurant).
   
-  CONTEXT: The photo is from a mobile device (iOS Brave/Safari). 
-  GUIDELINES:
-  - Find the amount (Total, Summe, Gesamtbetrag).
-  - Date: Convert to YYYY-MM-DD. (German receipts often use DD.MM.YYYY).
-  - Categories: Pick ONLY from [${categoriesList}].
-  - Note: Shop/Vendor name and brief item description.
+  TASK: Extract accounting data from this receipt image.
+  
+  CONTEXT: The image might be in German or Vietnamese. Receipts are usually from suppliers (Lidl, Metro, Selgros) or utilities.
+  
+  DATA FIELDS TO EXTRACT:
+  1. amount: The absolute total sum (Brutto/Total). Must be a number.
+  2. date: The transaction date in YYYY-MM-DD format.
+  3. category: Choose the best fit from: [${categoriesList}].
+  4. note: Concise vendor name and main items purchased.
 
-  RETURN: Strictly JSON. No markdown.
+  RESPONSE FORMAT: Strictly return valid JSON only.
   { "amount": number, "date": "string", "category": "string", "note": "string" }`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: {
         parts: [
           { inlineData: { data: base64Image, mimeType: mimeType } },
@@ -59,14 +61,14 @@ export const scanReceipt = async (base64Image: string, mimeType: string): Promis
       },
       config: {
         responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 0 }, 
+        // Removed invalid thinkingBudget: 0. Gemini 3 Pro requires thinking mode.
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            amount: { type: Type.NUMBER },
-            date: { type: Type.STRING },
-            category: { type: Type.STRING },
-            note: { type: Type.STRING }
+            amount: { type: Type.NUMBER, description: "Total amount on the receipt" },
+            date: { type: Type.STRING, description: "Date in YYYY-MM-DD format" },
+            category: { type: Type.STRING, description: "One of the predefined categories" },
+            note: { type: Type.STRING, description: "Vendor and summary" }
           },
           required: ["amount", "date", "category", "note"]
         }
@@ -74,14 +76,9 @@ export const scanReceipt = async (base64Image: string, mimeType: string): Promis
     });
 
     const text = response.text || "{}";
-    const sanitized = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(sanitized);
+    return JSON.parse(text);
   } catch (error: any) {
-    console.error("AI Scan Error:", error);
-    // Xử lý lỗi đặc thù của Brave/Safari khi mất kết nối hoặc bị chặn
-    if (error.message?.includes('fetch') || error.message?.includes('origin')) {
-      throw new Error("Network blocked. Please disable Brave Shields or check your connection.");
-    }
+    console.error("Gemini 3 Pro Scan Error:", error);
     throw error;
   }
 };
