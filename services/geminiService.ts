@@ -29,20 +29,22 @@ export const analyzeFinances = async (stats: any, lang: Language = 'vi'): Promis
 };
 
 /**
- * Quét hóa đơn - Cấu hình tối ưu cho OCR Mobile
+ * Quét hóa đơn - Chế độ "Deep Vision" cho Mobile
  */
 export const scanReceipt = async (base64Image: string, mimeType: string): Promise<any> => {
   const categoriesList = EXPENSE_CATEGORIES.join(', ');
-  const prompt = `Bạn là một chuyên gia kế toán của nhà hàng Tokymon. Hãy trích xuất thông tin từ ảnh hóa đơn này:
-  1. amount (number): Tìm tổng số tiền (Gesamtbetrag, Summe, Total, EUR, €). Chỉ lấy con số.
-  2. date (string): Định dạng YYYY-MM-DD. Nếu không thấy, lấy ngày hiện tại.
-  3. category (string): Phân loại vào MỘT TRONG các danh mục sau: [${categoriesList}].
-  4. note (string): Tên nhà cung cấp hoặc nội dung tóm tắt ngắn gọn.
+  const prompt = `You are a professional accountant for Tokymon restaurant.
+  TASK: Extract data from this receipt image. 
   
-  Lưu ý: Hóa đơn thường bằng tiếng Đức hoặc tiếng Việt. 
-  Nếu thấy "Fleisch", "Gemüse", "Asiamarkt" -> Nguyên liệu.
-  Nếu thấy "Miete", "Strom" -> Tiền nhà / Điện.
-  Trả về duy nhất định dạng JSON.`;
+  GUIDELINES for Mobile Photos:
+  - The photo might be blurry or taken at an angle. Look for currency symbols (€, EUR) to find the amount.
+  - Date format is likely DD.MM.YYYY (German) or DD/MM/YYYY (Vietnamese). Convert to YYYY-MM-DD.
+  - The amount is the 'Total', 'Gesamtbetrag', or the largest number at the bottom.
+  - Categories: [${categoriesList}]. Use keywords: 'Miete' -> Tiền nhà, 'Lohn' -> Lương, 'Fleisch/Gemüse' -> Nguyên liệu.
+  - Note: Extract the Shop/Vendor name.
+
+  RETURN FORMAT: Strictly JSON. No markdown tags.
+  JSON Schema: { amount: number, date: string, category: string, note: string }`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -71,9 +73,11 @@ export const scanReceipt = async (base64Image: string, mimeType: string): Promis
     });
 
     const text = response.text || "{}";
-    return JSON.parse(text);
+    // Đảm bảo không có rác trong chuỗi JSON
+    const sanitized = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(sanitized);
   } catch (error) {
-    console.error("AI OCR Error:", error);
+    console.error("AI deep scan failed:", error);
     throw error;
   }
 };

@@ -64,60 +64,60 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   };
 
   /**
-   * Thuật toán nén ảnh tối ưu cho iOS (Safari Memory Safe)
+   * Thuật toán nén ảnh Siêu Cấp cho iOS Safari
+   * Khắc phục lỗi blank canvas và crash RAM
    */
-  const processImageForOCR = async (file: File): Promise<{base64: string, type: string}> => {
+  const compressImageForIOS = async (file: File): Promise<{base64: string, type: string}> => {
     return new Promise((resolve, reject) => {
+      const img = new Image();
       const reader = new FileReader();
+
       reader.onload = (e) => {
-        const img = new Image();
         img.onload = async () => {
           try {
-            // Đảm bảo ảnh đã được giải mã trên iOS
+            // Đảm bảo Safari đã giải mã xong ảnh trước khi vẽ
             if ('decode' in img) await img.decode();
 
             const canvas = document.createElement('canvas');
-            // 1200px là "điểm ngọt" cho iOS: đủ rõ để OCR nhưng không gây tràn RAM Safari
-            const MAX_WIDTH = 1200;
-            const MAX_HEIGHT = 1200;
+            const MAX_DIM = 1024; // Kích thước vàng cho iOS
             let width = img.width;
             let height = img.height;
 
             if (width > height) {
-              if (width > MAX_WIDTH) {
-                height *= MAX_WIDTH / width;
-                width = MAX_WIDTH;
+              if (width > MAX_DIM) {
+                height *= MAX_DIM / width;
+                width = MAX_DIM;
               }
             } else {
-              if (height > MAX_HEIGHT) {
-                width *= MAX_HEIGHT / height;
-                height = MAX_HEIGHT;
+              if (height > MAX_DIM) {
+                width *= MAX_DIM / height;
+                height = MAX_DIM;
               }
             }
 
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d', { alpha: false });
-            if (!ctx) throw new Error("Could not get canvas context");
+            if (!ctx) throw new Error("Canvas context error");
 
-            // Vẽ ảnh
-            ctx.fillStyle = "white"; // Nền trắng cho ảnh JPG
+            // Vẽ với background trắng (tối ưu cho JPEG)
+            ctx.fillStyle = "#FFFFFF";
             ctx.fillRect(0, 0, width, height);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
             ctx.drawImage(img, 0, 0, width, height);
 
-            // Xuất file với chất lượng trung bình cao (0.8) để giữ chi tiết chữ
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-            const base64 = dataUrl.split(',')[1];
-            
+            // Xuất JPEG chất lượng 0.7 để giảm dung lượng tải lên mà vẫn giữ được text
+            const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
             resolve({ base64, type: 'image/jpeg' });
           } catch (err) {
             reject(err);
           }
         };
-        img.onerror = () => reject(new Error("Image loading failed"));
+        img.onerror = () => reject(new Error("Image load error"));
         img.src = e.target?.result as string;
       };
-      reader.onerror = () => reject(new Error("File reading failed"));
+      reader.onerror = () => reject(new Error("File read error"));
       reader.readAsDataURL(file);
     });
   };
@@ -127,33 +127,30 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
     if (!file) return;
     
     setIsScanning(true);
+    // UI Feedback cho iOS
+    await new Promise(r => setTimeout(r, 100));
+
     try {
-      // 1. Xử lý ảnh an toàn cho iOS
-      const processed = await processImageForOCR(file);
+      // 1. Nén ảnh tối ưu
+      const processed = await compressImageForIOS(file);
       
-      // 2. Gọi AI Vision
+      // 2. Gửi tới Gemini API
       const result = await scanReceipt(processed.base64, processed.type);
       
       if (result) {
         if (result.amount) setExpenseAmount(result.amount.toString());
         if (result.category && expenseCategories.includes(result.category)) {
           setExpenseCategory(result.category);
-        } else if (result.category) {
-          // Nếu AI gợi ý một danh mục gần đúng, có thể xử lý logic mapping ở đây
-          setNote(prev => prev ? `${prev} (${result.category})` : result.category);
         }
         if (result.note) setNote(result.note);
         if (result.date) setDate(result.date);
       }
     } catch (error) { 
       console.error("Smart Scan Error:", error);
-      alert(lang === 'vi' ? "Lỗi xử lý hóa đơn. Vui lòng thử lại hoặc chụp ảnh rõ hơn." : "Fehler beim Scannen der Rechnung.");
+      alert(lang === 'vi' ? "Thiết bị không đủ bộ nhớ hoặc ảnh lỗi. Hãy thử chọn file từ thư viện thay vì chụp trực tiếp!" : "Fehler beim Scannen. Bitte Datei aus Galerie wählen.");
     } finally {
-      setIsScanning(true); // Giữ hiệu ứng loading một chút cho mượt
-      setTimeout(() => {
-        setIsScanning(false);
-        setInputKey(Date.now());
-      }, 500);
+      setIsScanning(false);
+      setInputKey(Date.now()); // Reset input
     }
   };
 
@@ -193,7 +190,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
             <Sparkles className="w-6 h-6 text-amber-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
           </div>
           <div className="text-center space-y-2">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-brand-400">Tokymon AI Engine</p>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-brand-400">Tokymon Vision AI</p>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest opacity-70">{t('ai_scanning_text')}</p>
           </div>
         </div>
@@ -209,7 +206,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         
         {type === TransactionType.EXPENSE && (
           <div className="shrink-0">
-            {/* Không sử dụng capture="environment" để cho phép chọn cả tệp và camera */}
             <label className="relative flex items-center gap-2.5 px-4 py-3 bg-brand-600 hover:bg-brand-500 dark:bg-brand-500 rounded-2xl shadow-vivid text-white active-scale cursor-pointer transition-all">
                <Zap className="w-4 h-4 fill-white animate-pulse" />
                <span className="text-[10px] font-black uppercase tracking-widest">Smart Scan</span>
