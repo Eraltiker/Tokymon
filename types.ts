@@ -131,39 +131,39 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "3.5.6";
+export const SCHEMA_VERSION = "3.5.7";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
+  {
+    version: "3.5.7",
+    date: "2024-07-10",
+    changes: {
+      vi: [
+        "Titanium Mobile Vision: Tối ưu bộ nhớ RAM khi quét hóa đơn trên Android.",
+        "Header Compact v2: Tối ưu diện tích hiển thị trên màn hình điện thoại nhỏ.",
+        "Live Network Status: Hiển thị trạng thái Online/Offline trực quan kèm màu sắc.",
+        "Dynamic Changelog: Toàn bộ lịch sử nâng cấp được hiển thị trong phần Giới thiệu."
+      ],
+      de: [
+        "Titanium Mobile Vision: RAM-Optimierung für Belegscan auf Android.",
+        "Header Compact v2: Besseres Layout für kleine Smartphone-Displays.",
+        "Live Network Status: Online/Offline-Anzeige mit Farbindikatoren.",
+        "Dynamic Changelog: Die gesamte Versionshistorie wird im Über-Bereich angezeigt."
+      ]
+    }
+  },
   {
     version: "3.5.6",
     date: "2024-07-05",
     changes: {
       vi: [
-        "Android Shield: Khắc phục triệt để lỗi quét ảnh trên Google Chrome Android.",
-        "Zero-Crash Pipeline: Quy trình nén ảnh mới siêu nhẹ cho máy cấu hình thấp.",
-        "Network Status: Hiển thị chỉ báo Online/Offline trực quan tại Header.",
-        "Smart Changelog: Phần Giới thiệu luôn cập nhật lịch sử thay đổi mới nhất."
+        "Android Shield: Khắc phục lỗi quét ảnh trên Google Chrome Android.",
+        "Network Status: Hiển thị chỉ báo Online/Offline."
       ],
       de: [
-        "Android Shield: Belegscan auf Chrome Android endgültig korrigiert.",
-        "Zero-Crash Pipeline: Ultraleichte Bildkompression für schwächere Handys.",
-        "Netzwerkstatus: Online/Offline-Anzeige direkt im Header.",
-        "Smart Changelog: Historie wird automatisch im Über-Bereich aktualisiert."
-      ]
-    }
-  },
-  {
-    version: "3.5.5",
-    date: "2024-06-30",
-    changes: {
-      vi: [
-        "Header Restore: Khôi phục nút Đổi ngôn ngữ và Chế độ tối.",
-        "Regex Fallback: Chế độ dự phòng tự bóc tách số liệu."
-      ],
-      de: [
-        "Header Restore: Sprache und Darkmode Buttons wiederhergestellt.",
-        "Regex Fallback: Automatischer Fallback-Modus."
+        "Android Shield: Belegscan auf Chrome Android korrigiert.",
+        "Netzwerkstatus: Online/Offline-Anzeige."
       ]
     }
   }

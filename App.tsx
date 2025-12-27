@@ -319,31 +319,31 @@ const App = () => {
         </div>
       )}
 
-      <header className="px-4 py-3 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800/50 shadow-sm safe-pt">
-        <div className="flex items-center gap-3">
-          <div className="relative w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-vivid shrink-0" style={{ backgroundColor: activeBranchColor }}>
-            {data.logoUrl ? ( <img src={data.logoUrl} className="w-7 h-7 object-contain" alt="L" /> ) : ( <UtensilsCrossed className="w-5 h-5" /> )}
+      <header className="px-3 py-2 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800/50 shadow-sm safe-pt overflow-hidden">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="relative w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-white shadow-vivid shrink-0" style={{ backgroundColor: activeBranchColor }}>
+            {data.logoUrl ? ( <img src={data.logoUrl} className="w-5 h-5 object-contain" alt="L" /> ) : ( <UtensilsCrossed className="w-4 h-4" /> )}
           </div>
-          <div className="relative">
-            <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-800/80 rounded-full border border-slate-200 dark:border-slate-700 active-scale transition-all shadow-sm">
+          <div className="relative min-w-0">
+            <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex items-center gap-1.5 px-2 py-1.5 bg-white dark:bg-slate-800/80 rounded-full border border-slate-200 dark:border-slate-700 active-scale transition-all shadow-sm max-w-[140px]">
               <div className={`w-2 h-2 rounded-full shrink-0`} style={{ backgroundColor: activeBranchColor }} />
-              <span className="text-[10px] sm:text-[11px] font-black uppercase dark:text-white truncate tracking-tight">{currentBranchName}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-[9px] font-black uppercase dark:text-white truncate tracking-tighter">{currentBranchName}</span>
+              <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
             </button>
             {showBranchDropdown && (
               <>
                 <div className="fixed inset-0 z-[1001]" onClick={() => setShowBranchDropdown(false)} />
-                <div className="absolute top-full left-0 mt-3 w-64 bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border-2 border-slate-100 dark:border-slate-800 z-[1002] overflow-hidden animate-in slide-in-from-top-2">
+                <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-[1.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 z-[1002] overflow-hidden animate-in slide-in-from-top-1">
                   {isAdmin && (
-                    <button onClick={() => { setCurrentBranchId(ALL_BRANCHES_ID); localStorage.setItem('tokymon_current_branch', ALL_BRANCHES_ID); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-5 hover:bg-slate-900 hover:text-white transition-all flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`}>
-                        <div className="flex items-center gap-3"><Globe className="w-5 h-5" /><span className="text-xs font-black uppercase">{t('all_branches')}</span></div>
-                        {currentBranchId === ALL_BRANCHES_ID && <Check className="w-4 h-4" />}
+                    <button onClick={() => { setCurrentBranchId(ALL_BRANCHES_ID); localStorage.setItem('tokymon_current_branch', ALL_BRANCHES_ID); setShowBranchDropdown(false); }} className={`w-full text-left px-5 py-4 hover:bg-slate-900 hover:text-white transition-all flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`}>
+                        <div className="flex items-center gap-3"><Globe className="w-4 h-4" /><span className="text-[10px] font-black uppercase">{t('all_branches')}</span></div>
+                        {currentBranchId === ALL_BRANCHES_ID && <Check className="w-3 h-3" />}
                     </button>
                   )}
                   {dropdownBranches.map(b => (
-                    <button key={b.id} onClick={() => { setCurrentBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-5 hover:text-white transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-slate-50 dark:bg-slate-800/50 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`} style={{ color: currentBranchId === b.id ? b.color : 'inherit' }}>
-                      <span className="text-xs font-black uppercase">{b.name}</span>
-                      {currentBranchId === b.id && <Check className="w-4 h-4" />}
+                    <button key={b.id} onClick={() => { setCurrentBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); setShowBranchDropdown(false); }} className={`w-full text-left px-5 py-4 hover:text-white transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-slate-50 dark:bg-slate-800/50 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`} style={{ color: currentBranchId === b.id ? b.color : 'inherit' }}>
+                      <span className="text-[10px] font-black uppercase">{b.name}</span>
+                      {currentBranchId === b.id && <Check className="w-3 h-3" />}
                     </button>
                   ))}
                 </div>
@@ -351,23 +351,24 @@ const App = () => {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Network Indicator */}
-          <div className={`w-8 h-8 flex items-center justify-center rounded-full ${isOnline ? 'text-emerald-500 bg-emerald-500/10' : 'text-rose-500 bg-rose-500/10 animate-pulse'}`}>
-             {isOnline ? <WifiIcon className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
+        
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className={`px-2 py-1 rounded-full flex items-center gap-1.5 border ${isOnline ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' : 'text-rose-500 bg-rose-500/10 border-rose-500/20 animate-pulse'}`}>
+             {isOnline ? <WifiIcon className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+             <span className="text-[8px] font-black uppercase tracking-tighter">{isOnline ? 'Online' : 'Offline'}</span>
           </div>
           
-          <button onClick={() => setIsDark(!isDark)} className="w-9 h-9 sm:w-10 sm:h-10 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center active-scale transition-all shadow-sm">
-             {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-brand-600" />}
+          <button onClick={() => setIsDark(!isDark)} className="w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center active-scale transition-all shadow-sm">
+             {isDark ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5 text-brand-600" />}
           </button>
-          <button onClick={toggleLanguage} className="px-3 sm:px-4 h-9 sm:h-10 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center gap-2 active-scale shadow-sm">
-             <span className="text-[9px] sm:text-[10px] font-black uppercase dark:text-white">{lang === 'vi' ? 'VN' : 'DE'}</span>
+          <button onClick={toggleLanguage} className="px-2 h-8 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center active-scale shadow-sm">
+             <span className="text-[9px] font-black uppercase dark:text-white">{lang === 'vi' ? 'VN' : 'DE'}</span>
           </button>
-          <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })} className="w-9 h-9 sm:w-10 sm:h-10 bg-rose-600/10 text-rose-600 rounded-full active-scale flex items-center justify-center border border-rose-600/20"><LogOut className="w-4 h-4" /></button>
+          <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })} className="w-8 h-8 bg-rose-600/10 text-rose-600 rounded-full active-scale flex items-center justify-center border border-rose-600/20"><LogOut className="w-3.5 h-3.5" /></button>
         </div>
       </header>
 
-      <main className="flex-1 px-4 sm:px-6 max-w-6xl mx-auto w-full pt-6 pb-36">
+      <main className="flex-1 px-4 sm:px-6 max-w-6xl mx-auto w-full pt-4 pb-32">
         {!isDataLoaded ? (
           <div className="flex flex-col items-center justify-center py-40">
             <Loader2 className="w-10 h-10 text-brand-600 animate-spin mb-4" />
@@ -391,7 +392,7 @@ const App = () => {
             )}
             {activeTab === 'stats' && <Dashboard transactions={activeTransactions} initialBalances={currentBranchId === ALL_BRANCHES_ID ? systemInitialBalances : {cash: currentBranchData?.initialCash || 0, card: currentBranchData?.initialCard || 0}} lang={lang} currentBranchId={currentBranchId} allowedBranches={allowedBranches} userRole={currentUser.role} reportSettings={reportSettings} />}
             {activeTab === 'settings' && (
-              <div className="space-y-8">
+              <div className="space-y-6">
                 <div className="flex gap-2 overflow-x-auto no-scrollbar px-1 pb-2">
                   {[ 
                     { id: 'general', label: t('branding'), icon: ImageIcon }, 
@@ -409,13 +410,13 @@ const App = () => {
                         display: (sub.id === 'branches' || sub.id === 'users') && !isAdmin ? 'none' : 'flex',
                         backgroundColor: settingsSubTab === sub.id ? activeBranchColor : ''
                       }} 
-                      className={`px-5 py-4 rounded-3xl text-[9px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 shrink-0 active-scale ${settingsSubTab === sub.id ? 'bg-slate-900 border-transparent text-white shadow-vivid' : 'bg-white/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-500'}`}
+                      className={`px-4 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 shrink-0 active-scale ${settingsSubTab === sub.id ? 'bg-slate-900 border-transparent text-white shadow-vivid' : 'bg-white/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-500'}`}
                     >
-                      <sub.icon className="w-4 h-4" /> {sub.label}
+                      <sub.icon className="w-3.5 h-3.5" /> {sub.label}
                     </button>
                   ))}
                 </div>
-                <div className="bg-white/90 dark:bg-slate-900/80 backdrop-blur-xl rounded-[2.5rem] p-6 border border-white/20 dark:border-slate-800 shadow-ios min-h-[500px]">
+                <div className="bg-white/90 dark:bg-slate-900/80 backdrop-blur-xl rounded-[2.5rem] p-5 border border-white/20 dark:border-slate-800 shadow-ios min-h-[450px]">
                     {settingsSubTab === 'sync' && (
                       <div className="space-y-10 max-w-sm mx-auto pt-10 text-center">
                         <div className="w-20 h-20 bg-brand-50/50 dark:bg-brand-900/10 text-brand-600 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner border border-brand-100 dark:border-brand-900/20" style={{ color: activeBranchColor }}><Cloud className="w-10 h-10" /></div>
@@ -431,7 +432,7 @@ const App = () => {
                     {settingsSubTab === 'export' && <ExportManager transactions={activeTransactions} branches={activeBranches} lang={lang} />}
                     {settingsSubTab === 'branches' && <BranchManager branches={data.branches} setBranches={setBranchesWithDataCleanup} onAudit={addAuditLog} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} onResetBranchData={handleResetBranchData} lang={lang} />}
                     {settingsSubTab === 'users' && <UserManager users={data.users} setUsers={val => setData(p => ({...p, users: typeof val === 'function' ? val(p.users) : val}))} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} lang={lang} />}
-                    {settingsSubTab === 'general' && ( <div className="space-y-12"><CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => {setData(prev => ({...prev, expenseCategories: cats}));}} lang={lang} /><RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={data.expenseCategories} onUpdate={(recs) => {setData(prev => ({...prev, recurringExpenses: recs}));}} onGenerateTransactions={txs => {setData(prev => ({...prev, transactions: [...txs, ...prev.transactions]}));}} branchId={currentBranchId === ALL_BRANCHES_ID ? allowedBranches[0]?.id : currentBranchId} lang={lang} /></div> )}
+                    {settingsSubTab === 'general' && ( <div className="space-y-10"><CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => {setData(prev => ({...prev, expenseCategories: cats}));}} lang={lang} /><RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={data.expenseCategories} onUpdate={(recs) => {setData(prev => ({...prev, recurringExpenses: recs}));}} onGenerateTransactions={txs => {setData(prev => ({...prev, transactions: [...txs, ...prev.transactions]}));}} branchId={currentBranchId === ALL_BRANCHES_ID ? allowedBranches[0]?.id : currentBranchId} lang={lang} /></div> )}
                     {settingsSubTab === 'audit' && (
                       <div className="space-y-4 max-h-[600px] overflow-y-auto no-scrollbar pr-2">
                         {data.auditLogs.slice().reverse().map(log => (
@@ -442,16 +443,16 @@ const App = () => {
                     {settingsSubTab === 'about' && (
                       <div className="space-y-8 animate-ios max-w-xl mx-auto py-4">
                         <div className="text-center space-y-6">
-                           <div className="relative inline-block">{data.logoUrl ? ( <img src={data.logoUrl} className="w-20 h-20 object-contain mx-auto" alt="L" /> ) : (
-                               <div className="w-20 h-20 bg-brand-600 rounded-[1.8rem] mx-auto flex items-center justify-center shadow-vivid" style={{ backgroundColor: activeBranchColor }}><UtensilsCrossed className="w-10 h-10 text-white" /></div>
-                             )}<div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white text-[9px] font-black px-2 py-1 rounded-full border-2 border-white dark:border-slate-900 uppercase">{t('active')}</div>
+                           <div className="relative inline-block">{data.logoUrl ? ( <img src={data.logoUrl} className="w-16 h-16 object-contain mx-auto" alt="L" /> ) : (
+                               <div className="w-16 h-16 bg-brand-600 rounded-[1.4rem] mx-auto flex items-center justify-center shadow-vivid" style={{ backgroundColor: activeBranchColor }}><UtensilsCrossed className="w-8 h-8 text-white" /></div>
+                             )}<div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full border border-white dark:border-slate-900 uppercase">{t('active')}</div>
                            </div>
-                           <div><h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter leading-none mb-2">Tokymon Finance</h2><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Enterprise Core {SCHEMA_VERSION}</p></div>
+                           <div><h2 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none mb-1">Tokymon Finance</h2><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Enterprise Core {SCHEMA_VERSION}</p></div>
                         </div>
 
-                        {/* Updated Changelog Display */}
+                        {/* Updated Changelog Display - List all from type.ts */}
                         <div className="space-y-6">
-                           <h3 className="text-xs font-black uppercase text-brand-600 dark:text-brand-400 tracking-widest flex items-center gap-2">
+                           <h3 className="text-[10px] font-black uppercase text-brand-600 dark:text-brand-400 tracking-[0.2em] flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
                              <HistoryIcon className="w-4 h-4" /> {t('version_history')}
                            </h3>
                            <div className="space-y-4">
@@ -463,7 +464,7 @@ const App = () => {
                                  </div>
                                  <ul className="space-y-2">
                                    {entry.changes[lang].map((item, i) => (
-                                     <li key={i} className="flex gap-2 text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                                     <li key={i} className="flex gap-2 text-[10px] font-bold text-slate-600 dark:text-slate-300">
                                        <Check className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" /> {item}
                                      </li>
                                    ))}
@@ -474,8 +475,8 @@ const App = () => {
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
-                           <div className="bg-slate-50 dark:bg-slate-800/40 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60"><p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-widest">Uptime Status</p><div className="flex items-center gap-2 text-emerald-500"><div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" /><span className="text-[10px] font-black uppercase tracking-widest">{isOnline ? t('online') : 'Offline'}</span></div></div>
-                           <div className="bg-slate-50 dark:bg-slate-800/40 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60"><p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-widest">Storage</p><div className="flex items-center gap-2 text-brand-600" style={{ color: activeBranchColor }}><ShieldCheck className="w-4 h-4" /><span className="text-[10px] font-black uppercase tracking-widest">IndexedDB</span></div></div>
+                           <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest">Uptime Status</p><div className="flex items-center gap-2 text-emerald-500"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /><span className="text-[9px] font-black uppercase tracking-widest">{isOnline ? t('online') : 'Offline'}</span></div></div>
+                           <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest">Storage</p><div className="flex items-center gap-2 text-brand-600" style={{ color: activeBranchColor }}><ShieldCheck className="w-3.5 h-3.5" /><span className="text-[9px] font-black uppercase tracking-widest">IndexedDB</span></div></div>
                         </div>
                         <div className="pt-6 border-t dark:border-slate-800 border-slate-100 text-center"><p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Developed with <Heart className="w-3 h-3 text-rose-500 inline mx-1 fill-rose-500" /> by <span className="text-brand-600 font-extrabold" style={{ color: activeBranchColor }}>thPhuoc</span></p></div>
                       </div>
@@ -487,18 +488,18 @@ const App = () => {
         )}
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 px-6 z-[2000] flex justify-center pointer-events-none pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-        <nav className="h-18 sm:h-20 max-w-md w-full glass border border-white/40 dark:border-slate-800/80 flex items-center justify-around px-2 rounded-[2.5rem] shadow-2xl pointer-events-auto">
+      <div className="fixed bottom-0 left-0 right-0 px-6 z-[2000] flex justify-center pointer-events-none pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <nav className="h-16 sm:h-20 max-w-md w-full glass border border-white/40 dark:border-slate-800/80 flex items-center justify-around px-2 rounded-[2rem] shadow-2xl pointer-events-auto">
           {[
             { id: 'income', label: t('income'), icon: Wallet },
             { id: 'expense', label: t('expense'), icon: ArrowDownCircle },
             { id: 'stats', label: t('stats'), icon: LayoutDashboard },
             { id: 'settings', label: t('settings'), icon: Settings }
           ].map(tab => (
-            <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex flex-col items-center gap-1.5 relative py-2 rounded-2xl flex-1 transition-all active-scale ${activeTab === tab.id ? 'opacity-100' : 'text-slate-400'}`} style={{ color: activeTab === tab.id ? activeBranchColor : '' }}>
-              <tab.icon className={`w-5.5 h-5.5 sm:w-6.5 sm:h-6.5 ${activeTab === tab.id ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
+            <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex flex-col items-center gap-1.5 relative py-1.5 rounded-xl flex-1 transition-all active-scale ${activeTab === tab.id ? 'opacity-100' : 'text-slate-400'}`} style={{ color: activeTab === tab.id ? activeBranchColor : '' }}>
+              <tab.icon className={`w-5 h-5 sm:w-6.5 sm:h-6.5 ${activeTab === tab.id ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
               <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-widest ${activeTab === tab.id ? 'opacity-100' : 'opacity-60'}`}>{tab.label}</span>
-              {activeTab === tab.id && <div className="absolute -top-3 w-8 h-1 rounded-full shadow-lg" style={{ backgroundColor: activeBranchColor }} />}
+              {activeTab === tab.id && <div className="absolute -top-2 w-6 h-1 rounded-full shadow-lg" style={{ backgroundColor: activeBranchColor }} />}
             </button>
           ))}
         </nav>
