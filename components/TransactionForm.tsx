@@ -39,11 +39,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   const [isScanning, setIsScanning] = useState(false);
   const [inputKey, setInputKey] = useState(Date.now());
 
-  const isDuplicateDate = useMemo(() => {
-    if (type !== TransactionType.INCOME) return false;
-    return transactions.some(tx => tx.type === TransactionType.INCOME && tx.date === date && tx.branchId === branchId && !tx.deletedAt);
-  }, [date, transactions, type, branchId]);
-
   const validateAndSetAmount = (val: string, setter: (v: string) => void) => {
     const sanitized = val.replace(',', '.');
     if (/^[0-9]*\.?[0-9]*$/.test(sanitized)) setter(sanitized);
@@ -69,70 +64,61 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   };
 
   /**
-   * Tối ưu hóa nén ảnh cho iOS
+   * Thuật toán nén ảnh tối ưu cho iOS (Safari Memory Safe)
    */
-  const compressImage = async (file: File): Promise<{base64: string, type: string}> => {
-    return new Promise(async (resolve, reject) => {
-      const img = new Image();
-      const objectUrl = URL.createObjectURL(file);
-      
-      img.onload = async () => {
-        try {
-          // Quan trọng cho iOS: Đảm bảo ảnh được giải mã trước khi vẽ
-          if (img.decode) {
-            await img.decode();
-          }
+  const processImageForOCR = async (file: File): Promise<{base64: string, type: string}> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = async () => {
+          try {
+            // Đảm bảo ảnh đã được giải mã trên iOS
+            if ('decode' in img) await img.decode();
 
-          const canvas = document.createElement('canvas');
-          // Giới hạn 1024px để an toàn tuyệt đối cho RAM trên Safari iOS
-          const MAX_SIZE = 1024; 
-          let width = img.width;
-          let height = img.height;
-          
-          if (width > height) {
-            if (width > MAX_SIZE) {
-              height *= MAX_SIZE / width;
-              width = MAX_SIZE;
+            const canvas = document.createElement('canvas');
+            // 1200px là "điểm ngọt" cho iOS: đủ rõ để OCR nhưng không gây tràn RAM Safari
+            const MAX_WIDTH = 1200;
+            const MAX_HEIGHT = 1200;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+              if (width > MAX_WIDTH) {
+                height *= MAX_WIDTH / width;
+                width = MAX_WIDTH;
+              }
+            } else {
+              if (height > MAX_HEIGHT) {
+                width *= MAX_HEIGHT / height;
+                height = MAX_HEIGHT;
+              }
             }
-          } else {
-            if (height > MAX_SIZE) {
-              width *= MAX_SIZE / height;
-              height = MAX_SIZE;
-            }
-          }
-          
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d', { alpha: false });
-          
-          if (ctx) {
-            // Nền trắng cho ảnh JPG
-            ctx.fillStyle = "#FFFFFF";
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d', { alpha: false });
+            if (!ctx) throw new Error("Could not get canvas context");
+
+            // Vẽ ảnh
+            ctx.fillStyle = "white"; // Nền trắng cho ảnh JPG
             ctx.fillRect(0, 0, width, height);
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
             ctx.drawImage(img, 0, 0, width, height);
-          }
-          
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-          URL.revokeObjectURL(objectUrl);
-          
-          const base64Data = dataUrl.split(',')[1];
-          if (!base64Data) throw new Error("Canvas export failed");
-          
-          resolve({ base64: base64Data, type: 'image/jpeg' });
-        } catch (err) {
-          URL.revokeObjectURL(objectUrl);
-          reject(err);
-        }
-      };
-      
-      img.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
-        reject(new Error("Image load failed"));
-      };
 
-      img.src = objectUrl;
+            // Xuất file với chất lượng trung bình cao (0.8) để giữ chi tiết chữ
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            const base64 = dataUrl.split(',')[1];
+            
+            resolve({ base64, type: 'image/jpeg' });
+          } catch (err) {
+            reject(err);
+          }
+        };
+        img.onerror = () => reject(new Error("Image loading failed"));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error("File reading failed"));
+      reader.readAsDataURL(file);
     });
   };
 
@@ -141,33 +127,38 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
     if (!file) return;
     
     setIsScanning(true);
-    // iOS cần một chút delay sau khi chọn file để UI không bị đơ
-    await new Promise(r => setTimeout(r, 100));
-
     try {
-      const compressed = await compressImage(file);
-      const result = await scanReceipt(compressed.base64, compressed.type);
+      // 1. Xử lý ảnh an toàn cho iOS
+      const processed = await processImageForOCR(file);
+      
+      // 2. Gọi AI Vision
+      const result = await scanReceipt(processed.base64, processed.type);
       
       if (result) {
         if (result.amount) setExpenseAmount(result.amount.toString());
         if (result.category && expenseCategories.includes(result.category)) {
           setExpenseCategory(result.category);
+        } else if (result.category) {
+          // Nếu AI gợi ý một danh mục gần đúng, có thể xử lý logic mapping ở đây
+          setNote(prev => prev ? `${prev} (${result.category})` : result.category);
         }
         if (result.note) setNote(result.note);
         if (result.date) setDate(result.date);
       }
     } catch (error) { 
       console.error("Smart Scan Error:", error);
-      alert(lang === 'vi' ? "Không thể đọc được hóa đơn này. Vui lòng chụp rõ nét hơn!" : "Rechnung konnte không gelesen werden.");
+      alert(lang === 'vi' ? "Lỗi xử lý hóa đơn. Vui lòng thử lại hoặc chụp ảnh rõ hơn." : "Fehler beim Scannen der Rechnung.");
     } finally {
-      setIsScanning(false);
-      setInputKey(Date.now()); // Reset input để cho phép chọn lại cùng 1 file
+      setIsScanning(true); // Giữ hiệu ứng loading một chút cho mượt
+      setTimeout(() => {
+        setIsScanning(false);
+        setInputKey(Date.now());
+      }, 500);
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isDuplicateDate) return;
     const now = new Date().toISOString();
     const commonData = { id: Date.now().toString(), branchId, date, note, updatedAt: now, history: [] };
     
@@ -202,7 +193,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
             <Sparkles className="w-6 h-6 text-amber-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
           </div>
           <div className="text-center space-y-2">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-brand-400">AI Logic Processing</p>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-brand-400">Tokymon AI Engine</p>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest opacity-70">{t('ai_scanning_text')}</p>
           </div>
         </div>
@@ -218,12 +209,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         
         {type === TransactionType.EXPENSE && (
           <div className="shrink-0">
-            {/* 
-                TRICK: Loại bỏ capture="environment" để iOS hiện Menu:
-                1. Chụp ảnh (Camera)
-                2. Thư viện ảnh (Photo Library)
-                3. Duyệt tệp (Files)
-            */}
+            {/* Không sử dụng capture="environment" để cho phép chọn cả tệp và camera */}
             <label className="relative flex items-center gap-2.5 px-4 py-3 bg-brand-600 hover:bg-brand-500 dark:bg-brand-500 rounded-2xl shadow-vivid text-white active-scale cursor-pointer transition-all">
                <Zap className="w-4 h-4 fill-white animate-pulse" />
                <span className="text-[10px] font-black uppercase tracking-widest">Smart Scan</span>
@@ -317,8 +303,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
 
           <button 
             type="submit" 
-            disabled={isDuplicateDate || isScanning} 
-            className={`w-full h-14 rounded-[1.5rem] font-black uppercase tracking-[0.1em] text-[11px] active-scale transition-all flex items-center justify-center gap-3 shadow-vivid ${isDuplicateDate || isScanning ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-brand-600 text-white'}`}
+            disabled={isScanning} 
+            className={`w-full h-14 rounded-[1.5rem] font-black uppercase tracking-[0.1em] text-[11px] active-scale transition-all flex items-center justify-center gap-3 shadow-vivid ${isScanning ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-brand-600 text-white'}`}
           >
             <Save className="w-5 h-5" /> {t('save_transaction')}
           </button>

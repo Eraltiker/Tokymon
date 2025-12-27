@@ -29,22 +29,20 @@ export const analyzeFinances = async (stats: any, lang: Language = 'vi'): Promis
 };
 
 /**
- * Quét hóa đơn - Tối ưu cho hóa đơn tiếng Đức và ảnh iPhone
+ * Quét hóa đơn - Cấu hình tối ưu cho OCR Mobile
  */
 export const scanReceipt = async (base64Image: string, mimeType: string): Promise<any> => {
-  const prompt = `Act as an expert OCR auditor for a restaurant's bookkeeping. 
-  Extract from the receipt image:
-  1. amount (number): Find the 'Gesamtbetrag', 'Summe', 'Total', or the largest amount at the bottom.
-  2. date (string): Format YYYY-MM-DD. Look for DD.MM.YYYY patterns common in Germany/Vietnam.
-  3. category (string): Choose one from: [${EXPENSE_CATEGORIES.join(', ')}].
-  4. note (string): The vendor name at the header of the receipt.
+  const categoriesList = EXPENSE_CATEGORIES.join(', ');
+  const prompt = `Bạn là một chuyên gia kế toán của nhà hàng Tokymon. Hãy trích xuất thông tin từ ảnh hóa đơn này:
+  1. amount (number): Tìm tổng số tiền (Gesamtbetrag, Summe, Total, EUR, €). Chỉ lấy con số.
+  2. date (string): Định dạng YYYY-MM-DD. Nếu không thấy, lấy ngày hiện tại.
+  3. category (string): Phân loại vào MỘT TRONG các danh mục sau: [${categoriesList}].
+  4. note (string): Tên nhà cung cấp hoặc nội dung tóm tắt ngắn gọn.
   
-  Important Logic for iPhone photos:
-  - If the image is blurry, look for the '€' symbol or 'EUR' to find amounts.
-  - For categories like 'Nguyên liệu', look for food items (Fleisch, Gemüse, etc.).
-  - For 'Lương', look for names or 'Quittung'.
-  
-  Return ONLY a raw JSON object. Do not include markdown blocks or code formatting.`;
+  Lưu ý: Hóa đơn thường bằng tiếng Đức hoặc tiếng Việt. 
+  Nếu thấy "Fleisch", "Gemüse", "Asiamarkt" -> Nguyên liệu.
+  Nếu thấy "Miete", "Strom" -> Tiền nhà / Điện.
+  Trả về duy nhất định dạng JSON.`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -73,11 +71,9 @@ export const scanReceipt = async (base64Image: string, mimeType: string): Promis
     });
 
     const text = response.text || "{}";
-    // Đảm bảo không có rác trong chuỗi JSON
-    const sanitizedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(sanitizedText);
+    return JSON.parse(text);
   } catch (error) {
-    console.error("AI Scan Error:", error);
+    console.error("AI OCR Error:", error);
     throw error;
   }
 };
