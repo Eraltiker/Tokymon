@@ -131,25 +131,25 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "4.5.0";
+export const SCHEMA_VERSION = "1.0.0 (Official)";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
   {
-    version: "4.5.0",
-    date: "2024-07-30",
+    version: "1.0.0",
+    date: "2024-08-15",
     changes: {
       vi: [
-        "Titanium Vision: Quy trình xử lý ảnh bậc thấp giúp tránh lỗi tràn RAM trên Mobile khi quét hóa đơn.",
-        "Elite Header v4.5: Layout 2 phần (Identity & Utils) sang trọng và tối ưu không gian.",
-        "Memory Purge: Tự động dọn dẹp bộ nhớ đệm ngay sau khi AI xử lý xong.",
-        "Async Recovery: Thêm khoảng nghỉ kỹ thuật giữa các bước để tăng độ ổn định trên Android/iOS."
+        "Phát hành bản Official v1.0: Hệ thống quản lý tài chính toàn diện.",
+        "Fix lỗi hiển thị: Loại bỏ ký hiệu Euro kép trong giao diện nhập liệu.",
+        "Siêu tối ưu Database: Tăng tốc độ truy xuất dữ liệu từ bộ nhớ cục bộ ngay sau khi đăng nhập.",
+        "Gia cố bảo mật: Quản lý phiên làm việc và đồng bộ hóa an toàn hơn."
       ],
       de: [
-        "Titanium Vision: Low-Level-Bildverarbeitung verhindert RAM-Überlastung beim Scannen auf Mobilgeräten.",
-        "Elite Header v4.5: Elegantes 2-Teile-Layout (Identität & Utils) für maximale Platzersparnis.",
-        "Memory Purge: Automatisches Leeren des Caches nach der KI-Verarbeitung.",
-        "Async Recovery: Technische Pausen zwischen den Schritten für höhere Stabilität auf Android/iOS."
+        "Offizielle Version v1.0: Umfassendes Finanzmanagementsystem.",
+        "Anzeigefehler behoben: Doppelte Euro-Symbole in der Eingabemaske entfernt.",
+        "Datenbank-Optimierung: Schnellere Datenabfrage aus dem lokalen Speicher nach dem Login.",
+        "Sicherheits-Upgrade: Sicherere Sitzungsverwaltung und Synchronisierung."
       ]
     }
   }

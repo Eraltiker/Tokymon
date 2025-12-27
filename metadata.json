@@ -1,7 +1,5 @@
 {
   "name": "Tokymon Finance",
-  "description": "Ứng dụng quản lý tài chính đa chi nhánh cho Tokymon với AI Vision.",
-  "requestFramePermissions": [
-    "camera"
-  ]
+  "description": "Ứng dụng quản lý tài chính đa chi nhánh cho Tokymon - Official Enterprise Release.",
+  "requestFramePermissions": []
 }

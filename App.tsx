@@ -20,11 +20,11 @@ import {
   Wallet, ArrowDownCircle, Sun, Moon, LogOut, 
   History as HistoryIcon, MapPin, Users, RefreshCw, 
   ChevronDown, Cloud, FileSpreadsheet, LayoutPanelTop,
-  AlertTriangle, Languages, UserCircle2, 
-  ImageIcon, ArrowRight, Cpu,
-  Globe, Check, Info, ShieldCheck, Zap,
-  Sparkles, WifiOff, Wifi, Loader2, PartyPopper, X,
-  Fingerprint, Heart, LockKeyhole, Wifi as WifiIcon
+  AlertTriangle, UserCircle2, 
+  ImageIcon, ArrowRight,
+  Globe, Check, Info, ShieldCheck,
+  Sparkles, Loader2, PartyPopper, X,
+  Fingerprint, Heart, LockKeyhole, Languages
 } from 'lucide-react';
 
 const App = () => {
@@ -65,16 +65,24 @@ const App = () => {
     localStorage.setItem('tokymon_system_version', SCHEMA_VERSION);
   }, [currentUser]);
 
+  // Siêu tối ưu khởi tạo: Nạp dữ liệu song song với render login
   useEffect(() => {
-    StorageService.loadLocal().then(loadedData => {
-      setData(loadedData);
-      setIsDataLoaded(true);
-    });
+    let isMounted = true;
+    const initData = async () => {
+      const loadedData = await StorageService.loadLocal();
+      if (isMounted) {
+        setData(loadedData);
+        setIsDataLoaded(true);
+      }
+    };
+    initData();
+    
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     return () => {
+      isMounted = false;
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
@@ -104,7 +112,7 @@ const App = () => {
   useEffect(() => {
     if (syncKey && currentUser && isOnline) {
       handleCloudSync(true);
-      pollTimerRef.current = window.setInterval(() => handleCloudSync(true), 30000);
+      pollTimerRef.current = window.setInterval(() => handleCloudSync(true), 45000);
     }
     return () => { if (pollTimerRef.current) window.clearInterval(pollTimerRef.current); };
   }, [syncKey, handleCloudSync, currentUser, isOnline]);
@@ -115,10 +123,16 @@ const App = () => {
     localStorage.setItem('tokymon_theme', isDark ? 'dark' : 'light');
   }, [isDark]);
 
-  const toggleLanguage = () => setLang(prev => prev === 'vi' ? 'de' : 'vi');
+  const toggleLanguage = () => {
+    const next = lang === 'vi' ? 'de' : 'vi';
+    setLang(next);
+    localStorage.setItem('tokymon_lang', next);
+  };
 
   const activeBranches = useMemo(() => data.branches.filter(b => !b.deletedAt), [data.branches]);
+  
   const activeTransactions = useMemo(() => {
+    if (!data.transactions || data.transactions.length === 0) return [];
     const activeBranchIds = new Set(activeBranches.map(b => b.id));
     return data.transactions.filter(tx => !tx.deletedAt && activeBranchIds.has(tx.branchId));
   }, [data.transactions, activeBranches]);
@@ -128,9 +142,8 @@ const App = () => {
 
   const allowedBranches = useMemo(() => {
     if (!currentUser) return [];
-    let base = activeBranches;
-    if (!isAdmin) base = activeBranches.filter(b => currentUser.assignedBranchIds.includes(b.id));
-    return base;
+    if (isAdmin) return activeBranches;
+    return activeBranches.filter(b => currentUser.assignedBranchIds.includes(b.id));
   }, [activeBranches, currentUser, isAdmin]);
 
   const dropdownBranches = useMemo(() => allowedBranches, [allowedBranches]);
@@ -167,7 +180,7 @@ const App = () => {
       ...prev,
       transactions: prev.transactions.filter(tx => tx.branchId !== branchId)
     }));
-    addAuditLog('DELETE', 'BRANCH', branchId, `Reset toàn bộ dữ liệu giao dịch của chi nhánh`);
+    addAuditLog('DELETE', 'BRANCH', branchId, `Reset dữ liệu chi nhánh`);
   }, [addAuditLog]);
 
   const currentBranchName = useMemo(() => {
@@ -200,14 +213,15 @@ const App = () => {
         <div className="w-full flex justify-between items-center safe-pt relative z-50">
            <div className="flex gap-2">
              <div className="px-3 py-1 bg-white/40 dark:bg-black/20 rounded-full backdrop-blur-md border border-white/20">
-                <p className="text-[10px] font-black uppercase text-slate-500 tracking-tighter">v{SCHEMA_VERSION}</p>
+                <p className="text-[10px] font-black uppercase text-slate-500 tracking-tighter">v{SCHEMA_VERSION.split(' ')[0]}</p>
              </div>
            </div>
            <div className="flex gap-2">
-             <button onClick={() => setIsDark(!isDark)} className="w-10 h-10 glass rounded-full flex items-center justify-center active-scale transition-all">
+             <button onClick={() => setIsDark(!isDark)} className="w-10 h-10 glass rounded-full flex items-center justify-center active-scale">
                {isDark ? <Sun className="w-4.5 h-4.5 text-amber-500" /> : <Moon className="w-4.5 h-4.5 text-brand-600" />}
              </button>
              <button onClick={toggleLanguage} className="px-4 h-10 glass rounded-full flex items-center gap-2 active-scale">
+                <Languages className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                 <span className="text-[10px] font-black uppercase dark:text-white">{lang === 'vi' ? 'VN' : 'DE'}</span>
              </button>
            </div>
@@ -217,7 +231,7 @@ const App = () => {
           <div className="text-center space-y-4">
             <div className="relative inline-block">
               <div className="absolute inset-0 bg-brand-500/20 rounded-full blur-2xl animate-pulse" />
-              <div className="relative w-24 h-24 bg-white/80 dark:bg-white/5 rounded-[2.5rem] backdrop-blur-2xl border border-white/40 dark:border-white/10 shadow-ios flex items-center justify-center mx-auto transition-transform active:scale-95 duration-500">
+              <div className="relative w-24 h-24 bg-white/80 dark:bg-white/5 rounded-[2.5rem] backdrop-blur-2xl border border-white/40 dark:border-white/10 shadow-ios flex items-center justify-center mx-auto">
                 {data.logoUrl ? (
                   <img src={data.logoUrl} alt="Logo" className="w-16 h-16 object-contain" />
                 ) : (
@@ -227,7 +241,7 @@ const App = () => {
             </div>
             <div className="space-y-1">
               <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-900 to-slate-500 dark:from-white dark:to-slate-400 tracking-tighter leading-none">TOKYMON</h1>
-              <p className="text-[9px] font-black text-brand-600 dark:text-brand-500 uppercase tracking-[0.4em] opacity-80">Finance Enterprise</p>
+              <p className="text-[9px] font-black text-brand-600 dark:text-brand-500 uppercase tracking-[0.4em] opacity-80">Official Edition</p>
             </div>
           </div>
 
@@ -243,17 +257,13 @@ const App = () => {
             className={`glass p-8 rounded-[3rem] shadow-2xl space-y-6 relative overflow-hidden ${loginError ? 'animate-shake' : ''}`}
           >
             <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="relative">
-                  <input type="text" value={loginForm.username} onChange={e => {setLoginForm({...loginForm, username: e.target.value}); setLoginError('');}} className="w-full p-5 bg-white/50 dark:bg-black/20 rounded-2xl font-bold border border-white/50 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-12 text-[16px]" placeholder="Username" required />
-                  <UserCircle2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                </div>
+              <div className="relative">
+                <input type="text" value={loginForm.username} onChange={e => {setLoginForm({...loginForm, username: e.target.value}); setLoginError('');}} className="w-full p-5 bg-white/50 dark:bg-black/20 rounded-2xl font-bold border border-white/50 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-12 text-[16px]" placeholder="Username" required />
+                <UserCircle2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               </div>
-              <div className="space-y-2">
-                <div className="relative">
-                  <input type="password" value={loginForm.password} onChange={e => {setLoginForm({...loginForm, password: e.target.value}); setLoginError('');}} className="w-full p-5 bg-white/50 dark:bg-black/20 rounded-2xl font-bold border border-white/50 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-12 text-[16px]" placeholder="••••••••" required />
-                  <LockKeyhole className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                </div>
+              <div className="relative">
+                <input type="password" value={loginForm.password} onChange={e => {setLoginForm({...loginForm, password: e.target.value}); setLoginError('');}} className="w-full p-5 bg-white/50 dark:bg-black/20 rounded-2xl font-bold border border-white/50 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-12 text-[16px]" placeholder="••••••••" required />
+                <LockKeyhole className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               </div>
             </div>
 
@@ -267,17 +277,12 @@ const App = () => {
             <button type="submit" className="w-full h-16 bg-slate-950 dark:bg-brand-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest active-scale transition-all flex items-center justify-center gap-2 shadow-vivid shimmer-btn">
                {t('login')} <ArrowRight className="w-5 h-5" />
             </button>
-            
-            <div className="flex items-center justify-center gap-2 pt-2 opacity-30">
-               <Fingerprint className="w-5 h-5 dark:text-white" />
-               <p className="text-[9px] font-black uppercase tracking-widest dark:text-white">Ready for Biometrics</p>
-            </div>
           </form>
         </div>
 
         <div className="w-full max-w-[420px] pb-6 text-center space-y-4 relative z-10 opacity-60">
            <p className="text-[9px] font-black dark:text-slate-400 text-slate-500 uppercase tracking-widest flex items-center justify-center gap-2 leading-none">
-              Design & Dev with <Heart className="w-2.5 h-2.5 text-rose-500 fill-rose-500" /> by thPhuoc
+              v1.0 Official with <Heart className="w-2.5 h-2.5 text-rose-500 fill-rose-500" /> by thPhuoc
            </p>
         </div>
       </div>
@@ -293,7 +298,7 @@ const App = () => {
              <button onClick={() => setShowUpdateModal(false)} className="absolute top-6 right-6 p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-500"><X className="w-4 h-4" /></button>
              <div className="w-16 h-16 bg-brand-600 text-white rounded-3xl flex items-center justify-center mb-6 shadow-vivid mx-auto"><PartyPopper className="w-8 h-8" /></div>
              <h3 className="text-xl font-black text-center uppercase tracking-tight dark:text-white mb-2">{t('whats_new')}</h3>
-             <p className="text-[10px] font-black text-center uppercase tracking-widest text-brand-600 mb-6">Version {SCHEMA_VERSION}</p>
+             <p className="text-[10px] font-black text-center uppercase tracking-widest text-brand-600 mb-6">{SCHEMA_VERSION}</p>
              <div className="space-y-4 mb-8 max-h-[40vh] overflow-y-auto no-scrollbar">
                {APP_CHANGELOG[0].changes[lang].map((change, i) => (
                  <div key={i} className="flex gap-3 text-xs font-bold text-slate-600 dark:text-slate-300"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /><p className="leading-relaxed">{change}</p></div>
@@ -319,47 +324,52 @@ const App = () => {
         </div>
       )}
 
-      {/* ELITE HEADER v4.5 - 2 PARTS LAYOUT */}
-      <header className="px-4 py-3 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800/40 shadow-sm safe-pt">
+      {/* HEADER v5.1 - HYPER-DRIVE LAYOUT */}
+      <header className="px-4 py-3 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800/60 shadow-sm safe-pt">
         
-        {/* LEFT PART: IDENTITY (Logo & Branch Unified) */}
-        <div className="flex items-center gap-3 min-w-0 max-w-[60%]">
+        {/* LEFT: IDENTITY */}
+        <div className="flex items-center gap-3 min-w-0 max-w-[65%]">
            <div className="relative w-10 h-10 bg-slate-950 dark:bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-vivid shrink-0 overflow-hidden" style={{ backgroundColor: activeBranchColor }}>
               {data.logoUrl ? ( <img src={data.logoUrl} className="w-6 h-6 object-contain" alt="L" /> ) : ( <UtensilsCrossed className="w-5 h-5" /> )}
            </div>
            <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex flex-col items-start min-w-0 group">
-              <div className="flex items-center gap-1 w-full">
-                <span className="text-[14px] font-black uppercase dark:text-white truncate tracking-tight leading-none">{currentBranchName}</span>
+              <div className="flex items-center gap-1.5 w-full">
+                <span className="text-[13px] font-black uppercase dark:text-white truncate tracking-tighter leading-none">{currentBranchName}</span>
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showBranchDropdown ? 'rotate-180' : ''}`} />
               </div>
-              <div className="flex items-center gap-1.5 mt-1 opacity-60">
-                 <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: activeBranchColor }} />
-                 <p className="text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-none">Tokymon Enterprise</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                 <div className="px-1 py-0.5 bg-slate-950/10 dark:bg-white/10 rounded">
+                    <p className="text-[7px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-none">{currentUser?.role}</p>
+                 </div>
+                 <p className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">v{SCHEMA_VERSION.split(' ')[0]}</p>
               </div>
            </button>
         </div>
 
-        {/* RIGHT PART: CONTROL CENTER (Utilities & Logout) */}
-        <div className="flex items-center gap-2 shrink-0">
-           <div className="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/50 rounded-2xl border border-white dark:border-slate-700/50 shadow-inner">
-             {/* Status Dot */}
-             <div className={`w-2.5 h-2.5 rounded-full border border-white dark:border-slate-700 mx-1 ${isOnline ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
+        {/* RIGHT: CONTROL STRIP */}
+        <div className="flex items-center gap-1.5">
+           <div className={`p-1 rounded-full border border-white dark:border-slate-700/50 shadow-inner flex items-center gap-0.5 ${isSyncing ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'bg-slate-100 dark:bg-slate-800/40'}`}>
+             {/* Status Indicator */}
+             <div className={`w-1.5 h-1.5 rounded-full mx-1 ${isOnline ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-rose-500 animate-pulse'}`} title={isOnline ? 'Online' : 'Offline'} />
              
-             <div className="w-[1px] h-4 bg-slate-200 dark:bg-slate-700" />
+             <div className="w-px h-3 bg-slate-200 dark:bg-slate-700 mx-0.5" />
              
-             <button onClick={() => setIsDark(!isDark)} className="w-7 h-7 rounded-lg flex items-center justify-center active-scale transition-all hover:bg-white dark:hover:bg-slate-700">
+             {/* Language Toggle - New Prominence */}
+             <button onClick={toggleLanguage} className="w-8 h-8 rounded-lg flex items-center justify-center active-scale hover:bg-white dark:hover:bg-slate-700 transition-all text-slate-600 dark:text-slate-300">
+               <span className="text-[9px] font-black uppercase">{lang === 'vi' ? 'VN' : 'DE'}</span>
+             </button>
+
+             <button onClick={() => setIsDark(!isDark)} className="w-8 h-8 rounded-lg flex items-center justify-center active-scale transition-all hover:bg-white dark:hover:bg-slate-700">
                {isDark ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5 text-brand-600" />}
              </button>
-             <button onClick={toggleLanguage} className="w-7 h-7 rounded-lg flex items-center justify-center active-scale hover:bg-white dark:hover:bg-slate-700">
-               <span className="text-[9px] font-black uppercase dark:text-white">{lang === 'vi' ? 'VN' : 'DE'}</span>
-             </button>
-             <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })} className="w-7 h-7 text-rose-600 rounded-lg active-scale flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all">
+             
+             <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })} className="w-8 h-8 text-rose-500 rounded-lg active-scale flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all">
                <LogOut className="w-3.5 h-3.5" />
              </button>
            </div>
         </div>
 
-        {/* Branch Dropdown */}
+        {/* BRANCH DROPDOWN */}
         {showBranchDropdown && (
           <>
             <div className="fixed inset-0 z-[1001]" onClick={() => setShowBranchDropdown(false)} />
@@ -390,7 +400,7 @@ const App = () => {
         {!isDataLoaded ? (
           <div className="flex flex-col items-center justify-center py-40">
             <Loader2 className="w-10 h-10 text-brand-600 animate-spin mb-4" />
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 animate-pulse">System Core Warming Up...</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 animate-pulse">Tokymon Engine Warming Up...</p>
           </div>
         ) : (
           <div className="animate-ios">
@@ -434,12 +444,12 @@ const App = () => {
                     </button>
                   ))}
                 </div>
-                <div className="bg-white/90 dark:bg-slate-900/80 backdrop-blur-xl rounded-[2.5rem] p-5 border border-white/20 dark:border-slate-800 shadow-ios min-h-[450px]">
+                <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-[2.5rem] p-5 border border-white/20 dark:border-slate-800 shadow-ios min-h-[450px]">
                     {settingsSubTab === 'sync' && (
                       <div className="space-y-10 max-w-sm mx-auto pt-10 text-center">
                         <div className="w-20 h-20 bg-brand-50/50 dark:bg-brand-900/10 text-brand-600 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner border border-brand-100 dark:border-brand-900/20" style={{ color: activeBranchColor }}><Cloud className="w-10 h-10" /></div>
                         <div className="space-y-4">
-                          <h3 className="text-xl font-black uppercase dark:text-white">Cloud Sync Engine</h3>
+                          <h3 className="text-xl font-black uppercase dark:text-white">Enterprise Sync</h3>
                           <input type="text" value={syncKey} onChange={e => {setSyncKey(e.target.value); localStorage.setItem('tokymon_sync_key', e.target.value);}} className="w-full p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl font-bold border-2 border-slate-100 dark:border-slate-800 focus:border-brand-500 outline-none text-center uppercase tracking-widest" placeholder="SYNC KEY..." />
                         </div>
                         <button onClick={() => handleCloudSync()} disabled={isSyncing || !isOnline} className="w-full py-5 bg-brand-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 active-scale shadow-vivid disabled:opacity-50" style={{ backgroundColor: activeBranchColor }}>
@@ -449,6 +459,7 @@ const App = () => {
                     )}
                     {settingsSubTab === 'export' && <ExportManager transactions={activeTransactions} branches={activeBranches} lang={lang} />}
                     {settingsSubTab === 'branches' && <BranchManager branches={data.branches} setBranches={setBranchesWithDataCleanup} onAudit={addAuditLog} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} onResetBranchData={handleResetBranchData} lang={lang} />}
+                    {/* // Fixed: Changed setGlobalConfirm call to setConfirmModal to resolve undefined reference error */}
                     {settingsSubTab === 'users' && <UserManager users={data.users} setUsers={val => setData(p => ({...p, users: typeof val === 'function' ? val(p.users) : val}))} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} lang={lang} />}
                     {settingsSubTab === 'general' && ( <div className="space-y-10"><CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => {setData(prev => ({...prev, expenseCategories: cats}));}} lang={lang} /><RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={data.expenseCategories} onUpdate={(recs) => {setData(prev => ({...prev, recurringExpenses: recs}));}} onGenerateTransactions={txs => {setData(prev => ({...prev, transactions: [...txs, ...prev.transactions]}));}} branchId={currentBranchId === ALL_BRANCHES_ID ? allowedBranches[0]?.id : currentBranchId} lang={lang} /></div> )}
                     {settingsSubTab === 'audit' && (
@@ -465,7 +476,7 @@ const App = () => {
                                <div className="w-14 h-14 bg-brand-600 rounded-[1.4rem] mx-auto flex items-center justify-center shadow-vivid" style={{ backgroundColor: activeBranchColor }}><UtensilsCrossed className="w-7 h-7 text-white" /></div>
                              )}<div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white text-[8px] font-black px-1 py-0.5 rounded-full border border-white dark:border-slate-900 uppercase leading-none">{t('active')}</div>
                            </div>
-                           <div><h2 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none mb-1">Tokymon Enterprise</h2><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Version Core {SCHEMA_VERSION}</p></div>
+                           <div><h2 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none mb-1">Tokymon Official</h2><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Enterprise Release {SCHEMA_VERSION}</p></div>
                         </div>
 
                         <div className="space-y-4">
@@ -492,7 +503,7 @@ const App = () => {
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
-                           <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest leading-none">System Engine</p><div className="flex items-center gap-2 text-emerald-500"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /><span className="text-[9px] font-black uppercase tracking-widest leading-none">Titanium {SCHEMA_VERSION}</span></div></div>
+                           <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest leading-none">System Engine</p><div className="flex items-center gap-2 text-emerald-500"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-sm" /><span className="text-[9px] font-black uppercase tracking-widest leading-none">Official {SCHEMA_VERSION.split(' ')[0]}</span></div></div>
                            <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest leading-none">Status</p><div className="flex items-center gap-2 text-brand-600" style={{ color: activeBranchColor }}><ShieldCheck className="w-3.5 h-3.5" /><span className="text-[9px] font-black uppercase tracking-widest leading-none">{isOnline ? 'Active' : 'Offline'}</span></div></div>
                         </div>
                         <div className="pt-6 border-t dark:border-slate-800 border-slate-100 text-center"><p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Built with <Heart className="w-3 h-3 text-rose-500 inline mx-1 fill-rose-500" /> by <span className="text-brand-600 font-extrabold" style={{ color: activeBranchColor }}>thPhuoc</span></p></div>
@@ -506,7 +517,7 @@ const App = () => {
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 px-6 z-[2000] flex justify-center pointer-events-none pb-[calc(1rem+env(safe-area-inset-bottom))]">
-        <nav className="h-16 max-w-md w-full glass border border-white/40 dark:border-slate-800/80 flex items-center justify-around px-2 rounded-[2rem] shadow-2xl pointer-events-auto">
+        <nav className="h-16 max-w-md w-full glass border border-white/40 dark:border-slate-800 flex items-center justify-around px-2 rounded-[2rem] shadow-2xl pointer-events-auto">
           {[
             { id: 'income', label: t('income'), icon: Wallet },
             { id: 'expense', label: t('expense'), icon: ArrowDownCircle },

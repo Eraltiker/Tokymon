@@ -6,79 +6,41 @@ const DB_VERSION = 1;
 const STORE_NAME = 'app_data';
 const DATA_KEY = 'master';
 
-const idb = {
-  db: null as IDBDatabase | null,
-  async open(): Promise<IDBDatabase> {
-    if (this.db) return this.db;
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
-      // Timeout để tránh treo app nếu IndexedDB bị lỗi hệ thống
-      const timeout = setTimeout(() => reject(new Error("IndexedDB Open Timeout")), 5000);
-      
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME);
-        }
-      };
-      request.onsuccess = () => {
-        clearTimeout(timeout);
-        this.db = request.result;
-        resolve(this.db);
-      };
-      request.onerror = () => {
-        clearTimeout(timeout);
-        reject(request.error);
-      };
-    });
-  },
-  async get(key: string): Promise<any> {
-    try {
-      const db = await this.open();
-      const transaction = db.transaction(STORE_NAME, 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.get(key);
-      return new Promise((resolve) => {
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => resolve(null);
-      });
-    } catch (e) {
-      return null;
-    }
-  },
-  async set(key: string, val: any): Promise<void> {
-    try {
-      const db = await this.open();
-      const transaction = db.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.put(val, key);
-      return new Promise((resolve, reject) => {
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
-    } catch (e) {
-      console.error("IDB Set Error:", e);
-    }
-  }
+// Singleton DB Promise for instant access
+let dbPromise: Promise<IDBDatabase> | null = null;
+
+const getDB = (): Promise<IDBDatabase> => {
+  if (dbPromise) return dbPromise;
+  
+  dbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+    
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => {
+      dbPromise = null;
+      reject(request.error);
+    };
+  });
+  
+  return dbPromise;
 };
 
 export const StorageService = {
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
     const map = new Map<string, T>();
-    (local || []).forEach(item => {
-      if (item?.id) map.set(item.id, item);
-    });
+    (local || []).forEach(item => { if (item?.id) map.set(item.id, item); });
     (remote || []).forEach(remoteItem => {
       if (!remoteItem?.id) return;
       const localItem = map.get(remoteItem.id);
-      if (!localItem) {
+      if (!localItem || new Date(remoteItem.updatedAt || 0).getTime() > new Date(localItem.updatedAt || 0).getTime()) {
         map.set(remoteItem.id, remoteItem);
-      } else {
-        const localTime = new Date(localItem.updatedAt || 0).getTime();
-        const remoteTime = new Date(remoteItem.updatedAt || 0).getTime();
-        if (remoteTime > localTime) {
-          map.set(remoteItem.id, remoteItem);
-        }
       }
     });
     return Array.from(map.values());
@@ -102,19 +64,40 @@ export const StorageService = {
   },
 
   async saveLocal(data: AppData) {
-    await idb.set(DATA_KEY, data);
-    // Lưu một bản backup siêu nhẹ vào LocalStorage cho trường hợp khẩn cấp
-    localStorage.setItem('tokymon_last_sync_ts', data.lastSync || '');
+    try {
+      const db = await getDB();
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      store.put(data, DATA_KEY);
+    } catch (e) {
+      console.error("IDB Save Error", e);
+    }
   },
 
   async loadLocal(): Promise<AppData> {
-    const data = await idb.get(DATA_KEY);
-    if (!data) {
-      const legacy = localStorage.getItem('tokymon_master_data') || localStorage.getItem('tokymon_fallback');
-      if (legacy) return JSON.parse(legacy);
+    try {
+      const db = await getDB();
+      const data = await new Promise<any>((resolve) => {
+        const transaction = db.transaction(STORE_NAME, 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get(DATA_KEY);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => resolve(null);
+      });
+
+      if (!data) return StorageService.getEmptyData();
+      
+      return {
+        ...StorageService.getEmptyData(),
+        ...data,
+        transactions: data.transactions || [],
+        branches: data.branches || [],
+        users: data.users || [],
+        auditLogs: data.auditLogs || []
+      };
+    } catch (e) {
       return StorageService.getEmptyData();
     }
-    return { ...StorageService.getEmptyData(), ...data };
   },
 
   getEmptyData: (): AppData => ({
@@ -137,30 +120,26 @@ export const StorageService = {
   }),
 
   syncWithCloud: async (bucketId: string, localData: AppData): Promise<AppData> => {
-    if (!navigator.onLine) throw new Error("Offline mode");
+    if (!navigator.onLine) throw new Error("Offline");
     const sanitizedId = bucketId?.trim();
     if (!sanitizedId) return localData;
     
     const BUCKET_URL = `https://kvdb.io/${sanitizedId}/main`;
     try {
-      const response = await fetch(BUCKET_URL, { mode: 'cors' });
+      const response = await fetch(BUCKET_URL);
       let remoteData: AppData | null = null;
       if (response.ok) {
         const text = await response.text();
         if (text && text.trim() !== "null") remoteData = JSON.parse(text);
       }
-      
       const merged = remoteData ? StorageService.mergeAppData(localData, remoteData) : localData;
-      
       await fetch(BUCKET_URL, {
         method: 'PUT',
-        mode: 'cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(merged)
       });
       return merged;
     } catch (error) {
-      console.error("Sync Error:", error);
       throw error;
     }
   }

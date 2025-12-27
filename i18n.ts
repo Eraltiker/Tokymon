@@ -67,9 +67,9 @@ export const translations = {
     // Forms & Inputs
     chot_so: "Chốt Sổ Ngày",
     chi_phi: "Nhập Chi Phí",
-    kasse_total: "Tổng Kasse Shop (€)",
-    card_total: "Tổng Thẻ (€)",
-    app_total: "Tiền App (€)",
+    kasse_total: "Tổng Kasse Shop",
+    card_total: "Tổng Thẻ",
+    app_total: "Tiền App",
     paid: "Đã trả",
     unpaid: "Chưa trả",
     shop_cash: "Tiền Quán",
@@ -144,7 +144,6 @@ export const translations = {
     select_branch_btn: "Chọn chi nhánh",
     edit_title: "Chỉnh sửa",
     save_changes_btn: "Cập nhật ngay",
-    // Fix: Added missing translation key for App.tsx
     update_now_btn: "Khám phá ngay"
   },
   de: {
@@ -212,9 +211,9 @@ export const translations = {
     // Forms & Inputs
     chot_so: "Tagesabschluss",
     chi_phi: "Ausgabe erfassen",
-    kasse_total: "Ladenumsatz (€)",
-    card_total: "Kartenzahlung (€)",
-    app_total: "App-Umsatz (€)",
+    kasse_total: "Ladenumsatz",
+    card_total: "Kartenzahlung",
+    app_total: "App-Umsatz",
     paid: "Bezahlt",
     unpaid: "Offen",
     shop_cash: "Ladenkasse",
@@ -284,12 +283,11 @@ export const translations = {
     from_date: "Von",
     to_date: "Bis",
     download_now: "Bericht herunterladen",
-    duplicate_date_error: "Abschluss für dieses Datum bereits vorhanden!",
+    duplicate_date_error: "Abschluss cho dieses Datum bereits vorhanden!",
     choose_branch_hint: "Filiale zum Eingeben wählen",
     select_branch_btn: "Filiale wählen",
     edit_title: "Bearbeiten",
     save_changes_btn: "Jetzt aktualisieren",
-    // Fix: Added missing translation key for App.tsx
     update_now_btn: "Jetzt entdecken"
   }
 };
