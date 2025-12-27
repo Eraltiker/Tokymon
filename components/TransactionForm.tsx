@@ -44,13 +44,16 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
     return transactions.some(tx => tx.type === TransactionType.INCOME && tx.date === date && tx.branchId === branchId && !tx.deletedAt);
   }, [date, transactions, type, branchId]);
 
+  // Chuẩn hóa nhập liệu: Thay dấu phẩy bằng dấu chấm để tính toán chính xác
   const validateAndSetAmount = (val: string, setter: (v: string) => void) => {
-    if (/^[0-9]*[.,]?[0-9]*$/.test(val)) setter(val.replace(',', '.'));
+    const sanitized = val.replace(',', '.');
+    if (/^[0-9]*\.?[0-9]*$/.test(sanitized)) setter(sanitized);
   };
 
-  const parseLocaleNumber = (val: string): number => {
+  const parseNumber = (val: string): number => {
     if (!val) return 0;
-    return Number(val);
+    const n = parseFloat(val);
+    return isNaN(n) ? 0 : n;
   };
 
   const adjustDate = (days: number) => {
@@ -66,46 +69,51 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
     });
   };
 
-  const compressImage = (file: File): Promise<{base64: string, type: string}> => {
-    return new Promise((resolve, reject) => {
-      const objectUrl = URL.createObjectURL(file);
+  const compressImage = async (file: File): Promise<{base64: string, type: string}> => {
+    return new Promise(async (resolve, reject) => {
       const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      
+      img.onload = async () => {
+        try {
+          if (img.decode) await img.decode();
+
+          const canvas = document.createElement('canvas');
+          const MAX_SIZE = 1200; // iOS safe limit
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > height) {
+            if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
+          } else {
+            if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d', { alpha: false });
+          
+          if (ctx) {
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(0, 0, width, height);
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, width, height);
+          }
+          
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          URL.revokeObjectURL(objectUrl);
+          
+          const base64Data = dataUrl.split(',')[1];
+          if (!base64Data) throw new Error("Export failed");
+          resolve({ base64: base64Data, type: 'image/jpeg' });
+        } catch (err) {
+          URL.revokeObjectURL(objectUrl);
+          reject(err);
+        }
+      };
+      img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error("Load failed")); };
       img.src = objectUrl;
-      
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        // Tăng lên 1500px để giữ chi tiết cho ảnh mờ
-        const MAX_SIZE = 1500; 
-        let width = img.width;
-        let height = img.height;
-        
-        if (width > height) {
-          if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
-        } else {
-          if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          // Xử lý ảnh mờ: Tăng độ tương phản và độ sáng để chữ tách biệt khỏi nền
-          // Điều này giúp OCR của Gemini hoạt động tốt hơn với ảnh thiếu sáng hoặc rung tay
-          ctx.filter = 'contrast(1.25) brightness(1.05) saturate(1.1)';
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(img, 0, 0, width, height);
-        }
-        
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        URL.revokeObjectURL(objectUrl);
-        resolve({ base64: dataUrl.split(',')[1], type: 'image/jpeg' });
-      };
-      
-      img.onerror = (e) => {
-        URL.revokeObjectURL(objectUrl);
-        reject(e);
-      };
     });
   };
 
@@ -114,21 +122,18 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
     if (!file) return;
     
     setIsScanning(true);
-    await new Promise(r => setTimeout(r, 150)); // Tăng độ trễ để iOS cache file xong
-
     try {
-      const { base64, type: compressedType } = await compressImage(file);
-      const result = await scanReceipt(base64, compressedType);
+      const compressed = await compressImage(file);
+      const result = await scanReceipt(compressed.base64, compressed.type);
       
       if (result) {
         if (result.amount) setExpenseAmount(result.amount.toString());
-        if (result.category) setExpenseCategory(result.category);
+        if (result.category && expenseCategories.includes(result.category)) setExpenseCategory(result.category);
         if (result.note) setNote(result.note);
         if (result.date) setDate(result.date);
       }
     } catch (error) { 
-      console.error("Scan error:", error);
-      alert(lang === 'vi' ? "AI không đọc được ảnh. Hãy chụp gần và rõ nét hơn." : "KI konnte das Bild nicht lesen. Bitte deutlicher fotografieren.");
+      console.error("OCR Error:", error);
     } finally {
       setIsScanning(false);
       setInputKey(Date.now());
@@ -138,27 +143,26 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isDuplicateDate) return;
-    const commonData = {
-      id: Date.now().toString(),
-      branchId, date, note,
-      updatedAt: new Date().toISOString(), history: []
-    };
+    const now = new Date().toISOString();
+    const commonData = { id: Date.now().toString(), branchId, date, note, updatedAt: now, history: [] };
+    
     if (type === TransactionType.EXPENSE) {
-      const amount = parseLocaleNumber(expenseAmount);
-      if (!amount || amount <= 0) return;
+      const amount = parseNumber(expenseAmount);
+      if (amount <= 0) return;
       onAddTransaction({
         ...commonData, type: TransactionType.EXPENSE, amount, category: expenseCategory,
         expenseSource: isPaid ? expenseSource : undefined, isPaid, debtorName: isPaid ? undefined : debtorName,
       });
-      setExpenseAmount(''); setDebtorName(''); setNote('');
+      setExpenseAmount(''); setNote('');
     } else {
-      const kasse = parseLocaleNumber(kasseInput);
-      const app = parseLocaleNumber(appInput);
-      const cardTotal = parseLocaleNumber(cardTotalInput);
-      if (kasse + app <= 0) return;
+      const kasse = parseNumber(kasseInput);
+      const app = parseNumber(appInput);
+      const cardTotal = parseNumber(cardTotalInput);
+      const revenue = kasse + app;
+      if (revenue <= 0) return;
       onAddTransaction({
-        ...commonData, type: TransactionType.INCOME, amount: kasse + app, category: t('income'),
-        incomeBreakdown: { cash: Math.max(0, (kasse + app) - cardTotal), card: cardTotal, delivery: app },
+        ...commonData, type: TransactionType.INCOME, amount: revenue, category: t('income'),
+        incomeBreakdown: { cash: Math.max(0, revenue - cardTotal), card: cardTotal, delivery: app },
       });
       setKasseInput(''); setAppInput(''); setCardTotalInput(''); setNote('');
     }
@@ -167,12 +171,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   return (
     <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-[2rem] shadow-ios border border-white dark:border-slate-800/50 flex flex-col relative overflow-hidden transition-all max-w-full lg:max-w-md mx-auto animate-ios">
       {isScanning && (
-        <div className="absolute inset-0 z-[100] bg-slate-950/80 backdrop-blur-xl flex flex-col items-center justify-center text-white p-6 animate-in fade-in duration-300">
+        <div className="absolute inset-0 z-[100] bg-slate-950/90 backdrop-blur-xl flex flex-col items-center justify-center text-white p-6 animate-in fade-in duration-300">
           <div className="relative mb-6">
-            <div className="w-12 h-12 border-4 border-brand-500/20 border-t-brand-500 rounded-full animate-spin" />
-            <Sparkles className="w-5 h-5 text-amber-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+            <div className="w-14 h-14 border-4 border-brand-500/20 border-t-brand-500 rounded-full animate-spin" />
+            <Sparkles className="w-6 h-6 text-amber-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
           </div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-center animate-pulse">AI Smart Scanning...</p>
+          <div className="text-center space-y-2">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-brand-400">AI Core Processing</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest opacity-70">{t('ai_scanning_text')}</p>
+          </div>
         </div>
       )}
 
@@ -186,23 +193,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         
         {type === TransactionType.EXPENSE && (
           <div className="shrink-0">
-            {/* Nút QUÉT THÔNG MINH (Hợp nhất Camera & File) */}
-            <div className="relative group active-scale transition-all">
-              <div className="flex items-center gap-2.5 px-3 py-2 bg-brand-50/50 dark:bg-brand-900/10 border border-brand-200 dark:border-brand-800/50 rounded-xl">
-                 <div className="w-7 h-7 bg-brand-600 text-white rounded-lg flex items-center justify-center shadow-vivid">
-                   <Zap className="w-4 h-4 fill-white" />
-                 </div>
-                 <span className="text-[10px] font-black uppercase tracking-tight text-brand-700 dark:text-brand-300 pr-1">Scan</span>
-              </div>
-              {/* input file không có capture sẽ tự động gợi ý cả Camera và Thư viện trên iOS */}
-              <input 
-                key={inputKey}
-                type="file" 
-                onChange={handleFileUpload} 
-                accept="image/*" 
-                className="absolute inset-0 opacity-0 cursor-pointer z-20 w-full h-full" 
-              />
-            </div>
+            <label className="relative flex items-center gap-2.5 px-3.5 py-2.5 bg-brand-600 hover:bg-brand-500 dark:bg-brand-500 rounded-2xl shadow-vivid text-white active-scale cursor-pointer transition-all">
+               <Zap className="w-4 h-4 fill-white animate-pulse" />
+               <span className="text-[10px] font-black uppercase tracking-widest pr-1">Smart Scan</span>
+               <input key={inputKey} type="file" onChange={handleFileUpload} accept="image/*" capture="environment" className="absolute inset-0 opacity-0 cursor-pointer" />
+            </label>
           </div>
         )}
       </div>
@@ -224,7 +219,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
           <div className="space-y-4">
             <div className="space-y-1.5">
               <label className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase px-1 tracking-widest leading-none">{t('kasse_total')} (€)</label>
-              <input type="text" inputMode="decimal" value={kasseInput} onChange={e => validateAndSetAmount(e.target.value, setKasseInput)} placeholder="0.00" className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 focus:border-brand-500 dark:focus:border-brand-500 rounded-xl font-black text-2xl text-brand-600 dark:text-brand-400 outline-none transition-all shadow-inner text-center" required />
+              <input type="text" inputMode="decimal" value={kasseInput} onChange={e => validateAndSetAmount(e.target.value, setKasseInput)} placeholder="0.00" className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 focus:border-brand-500 rounded-xl font-black text-2xl text-brand-600 dark:text-brand-400 outline-none transition-all shadow-inner text-center" required />
             </div>
             
             <div className="grid grid-cols-2 gap-3">
@@ -246,7 +241,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
             </div>
             
             <div className="flex p-1 bg-slate-100/80 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
-              <button type="button" onClick={() => setIsPaid(true)} className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase transition-all active-scale ${isPaid ? 'bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 shadow-sm border border-slate-100 dark:border-slate-700' : 'text-slate-400'}`}>{t('paid')}</button>
+              <button type="button" onClick={() => setIsPaid(true)} className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase transition-all active-scale ${isPaid ? 'bg-white dark:bg-slate-800 text-brand-600 shadow-sm border border-slate-100 dark:border-slate-700' : 'text-slate-400'}`}>{t('paid')}</button>
               <button type="button" onClick={() => setIsPaid(false)} className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase transition-all active-scale ${!isPaid ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400'}`}>{t('unpaid')}</button>
             </div>
 
@@ -269,7 +264,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
                   ].map((s) => (
                     <button key={s.id} type="button" onClick={() => setExpenseSource(s.id)} className={`py-2 rounded-xl border-2 transition-all flex flex-col items-center gap-1 active-scale ${expenseSource === s.id ? `bg-brand-600 border-brand-600 text-white shadow-md` : 'bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-500'}`}>
                       <s.icon className="w-4 h-4" />
-                      <span className="text-[8px] font-black uppercase tracking-tight leading-none">{s.label}</span>
+                      <span className="text-[8px] font-black uppercase tracking-tight leading-none text-center">{s.label}</span>
                     </button>
                   ))}
                 </div>
@@ -286,7 +281,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
           <button 
             type="submit" 
             disabled={isDuplicateDate || isScanning} 
-            className={`w-full h-14 rounded-[1.5rem] font-black uppercase tracking-[0.1em] text-[11px] active-scale transition-all flex items-center justify-center gap-3 shadow-vivid ${isDuplicateDate || isScanning ? 'bg-slate-200 text-slate-400 shadow-none cursor-not-allowed' : 'bg-brand-600 text-white'}`}
+            className={`w-full h-14 rounded-[1.5rem] font-black uppercase tracking-[0.1em] text-[11px] active-scale transition-all flex items-center justify-center gap-3 shadow-vivid ${isDuplicateDate || isScanning ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-brand-600 text-white'}`}
           >
             <Save className="w-5 h-5" /> {t('save_transaction')}
           </button>
