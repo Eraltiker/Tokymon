@@ -131,25 +131,39 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "3.5.0";
+export const SCHEMA_VERSION = "3.5.2";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
   {
-    version: "3.5.0",
-    date: "2024-06-05",
+    version: "3.5.2",
+    date: "2024-06-15",
     changes: {
       vi: [
-        "Hyper-Mobile: Tối ưu hóa toàn diện tốc độ phản hồi trên điện thoại.",
-        "Giao diện Pro: Hiệu ứng kính (Glassmorphism) thế hệ mới siêu mượt.",
-        "Smart Sync v2: Tăng tốc độ đồng bộ Cloud và giảm tiêu thụ PIN.",
-        "Màu sắc thông minh: Toàn bộ ứng dụng thay đổi theo màu thương hiệu chi nhánh."
+        "iOS Elite UI: Giao diện đăng nhập mới phong cách Apple.",
+        "Smooth Motion: Hiệu ứng chuyển cảnh mượt mà 120Hz trên iPhone đời mới.",
+        "Safe Area+: Tối ưu hóa vùng hiển thị cho Dynamic Island và thanh Home.",
+        "One-Tap Login: Cải thiện bàn phím và trải nghiệm nhập liệu mobile."
       ],
       de: [
-        "Hyper-Mobile: Umfassende Optimierung der Reaktionsgeschwindigkeit auf Smartphones.",
-        "Pro Interface: Glassmorphismus-Effekte der neuen Generation.",
-        "Smart Sync v2: Schnellere Cloud-Synchronisierung und geringerer Akkuverbrauch.",
-        "Smart Colors: Die gesamte App passt sich der Markenfarbe der Filiale an."
+        "iOS Elite UI: Neues Login-Interface im Apple-Stil.",
+        "Smooth Motion: 120Hz Übergangseffekte für neue iPhones.",
+        "Safe Area+: Optimierung für Dynamic Island und Home-Bar.",
+        "One-Tap Login: Verbessertes Tastaturerlebnis auf Mobilgeräten."
+      ]
+    }
+  },
+  {
+    version: "3.5.1",
+    date: "2024-06-10",
+    changes: {
+      vi: [
+        "Nâng cấp AI Flash: Tăng tốc độ quét hóa đơn lên gấp 3 lần.",
+        "Fix lỗi iOS: Tối ưu hóa bộ nhớ khi xử lý ảnh trên iPhone/iPad."
+      ],
+      de: [
+        "AI Flash Upgrade: Erhöhung der Belegscan-Geschwindigkeit.",
+        "iOS Fix: Optimierung des Speichers auf iPhone/iPad."
       ]
     }
   }

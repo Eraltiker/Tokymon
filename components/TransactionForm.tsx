@@ -64,7 +64,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   };
 
   /**
-   * High-Resolution Image Processing for Gemini 3 Pro
+   * Pipeline xử lý ảnh tối ưu cho iOS và Gemini Flash
    */
   const processImageForMobile = async (file: File): Promise<{base64: string, type: string}> => {
     return new Promise((resolve, reject) => {
@@ -76,7 +76,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
           if ('decode' in img) await img.decode();
 
           const canvas = document.createElement('canvas');
-          const MAX_SIZE = 1600; // Increased resolution for better OCR with Pro model
+          // Tối ưu hóa MAX_SIZE: 1200 là lý tưởng cho AI Flash trích xuất dữ liệu nhanh
+          const MAX_SIZE = 1200; 
           let width = img.width;
           let height = img.height;
 
@@ -102,7 +103,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
           ctx.fillRect(0, 0, width, height);
           ctx.drawImage(img, 0, 0, width, height);
 
-          const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+          // Nén mạnh hơn để truyền tải nhanh trên mobile (0.7)
+          const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
           URL.revokeObjectURL(url);
           resolve({ base64, type: 'image/jpeg' });
         } catch (err) {
@@ -125,7 +127,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
     if (!file) return;
     
     setIsScanning(true);
-    await new Promise(r => setTimeout(r, 100));
 
     try {
       const processed = await processImageForMobile(file);
@@ -141,7 +142,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
       }
     } catch (error) { 
       console.error("Smart Scan Failure:", error);
-      alert(lang === 'vi' ? "Lỗi phân tích hóa đơn. Vui lòng thử lại hoặc nhập tay." : "Fehler beim Analysieren. Bitte manuell eingeben.");
+      alert(lang === 'vi' ? "Lỗi phân tích hóa đơn. Vui lòng thử lại với ảnh nhỏ hơn hoặc nhập tay." : "Fehler beim Analysieren. Bitte versuchen Sie es mit einem kleineren Bild oder manuell.");
     } finally {
       setIsScanning(false);
       setInputKey(Date.now());
@@ -184,10 +185,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
             <Sparkles className="w-8 h-8 text-amber-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
           </div>
           <div className="text-center space-y-3">
-            <p className="text-sm font-black uppercase tracking-[0.3em] text-brand-400">Tokymon Vision Pro</p>
+            <p className="text-sm font-black uppercase tracking-[0.3em] text-brand-400">Tokymon Flash Scan</p>
             <div className="space-y-1">
                <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{t('ai_scanning_text')}</p>
-               <p className="text-[8px] font-medium text-slate-500 uppercase tracking-[0.2em]">Processing high-resolution data...</p>
+               <p className="text-[8px] font-medium text-slate-500 uppercase tracking-[0.2em]">High-speed data extraction active...</p>
             </div>
           </div>
         </div>
@@ -205,10 +206,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
           <div className="shrink-0">
             <label className="relative flex items-center gap-2.5 px-5 py-3.5 bg-brand-600 hover:bg-brand-500 dark:bg-brand-500 rounded-2xl shadow-vivid text-white active-scale cursor-pointer transition-all">
                <div className="relative">
-                 <Zap className="w-5 h-5 fill-white animate-bounce" />
+                 <Zap className="w-5 h-5 fill-white" />
                  <Sparkles className="w-3 h-3 text-amber-300 absolute -top-1 -right-1 animate-pulse" />
                </div>
-               <span className="text-[11px] font-black uppercase tracking-widest">Smart Scan</span>
+               <span className="text-[11px] font-black uppercase tracking-widest">Flash Scan</span>
                <input 
                   key={inputKey} 
                   type="file" 

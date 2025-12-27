@@ -21,10 +21,10 @@ import {
   History as HistoryIcon, MapPin, Users, RefreshCw, 
   ChevronDown, Cloud, FileSpreadsheet, LayoutPanelTop,
   AlertTriangle, Languages, UserCircle2, 
-  ImageIcon, Lock, ArrowRight, Cpu,
-  Globe, Check, Info, ShieldCheck, ExternalLink, Zap,
+  ImageIcon, ArrowRight, Cpu,
+  Globe, Check, Info, ShieldCheck, Zap,
   Sparkles, WifiOff, Wifi, Loader2, PartyPopper, X,
-  KeyRound, Fingerprint, Heart, Code
+  Fingerprint, Heart, LockKeyhole
 } from 'lucide-react';
 
 const App = () => {
@@ -52,7 +52,6 @@ const App = () => {
   });
   
   const [currentBranchId, setCurrentBranchId] = useState<string>(() => localStorage.getItem('tokymon_current_branch') || '');
-  const [lastSelectedBranchId, setLastSelectedBranchId] = useState<string>(''); 
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const pollTimerRef = useRef<number | null>(null);
@@ -116,8 +115,6 @@ const App = () => {
     localStorage.setItem('tokymon_theme', isDark ? 'dark' : 'light');
   }, [isDark]);
 
-  useEffect(() => { localStorage.setItem('tokymon_lang', lang); }, [lang]);
-
   const toggleLanguage = () => setLang(prev => prev === 'vi' ? 'de' : 'vi');
 
   const activeBranches = useMemo(() => data.branches.filter(b => !b.deletedAt), [data.branches]);
@@ -158,29 +155,22 @@ const App = () => {
     setData(prev => ({ ...prev, auditLogs: [newLog, ...prev.auditLogs].slice(0, 500) }));
   }, [currentUser]);
 
-  const handleResetBranchData = (branchId: string) => {
-    const branch = data.branches.find(b => b.id === branchId);
-    if (!branch) return;
-    const now = new Date().toISOString();
-    setData(prev => {
-      const nextTransactions = prev.transactions.map(t => t.branchId === branchId ? { ...t, deletedAt: now, updatedAt: now } : t);
-      const nextData = { ...prev, transactions: nextTransactions };
-      addAuditLog('DELETE', 'BRANCH', branchId, `Reset toàn bộ dữ liệu: ${branch.name}`);
-      handleCloudSync(true, nextData);
-      return nextData;
-    });
-  };
+  // Fix: Defined missing function to update branches data
+  const setBranchesWithDataCleanup = useCallback((update: any) => {
+    setData(prev => ({
+      ...prev,
+      branches: typeof update === 'function' ? update(prev.branches) : update
+    }));
+  }, []);
 
-  const setBranchesWithDataCleanup = (updateFn: (prev: Branch[]) => Branch[]) => {
-    setData(prev => {
-      const nextBranches = updateFn(prev.branches);
-      const now = new Date().toISOString();
-      const deletedBranchIds = nextBranches.filter(b => b.deletedAt && !prev.branches.find(oldB => oldB.id === b.id)?.deletedAt).map(b => b.id);
-      let nextTransactions = prev.transactions;
-      if (deletedBranchIds.length > 0) nextTransactions = prev.transactions.map(t => deletedBranchIds.includes(t.branchId) ? { ...t, deletedAt: now, updatedAt: now } : t);
-      return { ...prev, branches: nextBranches, transactions: nextTransactions };
-    });
-  };
+  // Fix: Defined missing function to reset branch transactions
+  const handleResetBranchData = useCallback((branchId: string) => {
+    setData(prev => ({
+      ...prev,
+      transactions: prev.transactions.filter(tx => tx.branchId !== branchId)
+    }));
+    addAuditLog('DELETE', 'BRANCH', branchId, `Reset toàn bộ dữ liệu giao dịch của chi nhánh`);
+  }, [addAuditLog]);
 
   const currentBranchName = useMemo(() => {
     if (currentBranchId === ALL_BRANCHES_ID) return t('all_branches');
@@ -206,38 +196,43 @@ const App = () => {
 
   if (!currentUser) {
     return (
-      <div className="min-h-[100dvh] relative flex flex-col items-center justify-between p-6 font-sans transition-colors duration-500 overflow-x-hidden">
+      <div className="min-h-[100dvh] relative flex flex-col items-center justify-between p-6 font-sans transition-colors duration-700 overflow-hidden">
         <div className="login-mesh" />
-        <div className="w-full flex justify-end gap-3 safe-pt relative z-50">
-           <button onClick={() => setIsDark(!isDark)} className="w-12 h-12 glass rounded-2xl flex items-center justify-center active-scale transition-all shadow-xl">
-             {isDark ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-brand-600" />}
-           </button>
-           <button onClick={toggleLanguage} className="px-5 py-3 glass rounded-2xl dark:text-white text-slate-700 active-scale transition-all flex items-center gap-3 shadow-xl group">
-              <Languages className="w-4 h-4 text-brand-500" />
-              <span className="text-[11px] font-black uppercase tracking-widest">{lang === 'vi' ? 'VI' : 'DE'}</span>
-           </button>
+        
+        <div className="w-full flex justify-between items-center safe-pt relative z-50">
+           <div className="flex gap-2">
+             <div className="px-3 py-1 bg-white/40 dark:bg-black/20 rounded-full backdrop-blur-md border border-white/20">
+                <p className="text-[10px] font-black uppercase text-slate-500 tracking-tighter">v{SCHEMA_VERSION}</p>
+             </div>
+           </div>
+           <div className="flex gap-2">
+             <button onClick={() => setIsDark(!isDark)} className="w-10 h-10 glass rounded-full flex items-center justify-center active-scale transition-all">
+               {isDark ? <Sun className="w-4.5 h-4.5 text-amber-500" /> : <Moon className="w-4.5 h-4.5 text-brand-600" />}
+             </button>
+             <button onClick={toggleLanguage} className="px-4 h-10 glass rounded-full flex items-center gap-2 active-scale">
+                <span className="text-[10px] font-black uppercase dark:text-white">{lang === 'vi' ? 'VN' : 'DE'}</span>
+             </button>
+           </div>
         </div>
-        <div className="w-full max-w-[420px] z-10 space-y-10 py-10 animate-ios">
-          <div className="text-center space-y-6">
-            <div className="relative inline-block group">
-              <div className="absolute -inset-6 bg-gradient-to-tr from-brand-500 via-purple-500 to-indigo-500 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity duration-1000 animate-pulse" />
-              <div className="relative p-10 bg-white/40 dark:bg-white/5 rounded-[3.5rem] backdrop-blur-3xl border border-white/50 dark:border-white/10 shadow-glass active-scale transition-all duration-700">
+
+        <div className="w-full max-w-[380px] z-10 space-y-8 py-10 animate-ios">
+          <div className="text-center space-y-4">
+            <div className="relative inline-block">
+              <div className="absolute inset-0 bg-brand-500/20 rounded-full blur-2xl animate-pulse" />
+              <div className="relative w-24 h-24 bg-white/80 dark:bg-white/5 rounded-[2.5rem] backdrop-blur-2xl border border-white/40 dark:border-white/10 shadow-ios flex items-center justify-center mx-auto transition-transform active:scale-95 duration-500">
                 {data.logoUrl ? (
-                  <img src={data.logoUrl} alt="Tokymon" className="w-20 h-20 mx-auto object-contain" />
+                  <img src={data.logoUrl} alt="Logo" className="w-16 h-16 object-contain" />
                 ) : (
-                  <UtensilsCrossed className="w-16 h-16 text-brand-600 dark:text-brand-400 mx-auto" />
+                  <UtensilsCrossed className="w-12 h-12 text-brand-600 dark:text-brand-400" />
                 )}
               </div>
             </div>
-            <div className="space-y-3">
-              <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-900 to-slate-500 dark:from-white dark:to-slate-500 uppercase tracking-[-0.08em] leading-none">TOKYMON</h1>
-              <div className="flex items-center justify-center gap-4">
-                <div className="h-[1.5px] w-6 bg-brand-500/30" />
-                <p className="text-[10px] font-black text-brand-600 dark:text-brand-400 uppercase tracking-[0.6em] translate-x-[0.3em]">Finance Core</p>
-                <div className="h-[1.5px] w-6 bg-brand-500/30" />
-              </div>
+            <div className="space-y-1">
+              <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-900 to-slate-500 dark:from-white dark:to-slate-400 tracking-tighter leading-none">TOKYMON</h1>
+              <p className="text-[9px] font-black text-brand-600 dark:text-brand-500 uppercase tracking-[0.4em] opacity-80">Finance Enterprise</p>
             </div>
           </div>
+
           <form onSubmit={(e) => {
               e.preventDefault();
               const user = activeUsers.find(u => u.username.toLowerCase() === loginForm.username.toLowerCase() && u.password === loginForm.password);
@@ -247,42 +242,45 @@ const App = () => {
                 addAuditLog('LOGIN', 'USER', user.id, `Đăng nhập thành công`); 
               } else { setLoginError(t('error_login')); }
             }} 
-            className={`glass p-8 sm:p-10 rounded-[3.5rem] shadow-2xl space-y-8 relative overflow-hidden group ${loginError ? 'animate-shake' : ''}`}
+            className={`glass p-8 rounded-[3rem] shadow-2xl space-y-6 relative overflow-hidden ${loginError ? 'animate-shake' : ''}`}
           >
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] ml-2 block opacity-70">Identity</label>
+            <div className="space-y-4">
+              <div className="space-y-2">
                 <div className="relative">
-                  <input type="text" value={loginForm.username} onChange={e => {setLoginForm({...loginForm, username: e.target.value}); setLoginError('');}} className="w-full p-6 bg-white/40 dark:bg-black/20 focus:bg-white dark:focus:bg-brand-500/10 rounded-3xl font-bold border border-white/40 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-14 text-base" placeholder="Username" required />
-                  <UserCircle2 className="absolute left-5 top-1/2 -translate-y-1/2 w-5.5 h-5.5 text-slate-400" />
+                  <input type="text" value={loginForm.username} onChange={e => {setLoginForm({...loginForm, username: e.target.value}); setLoginError('');}} className="w-full p-5 bg-white/50 dark:bg-black/20 rounded-2xl font-bold border border-white/50 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-12 text-[16px]" placeholder="Username" required />
+                  <UserCircle2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 </div>
               </div>
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] ml-2 block opacity-70">Security Key</label>
+              <div className="space-y-2">
                 <div className="relative">
-                  <input type="password" value={loginForm.password} onChange={e => {setLoginForm({...loginForm, password: e.target.value}); setLoginError('');}} className="w-full p-6 bg-white/40 dark:bg-black/20 focus:bg-white dark:focus:bg-brand-500/10 rounded-3xl font-bold border border-white/40 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-14 text-base" placeholder="••••••••" required />
-                  <Fingerprint className="absolute left-5 top-1/2 -translate-y-1/2 w-5.5 h-5.5 text-slate-400" />
+                  <input type="password" value={loginForm.password} onChange={e => {setLoginForm({...loginForm, password: e.target.value}); setLoginError('');}} className="w-full p-5 bg-white/50 dark:bg-black/20 rounded-2xl font-bold border border-white/50 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-12 text-[16px]" placeholder="••••••••" required />
+                  <LockKeyhole className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 </div>
               </div>
             </div>
-            {loginError && <div className="bg-rose-500/10 p-5 rounded-3xl border border-rose-500/20 flex items-center gap-4 animate-in fade-in zoom-in duration-300"><AlertTriangle className="w-5 h-5 text-rose-500" /><p className="text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-tight leading-none">{loginError}</p></div>}
-            <button type="submit" className="w-full py-6 bg-slate-950 dark:bg-brand-600 hover:bg-black dark:hover:bg-brand-500 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.25em] active-scale transition-all flex items-center justify-center gap-3 shadow-vivid mt-4 shimmer-btn">{t('login')} <ArrowRight className="w-5 h-5" /></button>
+
+            {loginError && (
+              <div className="bg-rose-500/10 p-4 rounded-2xl border border-rose-500/20 flex items-center gap-3">
+                <AlertTriangle className="w-4 h-4 text-rose-500" />
+                <p className="text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-tight">{loginError}</p>
+              </div>
+            )}
+
+            <button type="submit" className="w-full h-16 bg-slate-950 dark:bg-brand-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest active-scale transition-all flex items-center justify-center gap-2 shadow-vivid shimmer-btn">
+               {t('login')} <ArrowRight className="w-5 h-5" />
+            </button>
+            
+            <div className="flex items-center justify-center gap-2 pt-2 opacity-30">
+               <Fingerprint className="w-5 h-5 dark:text-white" />
+               <p className="text-[9px] font-black uppercase tracking-widest dark:text-white">Ready for Biometrics</p>
+            </div>
           </form>
         </div>
-        <div className="w-full max-w-[420px] pb-8 text-center space-y-5 relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-           <div className="flex items-center justify-center gap-5 opacity-30">
-              <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-slate-500" />
-              <div className="flex gap-4"><Zap className="w-4 h-4 text-brand-500" /><Cpu className="w-4 h-4 text-purple-500" /><ShieldCheck className="w-4 h-4 text-emerald-500" /></div>
-              <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-slate-500" />
-           </div>
-           <div className="space-y-1">
-              <p className="text-[11px] font-black dark:text-slate-400 text-slate-500 uppercase tracking-[0.3em] flex items-center justify-center gap-2">Enterprise Security v{SCHEMA_VERSION}</p>
-              <div className="pt-2 flex flex-col items-center gap-1.5">
-                 <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] flex items-center gap-1.5">Designed & Developed with <Heart className="w-2.5 h-2.5 text-rose-500 fill-rose-500" /> by</p>
-                 <div className="relative group"><span className="text-sm font-black text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-purple-600 uppercase tracking-widest px-4 py-1.5 rounded-full border border-brand-500/20 glass transition-all group-hover:shadow-vivid group-hover:border-brand-500/40">thPhuoc</span></div>
-                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-4em pt-2">© 2024 Tokymon Team</p>
-              </div>
-           </div>
+
+        <div className="w-full max-w-[420px] pb-6 text-center space-y-4 relative z-10 opacity-60">
+           <p className="text-[9px] font-black dark:text-slate-400 text-slate-500 uppercase tracking-widest flex items-center justify-center gap-2 leading-none">
+              Design & Dev with <Heart className="w-2.5 h-2.5 text-rose-500 fill-rose-500" /> by thPhuoc
+           </p>
         </div>
       </div>
     );
@@ -298,7 +296,7 @@ const App = () => {
              <div className="w-16 h-16 bg-brand-600 text-white rounded-3xl flex items-center justify-center mb-6 shadow-vivid mx-auto"><PartyPopper className="w-8 h-8" /></div>
              <h3 className="text-xl font-black text-center uppercase tracking-tight dark:text-white mb-2">{t('whats_new')}</h3>
              <p className="text-[10px] font-black text-center uppercase tracking-widest text-brand-600 mb-6">Version {SCHEMA_VERSION}</p>
-             <div className="space-y-4 mb-8">
+             <div className="space-y-4 mb-8 max-h-[40vh] overflow-y-auto no-scrollbar">
                {APP_CHANGELOG[0].changes[lang].map((change, i) => (
                  <div key={i} className="flex gap-3 text-xs font-bold text-slate-600 dark:text-slate-300"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /><p className="leading-relaxed">{change}</p></div>
                ))}
@@ -307,6 +305,7 @@ const App = () => {
           </div>
         </div>
       )}
+
       {confirmModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setConfirmModal(null)} />
@@ -321,16 +320,17 @@ const App = () => {
           </div>
         </div>
       )}
+
       <header className="px-4 py-3 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800/50 shadow-sm safe-pt">
         <div className="flex items-center gap-3">
-          {data.logoUrl ? ( <img src={data.logoUrl} alt="Logo" className="w-9 h-9 sm:w-11 sm:h-11 object-contain shrink-0" /> ) : (
-            <div className="w-9 h-9 sm:w-11 sm:h-11 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-vivid shrink-0" style={{ backgroundColor: activeBranchColor }}><UtensilsCrossed className="w-5 h-5" /></div>
-          )}
+          <div className="relative w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-vivid shrink-0" style={{ backgroundColor: activeBranchColor }}>
+            {data.logoUrl ? ( <img src={data.logoUrl} className="w-7 h-7 object-contain" alt="L" /> ) : ( <UtensilsCrossed className="w-5 h-5" /> )}
+          </div>
           <div className="relative">
-            <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 active-scale transition-all shadow-sm max-w-[150px] sm:max-w-xs">
-              <div className={`w-2 h-2 rounded-full shrink-0 ${currentBranchId === ALL_BRANCHES_ID ? 'animate-pulse' : ''}`} style={{ backgroundColor: activeBranchColor }} />
+            <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex items-center gap-2 px-3.5 py-2 bg-white dark:bg-slate-800/80 rounded-full border border-slate-200 dark:border-slate-700 active-scale transition-all shadow-sm">
+              <div className={`w-2 h-2 rounded-full shrink-0`} style={{ backgroundColor: activeBranchColor }} />
               <span className="text-[10px] sm:text-[11px] font-black uppercase dark:text-white truncate tracking-tight">{currentBranchName}</span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
             {showBranchDropdown && (
               <>
@@ -343,7 +343,7 @@ const App = () => {
                     </button>
                   )}
                   {dropdownBranches.map(b => (
-                    <button key={b.id} onClick={() => { setCurrentBranchId(b.id); setLastSelectedBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-5 hover:text-white transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-slate-50 dark:bg-slate-800/50 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`} style={{ color: currentBranchId === b.id ? b.color : 'inherit' }}>
+                    <button key={b.id} onClick={() => { setCurrentBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-5 hover:text-white transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-slate-50 dark:bg-slate-800/50 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`} style={{ color: currentBranchId === b.id ? b.color : 'inherit' }}>
                       <span className="text-xs font-black uppercase">{b.name}</span>
                       {currentBranchId === b.id && <Check className="w-4 h-4" />}
                     </button>
@@ -353,35 +353,29 @@ const App = () => {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0 ml-auto">
-          <div className={`px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors ${isOnline ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600 animate-pulse'}`}>
-            {isOnline ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
-            <span className="text-[9px] font-black uppercase tracking-[0.1em] hidden sm:inline">{isOnline ? 'Online' : 'Offline'}</span>
-          </div>
-          <button onClick={toggleLanguage} className="w-10 h-10 glass rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center active-scale shadow-sm"><span className="text-[10px] sm:text-[11px] font-black uppercase dark:text-white">{lang === 'vi' ? 'VN' : 'DE'}</span></button>
-          <button onClick={() => setIsDark(!isDark)} className="w-10 h-10 glass rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center active-scale shadow-sm">{isDark ? <Sun className="w-4.5 h-4.5 text-amber-500" /> : <Moon className="w-4.5 h-4.5 text-brand-600" />}</button>
-          <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })} className="w-10 h-10 bg-rose-600 text-white rounded-xl shadow-lg active-scale flex items-center justify-center border border-rose-500/50"><LogOut className="w-4.5 h-4.5" /></button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })} className="w-10 h-10 bg-rose-600/10 text-rose-600 rounded-full active-scale flex items-center justify-center border border-rose-600/20"><LogOut className="w-4.5 h-4.5" /></button>
         </div>
       </header>
 
-      <main className="flex-1 px-4 sm:px-6 max-w-6xl mx-auto w-full pt-6 pb-44">
+      <main className="flex-1 px-4 sm:px-6 max-w-6xl mx-auto w-full pt-6 pb-36">
         {!isDataLoaded ? (
           <div className="flex flex-col items-center justify-center py-40">
-            <Loader2 className="w-12 h-12 text-brand-600 animate-spin mb-4" />
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 animate-pulse">Initializing System State...</p>
+            <Loader2 className="w-10 h-10 text-brand-600 animate-spin mb-4" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 animate-pulse">Initializing System...</p>
           </div>
         ) : (
           <div className="animate-ios">
             {activeTab === 'income' && (
               currentBranchId === ALL_BRANCHES_ID ? (
-                <div className="flex flex-col items-center justify-center py-24 bg-white/60 dark:bg-slate-900/50 backdrop-blur-sm rounded-[3rem] border-2 border-dashed dark:border-slate-800 border-slate-200"><LayoutPanelTop className="w-16 h-16 text-slate-300 dark:text-slate-800 mb-8" /><p className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">{t('choose_branch_hint')}</p><button onClick={() => setShowBranchDropdown(true)} className="mt-10 px-10 py-5 bg-brand-600 text-white rounded-[1.5rem] font-black uppercase text-[11px] active-scale shadow-vivid tracking-widest" style={{ backgroundColor: activeBranchColor }}>{t('select_branch_btn')}</button></div>
+                <div className="flex flex-col items-center justify-center py-24 bg-white/60 dark:bg-slate-900/50 rounded-[3rem] border border-dashed border-slate-200 dark:border-slate-800"><LayoutPanelTop className="w-12 h-12 text-slate-300 mb-6" /><p className="text-xs font-black text-slate-500 uppercase tracking-widest">{t('choose_branch_hint')}</p><button onClick={() => setShowBranchDropdown(true)} className="mt-8 px-8 py-4 bg-brand-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest" style={{ backgroundColor: activeBranchColor }}>{t('select_branch_btn')}</button></div>
               ) : (
                 <IncomeManager transactions={activeTransactions} onAddTransaction={tx => setData(p => ({...p, transactions: [tx, ...p.transactions]}))} onDeleteTransaction={id => setData(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}))} onEditTransaction={u => setData(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}))} branchId={currentBranchId} initialBalances={{cash: currentBranchData?.initialCash || 0, card: currentBranchData?.initialCard || 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />
               )
             )}
             {activeTab === 'expense' && (
               currentBranchId === ALL_BRANCHES_ID ? (
-                <div className="flex flex-col items-center justify-center py-24 bg-white/60 dark:bg-slate-900/50 backdrop-blur-sm rounded-[3rem] border-2 border-dashed dark:border-slate-800 border-slate-200"><ArrowDownCircle className="w-16 h-16 text-slate-300 dark:text-slate-800 mb-8" /><p className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">{t('choose_branch_hint')}</p><button onClick={() => setShowBranchDropdown(true)} className="mt-10 px-10 py-5 bg-brand-600 text-white rounded-[1.5rem] font-black uppercase text-[11px] active-scale shadow-vivid tracking-widest" style={{ backgroundColor: activeBranchColor }}>{t('select_branch_btn')}</button></div>
+                <div className="flex flex-col items-center justify-center py-24 bg-white/60 dark:bg-slate-900/50 rounded-[3rem] border border-dashed border-slate-200 dark:border-slate-800"><ArrowDownCircle className="w-12 h-12 text-slate-300 mb-6" /><p className="text-xs font-black text-slate-500 uppercase tracking-widest">{t('choose_branch_hint')}</p><button onClick={() => setShowBranchDropdown(true)} className="mt-8 px-8 py-4 bg-brand-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest" style={{ backgroundColor: activeBranchColor }}>{t('select_branch_btn')}</button></div>
               ) : (
                 <ExpenseManager transactions={activeTransactions} onAddTransaction={tx => setData(p => ({...p, transactions: [tx, ...p.transactions]}))} onDeleteTransaction={id => setData(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}))} onEditTransaction={u => setData(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}))} expenseCategories={data.expenseCategories} branchId={currentBranchId} initialBalances={{cash: currentBranchData?.initialCash || 0, card: currentBranchData?.initialCard || 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />
               )
@@ -389,10 +383,16 @@ const App = () => {
             {activeTab === 'stats' && <Dashboard transactions={activeTransactions} initialBalances={currentBranchId === ALL_BRANCHES_ID ? systemInitialBalances : {cash: currentBranchData?.initialCash || 0, card: currentBranchData?.initialCard || 0}} lang={lang} currentBranchId={currentBranchId} allowedBranches={allowedBranches} userRole={currentUser.role} reportSettings={reportSettings} />}
             {activeTab === 'settings' && (
               <div className="space-y-8">
-                <div className="flex gap-3 overflow-x-auto no-scrollbar px-1 pb-2">
-                  {[ { id: 'general', label: t('branding'), icon: ImageIcon }, { id: 'export', label: 'Excel', icon: FileSpreadsheet }, { id: 'sync', label: 'Cloud', icon: Cloud }, { id: 'branches', label: t('branches'), icon: MapPin }, { id: 'users', label: t('users'), icon: Users }, { id: 'audit', label: 'Log', icon: HistoryIcon }, { id: 'about', label: t('about'), icon: Info }
+                <div className="flex gap-2 overflow-x-auto no-scrollbar px-1 pb-2">
+                  {[ 
+                    { id: 'general', label: t('branding'), icon: ImageIcon }, 
+                    { id: 'export', label: 'Excel', icon: FileSpreadsheet }, 
+                    { id: 'sync', label: 'Cloud', icon: Cloud }, 
+                    { id: 'branches', label: t('branches'), icon: MapPin }, 
+                    { id: 'users', label: t('users'), icon: Users }, 
+                    { id: 'audit', label: 'Log', icon: HistoryIcon }, 
+                    { id: 'about', label: t('about'), icon: Info }
                   ].map(sub => (
-                    /* Fix duplicate style attribute by merging both style objects into one */
                     <button 
                       key={sub.id} 
                       onClick={() => setSettingsSubTab(sub.id as any)} 
@@ -400,60 +400,50 @@ const App = () => {
                         display: (sub.id === 'branches' || sub.id === 'users') && !isAdmin ? 'none' : 'flex',
                         backgroundColor: settingsSubTab === sub.id ? activeBranchColor : ''
                       }} 
-                      className={`px-5 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.1em] border transition-all flex items-center gap-3 shrink-0 active-scale shadow-sm ${settingsSubTab === sub.id ? 'bg-slate-900 border-slate-800 text-white shadow-vivid' : 'bg-white/90 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500'}`}
+                      className={`px-5 py-4 rounded-3xl text-[9px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 shrink-0 active-scale ${settingsSubTab === sub.id ? 'bg-slate-900 border-transparent text-white shadow-vivid' : 'bg-white/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-500'}`}
                     >
-                      <sub.icon className="w-4.5 h-4.5" /> {sub.label}
+                      <sub.icon className="w-4 h-4" /> {sub.label}
                     </button>
                   ))}
                 </div>
-                <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-[2.5rem] p-8 border border-white dark:border-slate-800 shadow-soft min-h-[500px]">
+                <div className="bg-white/90 dark:bg-slate-900/80 backdrop-blur-xl rounded-[2.5rem] p-6 border border-white/20 dark:border-slate-800 shadow-ios min-h-[500px]">
                     {settingsSubTab === 'sync' && (
-                      <div className="space-y-12 max-w-sm mx-auto pt-10 text-center">
-                        <div className="w-24 h-24 bg-brand-50 dark:bg-brand-900/20 text-brand-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-inner border border-brand-100 dark:border-brand-900/30" style={{ color: activeBranchColor }}><Cloud className="w-12 h-12" /></div>
-                        <div className="space-y-5">
-                          <h3 className="text-2xl font-black uppercase tracking-tight dark:text-white">Cloud Master Sync</h3>
-                          <input type="text" value={syncKey} onChange={e => {setSyncKey(e.target.value); localStorage.setItem('tokymon_sync_key', e.target.value);}} className="w-full p-6 bg-slate-50 dark:bg-slate-950 rounded-3xl font-bold border-2 border-slate-100 dark:border-slate-800 focus:border-brand-500 outline-none text-base dark:text-white transition-all text-center uppercase tracking-widest shadow-inner" placeholder="Cloud Key ID..." />
+                      <div className="space-y-10 max-w-sm mx-auto pt-10 text-center">
+                        <div className="w-20 h-20 bg-brand-50/50 dark:bg-brand-900/10 text-brand-600 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner border border-brand-100 dark:border-brand-900/20" style={{ color: activeBranchColor }}><Cloud className="w-10 h-10" /></div>
+                        <div className="space-y-4">
+                          <h3 className="text-xl font-black uppercase dark:text-white">Cloud Sync Engine</h3>
+                          <input type="text" value={syncKey} onChange={e => {setSyncKey(e.target.value); localStorage.setItem('tokymon_sync_key', e.target.value);}} className="w-full p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl font-bold border-2 border-slate-100 dark:border-slate-800 focus:border-brand-500 outline-none text-center uppercase tracking-widest" placeholder="SYNC KEY..." />
                         </div>
-                        <button onClick={() => handleCloudSync()} disabled={isSyncing || !isOnline} className="w-full py-6 bg-brand-600 text-white rounded-[2.2rem] font-black uppercase text-xs tracking-[0.2em] flex items-center justify-center gap-4 active-scale shadow-vivid disabled:opacity-50" style={{ backgroundColor: activeBranchColor }}>
-                          <RefreshCw className={`w-6 h-6 ${isSyncing ? 'animate-spin' : ''}`} /> {isOnline ? t('cloud_sync') : 'Offline'}
+                        <button onClick={() => handleCloudSync()} disabled={isSyncing || !isOnline} className="w-full py-5 bg-brand-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 active-scale shadow-vivid disabled:opacity-50" style={{ backgroundColor: activeBranchColor }}>
+                          <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /> {isOnline ? t('cloud_sync') : 'Offline'}
                         </button>
                       </div>
                     )}
                     {settingsSubTab === 'export' && <ExportManager transactions={activeTransactions} branches={activeBranches} lang={lang} />}
                     {settingsSubTab === 'branches' && <BranchManager branches={data.branches} setBranches={setBranchesWithDataCleanup} onAudit={addAuditLog} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} onResetBranchData={handleResetBranchData} lang={lang} />}
                     {settingsSubTab === 'users' && <UserManager users={data.users} setUsers={val => setData(p => ({...p, users: typeof val === 'function' ? val(p.users) : val}))} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} lang={lang} />}
-                    {settingsSubTab === 'general' && ( <div className="space-y-16"><CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => {setData(prev => ({...prev, expenseCategories: cats}));}} lang={lang} /><RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={data.expenseCategories} onUpdate={(recs) => {setData(prev => ({...prev, recurringExpenses: recs}));}} onGenerateTransactions={txs => {setData(prev => ({...prev, transactions: [...txs, ...prev.transactions]}));}} branchId={currentBranchId === ALL_BRANCHES_ID ? allowedBranches[0]?.id : currentBranchId} lang={lang} /></div> )}
+                    {settingsSubTab === 'general' && ( <div className="space-y-12"><CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => {setData(prev => ({...prev, expenseCategories: cats}));}} lang={lang} /><RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={data.expenseCategories} onUpdate={(recs) => {setData(prev => ({...prev, recurringExpenses: recs}));}} onGenerateTransactions={txs => {setData(prev => ({...prev, transactions: [...txs, ...prev.transactions]}));}} branchId={currentBranchId === ALL_BRANCHES_ID ? allowedBranches[0]?.id : currentBranchId} lang={lang} /></div> )}
                     {settingsSubTab === 'audit' && (
-                      <div className="space-y-5 max-h-[600px] overflow-y-auto no-scrollbar pr-2">
+                      <div className="space-y-4 max-h-[600px] overflow-y-auto no-scrollbar pr-2">
                         {data.auditLogs.slice().reverse().map(log => (
-                          <div key={log.id} className="p-6 bg-slate-50/50 dark:bg-slate-950/50 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm"><div className="flex justify-between items-start mb-4"><span className="text-[10px] font-black px-3 py-1.5 bg-brand-600 text-white rounded-xl uppercase shadow-sm tracking-widest" style={{ backgroundColor: activeBranchColor }}>{log.action}</span><span className="text-[10px] text-slate-500 font-bold uppercase">{new Date(log.timestamp).toLocaleString()}</span></div><div className="text-sm font-bold dark:text-slate-200 uppercase tracking-tight leading-relaxed">{log.details}</div><div className="text-[10px] text-slate-500 font-black uppercase mt-4 pt-4 border-t border-slate-200 dark:border-slate-800/60">By: {log.username}</div></div>
+                          <div key={log.id} className="p-5 bg-slate-50 dark:bg-slate-950/40 rounded-3xl border border-slate-100 dark:border-slate-800"><div className="flex justify-between items-start mb-2"><span className="text-[9px] font-black px-2 py-1 bg-brand-600 text-white rounded-lg uppercase" style={{ backgroundColor: activeBranchColor }}>{log.action}</span><span className="text-[9px] text-slate-400 font-bold uppercase">{new Date(log.timestamp).toLocaleString()}</span></div><div className="text-xs font-bold dark:text-slate-200 uppercase tracking-tight">{log.details}</div></div>
                         ))}
                       </div>
                     )}
                     {settingsSubTab === 'about' && (
-                      <div className="space-y-12 animate-ios max-w-xl mx-auto py-6">
-                        <div className="text-center space-y-8">
-                           <div className="relative inline-block">{data.logoUrl ? ( <img src={data.logoUrl} className="w-24 h-24 object-contain mx-auto" alt="Logo" /> ) : (
-                               <div className="w-24 h-24 bg-brand-600 rounded-[2rem] mx-auto flex items-center justify-center shadow-vivid border-2 border-white dark:border-slate-800" style={{ backgroundColor: activeBranchColor }}><UtensilsCrossed className="w-12 h-12 text-white" /></div>
-                             )}<div className="absolute -bottom-3 -right-3 bg-emerald-500 text-white text-[10px] font-black px-3.5 py-1.5 rounded-full border-4 border-white dark:border-slate-950 uppercase tracking-widest shadow-lg">{t('active')}</div>
+                      <div className="space-y-10 animate-ios max-w-xl mx-auto py-4">
+                        <div className="text-center space-y-6">
+                           <div className="relative inline-block">{data.logoUrl ? ( <img src={data.logoUrl} className="w-20 h-20 object-contain mx-auto" alt="L" /> ) : (
+                               <div className="w-20 h-20 bg-brand-600 rounded-[1.8rem] mx-auto flex items-center justify-center shadow-vivid" style={{ backgroundColor: activeBranchColor }}><UtensilsCrossed className="w-10 h-10 text-white" /></div>
+                             )}<div className="absolute -bottom-2 -right-2 bg-emerald-500 text-white text-[9px] font-black px-2 py-1 rounded-full border-2 border-white dark:border-slate-900 uppercase">{t('active')}</div>
                            </div>
-                           <div><h2 className="text-3xl font-black dark:text-white uppercase tracking-tighter leading-none mb-3">Tokymon Finance</h2><p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.5em]">System Version {SCHEMA_VERSION}</p></div>
+                           <div><h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter leading-none mb-2">Tokymon Finance</h2><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Enterprise Core {SCHEMA_VERSION}</p></div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                           <div className="bg-slate-50/50 dark:bg-slate-800/40 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700/60 shadow-sm"><p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase mb-2 tracking-widest">{t('system_status')}</p><div className="flex items-center gap-3 text-emerald-500"><div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" /><span className="text-xs font-black uppercase tracking-widest">{isOnline ? t('online') : 'Offline'}</span></div></div>
-                           <div className="bg-slate-50/50 dark:bg-slate-800/40 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700/60 shadow-sm"><p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase mb-2 tracking-widest">Storage</p><div className="flex items-center gap-3 text-brand-600" style={{ color: activeBranchColor }}><ShieldCheck className="w-5 h-5" /><span className="text-xs font-black uppercase tracking-widest">IndexedDB</span></div></div>
+                        <div className="grid grid-cols-2 gap-3">
+                           <div className="bg-slate-50 dark:bg-slate-800/40 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60"><p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-widest">Uptime Status</p><div className="flex items-center gap-2 text-emerald-500"><div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" /><span className="text-[10px] font-black uppercase tracking-widest">{isOnline ? t('online') : 'Offline'}</span></div></div>
+                           <div className="bg-slate-50 dark:bg-slate-800/40 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60"><p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-widest">Storage</p><div className="flex items-center gap-2 text-brand-600" style={{ color: activeBranchColor }}><ShieldCheck className="w-4 h-4" /><span className="text-[10px] font-black uppercase tracking-widest">IndexedDB</span></div></div>
                         </div>
-                        <div className="space-y-6">
-                           <h3 className="text-xs font-black uppercase dark:text-white flex items-center gap-3 tracking-[0.2em]"><Sparkles className="w-5 h-5 text-brand-500" style={{ color: activeBranchColor }} /> {t('whats_new')}</h3>
-                           <div className="bg-brand-50/50 dark:bg-brand-900/10 p-8 rounded-[2.5rem] border border-brand-100 dark:border-brand-800/50 shadow-inner">
-                              <ul className="space-y-5">
-                                 {APP_CHANGELOG[0].changes[lang].map((change, i) => (
-                                   <li key={i} className="flex gap-4 text-xs font-bold text-slate-800 dark:text-slate-200 leading-relaxed"><Check className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /> {change}</li>
-                                 ))}
-                              </ul>
-                           </div>
-                        </div>
-                        <div className="pt-8 border-t dark:border-slate-800 border-slate-200 text-center"><p className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-[0.25em]">Developed by <span className="text-brand-600 font-extrabold underline underline-offset-8 decoration-2" style={{ color: activeBranchColor, textDecorationColor: activeBranchColor }}>thPhuoc</span></p></div>
+                        <div className="pt-6 border-t dark:border-slate-800 border-slate-100 text-center"><p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Developed with <Heart className="w-3 h-3 text-rose-500 inline mx-1 fill-rose-500" /> by <span className="text-brand-600 font-extrabold" style={{ color: activeBranchColor }}>thPhuoc</span></p></div>
                       </div>
                     )}
                 </div>
@@ -464,17 +454,17 @@ const App = () => {
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 px-6 z-[2000] flex justify-center pointer-events-none pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-        <nav className="h-20 sm:h-22 max-w-md w-full glass border border-white dark:border-slate-800/80 flex items-center justify-around px-3 rounded-[2.5rem] shadow-2xl pointer-events-auto shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)]">
+        <nav className="h-18 sm:h-20 max-w-md w-full glass border border-white/40 dark:border-slate-800/80 flex items-center justify-around px-2 rounded-[2.5rem] shadow-2xl pointer-events-auto">
           {[
             { id: 'income', label: t('income'), icon: Wallet },
             { id: 'expense', label: t('expense'), icon: ArrowDownCircle },
             { id: 'stats', label: t('stats'), icon: LayoutDashboard },
             { id: 'settings', label: t('settings'), icon: Settings }
           ].map(tab => (
-            <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex flex-col items-center gap-2 relative py-2 rounded-2xl flex-1 transition-all active-scale ${activeTab === tab.id ? 'opacity-100' : 'text-slate-500'}`} style={{ color: activeTab === tab.id ? activeBranchColor : '' }}>
-              <tab.icon className={`w-6 h-6 sm:w-7 sm:h-7 ${activeTab === tab.id ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
-              <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-[0.1em] ${activeTab === tab.id ? 'opacity-100' : 'opacity-60'}`}>{tab.label}</span>
-              {activeTab === tab.id && <div className="absolute -bottom-2 w-2 h-2 rounded-full shadow-lg" style={{ backgroundColor: activeBranchColor, boxShadow: `0 0 15px ${activeBranchColor}` }} />}
+            <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex flex-col items-center gap-1.5 relative py-2 rounded-2xl flex-1 transition-all active-scale ${activeTab === tab.id ? 'opacity-100' : 'text-slate-400'}`} style={{ color: activeTab === tab.id ? activeBranchColor : '' }}>
+              <tab.icon className={`w-5.5 h-5.5 sm:w-6.5 sm:h-6.5 ${activeTab === tab.id ? 'stroke-[2.5]' : 'stroke-[2]'}`} />
+              <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-widest ${activeTab === tab.id ? 'opacity-100' : 'opacity-60'}`}>{tab.label}</span>
+              {activeTab === tab.id && <div className="absolute -top-3 w-8 h-1 rounded-full shadow-lg" style={{ backgroundColor: activeBranchColor }} />}
             </button>
           ))}
         </nav>
