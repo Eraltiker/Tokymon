@@ -131,39 +131,39 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "3.5.8";
+export const SCHEMA_VERSION = "3.5.9";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
+  {
+    version: "3.5.9",
+    date: "2024-07-20",
+    changes: {
+      vi: [
+        "Obsidian AI Vision: Chuyển đổi sang GPU-Filters để tiết kiệm RAM tối đa cho Android.",
+        "Header Ultra-Slim: Thu gọn tối đa diện tích, giấu nhãn chữ trên Mobile.",
+        "Gallery Mode: Cho phép chọn ảnh từ thư viện để tránh crash camera trên máy yếu.",
+        "RAM Recovery Pro: Tăng thời gian chờ giải phóng bộ nhớ lên 1s sau khi chụp."
+      ],
+      de: [
+        "Obsidian AI Vision: GPU-Filter für maximalen RAM-Schutz auf Android.",
+        "Header Ultra-Slim: Maximale Platzersparnis, versteckte Beschriftungen auf Mobilgeräten.",
+        "Gallery Mode: Erlaubt Bildauswahl aus Galerie, um Kamera-Crashes zu vermeiden.",
+        "RAM Recovery Pro: Erhöhte Wartezeit zur Speicherrückgewinnung nach der Aufnahme."
+      ]
+    }
+  },
   {
     version: "3.5.8",
     date: "2024-07-15",
     changes: {
       vi: [
-        "Iron Vision Pipeline: Quy trình quét ảnh 4 bước (Giải phóng RAM -> Tối ưu tương phản -> Chuyển hệ xám -> AI).",
-        "Header Mobile v3: Tối ưu diện tích cực đại cho màn hình điện thoại.",
-        "Auto Grayscale: Tự động lọc trắng đen giúp AI đọc hóa đơn mờ cực nét.",
-        "Smart Network Status: Hiển thị chi tiết trạng thái kết nối ngay tại Header."
+        "Iron Vision Pipeline: Quy trình quét ảnh 4 bước.",
+        "Header Mobile v3: Tối ưu diện tích."
       ],
       de: [
-        "Iron Vision Pipeline: 4-Schritte-Scan-Prozess (RAM-Release -> Kontrast -> Graustufen -> KI).",
-        "Header Mobile v3: Maximale Platzoptimierung für Smartphone-Displays.",
-        "Auto Grayscale: Automatischer Schwarz-Weiß-Filter für besseres KI-Lesen.",
-        "Smart Network Status: Detaillierte Verbindungsanzeige direkt im Header."
-      ]
-    }
-  },
-  {
-    version: "3.5.7",
-    date: "2024-07-10",
-    changes: {
-      vi: [
-        "Titanium Mobile Vision: Tối ưu bộ nhớ RAM khi quét hóa đơn.",
-        "Header Compact v2: Tối ưu diện tích hiển thị."
-      ],
-      de: [
-        "Titanium Mobile Vision: RAM-Optimierung für Belegscan.",
-        "Header Compact v2: Besseres Layout."
+        "Iron Vision Pipeline: 4-Schritte-Scan-Prozess.",
+        "Header Mobile v3: Platzoptimierung."
       ]
     }
   }
