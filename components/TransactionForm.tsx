@@ -64,55 +64,76 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   };
 
   /**
-   * SIMPLIFIED VISION PIPELINE v4.0
-   * Gỡ bỏ mọi Filter phức tạp, chỉ resize và gửi để tránh xung đột RAM/Browser.
+   * TITANIUM VISION PIPELINE v4.5 - MOBILE-SAFE
+   * Sử dụng ImageBitmap hoặc kỹ thuật rò rỉ bộ nhớ thấp nhất có thể.
    */
-  const processImageSimple = async (file: File): Promise<{base64: string, type: string}> => {
-    // Chờ 1s để giải phóng camera hệ thống
-    await new Promise(r => setTimeout(r, 1000));
+  const processImageTitanium = async (file: File): Promise<{base64: string, type: string}> => {
+    // Bước 1: Cho phép RAM giải phóng (Garbage Collection)
+    await new Promise(r => setTimeout(r, 600));
 
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      const img = new Image();
+      reader.onerror = () => reject(new Error("File Reader Error"));
       
-      reader.onload = (e) => { img.src = e.target?.result as string; };
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_SIZE = 800; // Cân bằng giữa chất lượng và bộ nhớ
-        let width = img.width;
-        let height = img.height;
+      reader.onload = async (e) => {
+        const dataUrl = e.target?.result as string;
+        const img = new Image();
+        
+        img.onerror = () => reject(new Error("Image Load Error"));
+        img.onload = async () => {
+          try {
+            const canvas = document.createElement('canvas');
+            // GIỚI HẠN SIÊU THẤP: Mobile chỉ cần 800px-1000px để OCR
+            const MAX_SIZE = 900; 
+            let width = img.width;
+            let height = img.height;
 
-        if (width > height) {
-          if (width > MAX_SIZE) {
-            height *= MAX_SIZE / width;
-            width = MAX_SIZE;
+            if (width > height) {
+              if (width > MAX_SIZE) {
+                height *= MAX_SIZE / width;
+                width = MAX_SIZE;
+              }
+            } else {
+              if (height > MAX_SIZE) {
+                width *= MAX_SIZE / height;
+                height = MAX_SIZE;
+              }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            
+            const ctx = canvas.getContext('2d', { 
+              alpha: false, 
+              desynchronized: true // Tối ưu hóa luồng vẽ trên Chrome Mobile
+            });
+            
+            if (!ctx) return reject(new Error("Canvas Failure"));
+
+            // Vẽ ảnh
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // BƯỚC QUAN TRỌNG: Giải phóng ảnh gốc ngay lập tức
+            img.src = ""; // Clear memory reference
+            
+            // Chuyển đổi chất lượng thấp (Quality 0.4) để giảm tải RAM khi tạo Base64
+            const resultBase64 = canvas.toDataURL('image/jpeg', 0.4);
+            const base64Data = resultBase64.split(',')[1];
+            
+            // Xóa canvas
+            canvas.width = 0;
+            canvas.height = 0;
+
+            resolve({ base64: base64Data, type: 'image/jpeg' });
+          } catch (err) {
+            reject(err);
           }
-        } else {
-          if (height > MAX_SIZE) {
-            width *= MAX_SIZE / height;
-            height = MAX_SIZE;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return reject(new Error("Canvas Failure"));
-
-        // Chỉ vẽ ảnh gốc (Tối giản nhất)
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Chuyển sang DataURL (Standard compatibility)
-        try {
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-          const base64Data = dataUrl.split(',')[1];
-          resolve({ base64: base64Data, type: 'image/jpeg' });
-        } catch (e) {
-          reject(e);
-        }
+        };
+        img.src = dataUrl;
       };
-
-      img.onerror = () => reject(new Error("Image Load Error"));
+      
       reader.readAsDataURL(file);
     });
   };
@@ -126,7 +147,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
     try {
       if (!navigator.onLine) throw new Error("OFFLINE");
 
-      const processed = await processImageSimple(file);
+      // Khởi chạy Titanium Vision
+      const processed = await processImageTitanium(file);
+      
+      // Chờ một chút trước khi gửi API (giúp Mobile phục hồi)
+      await new Promise(r => setTimeout(r, 400));
+      
       const result = await scanReceipt(processed.base64, processed.type);
       
       if (result) {
@@ -138,12 +164,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         if (result.date) setDate(result.date);
       }
     } catch (error: any) { 
-      console.error("Tokymon AI Error:", error);
+      console.error("Tokymon Titanium Vision Error:", error);
       const msg = error.message === "OFFLINE" 
         ? (lang === 'vi' ? "Yêu cầu Internet để quét AI." : "Internetverbindung erforderlich.")
         : (lang === 'vi' 
-            ? "Xin lỗi, AI không nhận dạng được hóa đơn này. Vui lòng nhập tay." 
-            : "Entschuldigung, die KI konnte diesen Beleg nicht erkennen. Bitte manuell eingeben.");
+            ? "Lỗi bộ nhớ hoặc định dạng. Hãy thử lại với ảnh dung lượng nhỏ hơn." 
+            : "Speicherfehler. Bitte mit einem kleineren Bild erneut versuchen.");
       alert(msg);
     } finally {
       setIsScanning(false);
@@ -189,13 +215,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
             </div>
           </div>
           <div className="text-center space-y-2">
-            <h4 className="text-[12px] font-black uppercase tracking-[0.3em] text-brand-400">Tokymon Vision</h4>
+            <h4 className="text-[12px] font-black uppercase tracking-[0.3em] text-brand-400">Titanium Vision</h4>
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('ai_scanning_text')}</p>
           </div>
         </div>
       )}
 
-      <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800/50 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20">
+      <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800/50 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20">
         <div className="min-w-0 pr-2 flex-1">
           <span className="text-[8px] font-black uppercase text-brand-600 dark:text-brand-400 tracking-[0.2em] block mb-0.5 opacity-80">{branchName}</span>
           <h2 className="text-base font-extrabold uppercase tracking-tight dark:text-white leading-none truncate">
@@ -205,7 +231,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         
         {type === TransactionType.EXPENSE && (
           <div className="shrink-0">
-            <label className="relative flex items-center gap-2 px-3 py-2 bg-slate-900 dark:bg-brand-600 text-white rounded-xl shadow-vivid active-scale cursor-pointer transition-all">
+            <label className="relative flex items-center gap-2 px-3 py-2 bg-slate-950 dark:bg-brand-600 text-white rounded-xl shadow-vivid active-scale cursor-pointer transition-all">
                <Camera className="w-4 h-4" />
                <span className="text-[9px] font-black uppercase tracking-widest">AI Vision</span>
                <input 

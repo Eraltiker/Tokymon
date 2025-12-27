@@ -319,44 +319,47 @@ const App = () => {
         </div>
       )}
 
-      {/* PREMIUM HEADER v4 - 2 PARTS LAYOUT */}
-      <header className="px-4 py-2 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800/40 shadow-sm safe-pt">
+      {/* ELITE HEADER v4.5 - 2 PARTS LAYOUT */}
+      <header className="px-4 py-3 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800/40 shadow-sm safe-pt">
         
-        {/* LEFT PART: IDENTITY (Logo + Branch) */}
-        <div className="flex items-center gap-3 min-w-0 max-w-[65%]">
-           <div className="relative w-9 h-9 sm:w-10 sm:h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-vivid shrink-0" style={{ backgroundColor: activeBranchColor }}>
+        {/* LEFT PART: IDENTITY (Logo & Branch Unified) */}
+        <div className="flex items-center gap-3 min-w-0 max-w-[60%]">
+           <div className="relative w-10 h-10 bg-slate-950 dark:bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-vivid shrink-0 overflow-hidden" style={{ backgroundColor: activeBranchColor }}>
               {data.logoUrl ? ( <img src={data.logoUrl} className="w-6 h-6 object-contain" alt="L" /> ) : ( <UtensilsCrossed className="w-5 h-5" /> )}
            </div>
-           <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex flex-col items-start min-w-0 group active:opacity-60 transition-opacity">
-              <div className="flex items-center gap-1.5 w-full">
-                <span className="text-[13px] font-black uppercase dark:text-white truncate tracking-tight leading-none">{currentBranchName}</span>
+           <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex flex-col items-start min-w-0 group">
+              <div className="flex items-center gap-1 w-full">
+                <span className="text-[14px] font-black uppercase dark:text-white truncate tracking-tight leading-none">{currentBranchName}</span>
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showBranchDropdown ? 'rotate-180' : ''}`} />
               </div>
-              <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1 leading-none">Tokymon Finance</p>
+              <div className="flex items-center gap-1.5 mt-1 opacity-60">
+                 <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: activeBranchColor }} />
+                 <p className="text-[8px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-none">Tokymon Enterprise</p>
+              </div>
            </button>
         </div>
 
-        {/* RIGHT PART: CONTROLS (Status + Utility Buttons) */}
-        <div className="flex items-center gap-2">
-           {/* Unified Status Dot */}
-           <div className={`w-2 h-2 rounded-full border border-white dark:border-slate-700 ${isOnline ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
-           
-           <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-1 hidden sm:block" />
-
-           <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-full border border-white dark:border-slate-700/50">
-             <button onClick={() => setIsDark(!isDark)} className="w-7 h-7 rounded-full flex items-center justify-center active-scale transition-all hover:bg-white dark:hover:bg-slate-700">
+        {/* RIGHT PART: CONTROL CENTER (Utilities & Logout) */}
+        <div className="flex items-center gap-2 shrink-0">
+           <div className="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/50 rounded-2xl border border-white dark:border-slate-700/50 shadow-inner">
+             {/* Status Dot */}
+             <div className={`w-2.5 h-2.5 rounded-full border border-white dark:border-slate-700 mx-1 ${isOnline ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
+             
+             <div className="w-[1px] h-4 bg-slate-200 dark:bg-slate-700" />
+             
+             <button onClick={() => setIsDark(!isDark)} className="w-7 h-7 rounded-lg flex items-center justify-center active-scale transition-all hover:bg-white dark:hover:bg-slate-700">
                {isDark ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5 text-brand-600" />}
              </button>
-             <button onClick={toggleLanguage} className="w-7 h-7 rounded-full flex items-center justify-center active-scale hover:bg-white dark:hover:bg-slate-700">
+             <button onClick={toggleLanguage} className="w-7 h-7 rounded-lg flex items-center justify-center active-scale hover:bg-white dark:hover:bg-slate-700">
                <span className="text-[9px] font-black uppercase dark:text-white">{lang === 'vi' ? 'VN' : 'DE'}</span>
              </button>
-             <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })} className="w-7 h-7 text-rose-600 rounded-full active-scale flex items-center justify-center hover:bg-rose-500 hover:text-white transition-colors">
+             <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })} className="w-7 h-7 text-rose-600 rounded-lg active-scale flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all">
                <LogOut className="w-3.5 h-3.5" />
              </button>
            </div>
         </div>
 
-        {/* Branch Dropdown Portal */}
+        {/* Branch Dropdown */}
         {showBranchDropdown && (
           <>
             <div className="fixed inset-0 z-[1001]" onClick={() => setShowBranchDropdown(false)} />
@@ -371,7 +374,7 @@ const App = () => {
                 {dropdownBranches.map(b => (
                   <button key={b.id} onClick={() => { setCurrentBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-4.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-slate-50 dark:bg-slate-800/50 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`} style={{ color: currentBranchId === b.id ? b.color : 'inherit' }}>
                     <div className="flex items-center gap-3">
-                       <div className="w-2 h-2 rounded-full" style={{ backgroundColor: b.color }} />
+                       <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: b.color }} />
                        <span className="text-[11px] font-black uppercase">{b.name}</span>
                     </div>
                     {currentBranchId === b.id && <Check className="w-3.5 h-3.5" />}
@@ -489,8 +492,8 @@ const App = () => {
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
-                           <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest leading-none">System Engine</p><div className="flex items-center gap-2 text-emerald-500"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /><span className="text-[9px] font-black uppercase tracking-widest leading-none">Ultimate {SCHEMA_VERSION}</span></div></div>
-                           <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest leading-none">Status</p><div className="flex items-center gap-2 text-brand-600" style={{ color: activeBranchColor }}><ShieldCheck className="w-3.5 h-3.5" /><span className="text-[9px] font-black uppercase tracking-widest leading-none">{isOnline ? 'Online' : 'Offline'}</span></div></div>
+                           <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest leading-none">System Engine</p><div className="flex items-center gap-2 text-emerald-500"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /><span className="text-[9px] font-black uppercase tracking-widest leading-none">Titanium {SCHEMA_VERSION}</span></div></div>
+                           <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest leading-none">Status</p><div className="flex items-center gap-2 text-brand-600" style={{ color: activeBranchColor }}><ShieldCheck className="w-3.5 h-3.5" /><span className="text-[9px] font-black uppercase tracking-widest leading-none">{isOnline ? 'Active' : 'Offline'}</span></div></div>
                         </div>
                         <div className="pt-6 border-t dark:border-slate-800 border-slate-100 text-center"><p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Built with <Heart className="w-3 h-3 text-rose-500 inline mx-1 fill-rose-500" /> by <span className="text-brand-600 font-extrabold" style={{ color: activeBranchColor }}>thPhuoc</span></p></div>
                       </div>

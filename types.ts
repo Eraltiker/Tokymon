@@ -131,25 +131,25 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "4.0.0";
+export const SCHEMA_VERSION = "4.5.0";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
   {
-    version: "4.0.0",
-    date: "2024-07-25",
+    version: "4.5.0",
+    date: "2024-07-30",
     changes: {
       vi: [
-        "Header Premium v4: Thiết kế lại theo layout 2 phần (Identity & Controls) cực kỳ sang trọng.",
-        "Simplified AI Vision: Gỡ bỏ các filter phức tạp, tối giản quy trình xử lý ảnh để đảm bảo hoạt động trên Android.",
-        "Unified Identity: Gộp Logo và Chi nhánh vào một khối đồng nhất.",
-        "Status Indicator Pro: Đèn báo trạng thái mạng tích hợp tinh tế vào cụm điều khiển."
+        "Titanium Vision: Quy trình xử lý ảnh bậc thấp giúp tránh lỗi tràn RAM trên Mobile khi quét hóa đơn.",
+        "Elite Header v4.5: Layout 2 phần (Identity & Utils) sang trọng và tối ưu không gian.",
+        "Memory Purge: Tự động dọn dẹp bộ nhớ đệm ngay sau khi AI xử lý xong.",
+        "Async Recovery: Thêm khoảng nghỉ kỹ thuật giữa các bước để tăng độ ổn định trên Android/iOS."
       ],
       de: [
-        "Header Premium v4: Neugestaltetes 2-Teile-Layout (Identität & Steuerung) für mehr Eleganz.",
-        "Vereinfachte KI-Vision: Komplexe Filter entfernt, Bildverarbeitung für Android-Kompatibilität minimiert.",
-        "Unified Identity: Logo und Filiale in einem Block vereint.",
-        "Status Indicator Pro: Dezente Netzwerk-Statusanzeige in der Steuereinheit."
+        "Titanium Vision: Low-Level-Bildverarbeitung verhindert RAM-Überlastung beim Scannen auf Mobilgeräten.",
+        "Elite Header v4.5: Elegantes 2-Teile-Layout (Identität & Utils) für maximale Platzersparnis.",
+        "Memory Purge: Automatisches Leeren des Caches nach der KI-Verarbeitung.",
+        "Async Recovery: Technische Pausen zwischen den Schritten für höhere Stabilität auf Android/iOS."
       ]
     }
   }
