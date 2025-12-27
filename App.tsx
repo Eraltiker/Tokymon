@@ -14,6 +14,7 @@ import RecurringManager from './components/RecurringManager';
 import BranchManager from './components/BranchManager';
 import UserManager from './components/UserManager';
 import ExportManager from './components/ExportManager';
+import GuideCenter from './components/GuideCenter';
 import { useTranslation } from './i18n';
 import { 
   UtensilsCrossed, LayoutDashboard, Settings, 
@@ -24,12 +25,12 @@ import {
   ImageIcon, ArrowRight,
   Globe, Check, Info, ShieldCheck,
   Sparkles, Loader2, PartyPopper, X,
-  Fingerprint, Heart, LockKeyhole, Languages
+  Fingerprint, Heart, LockKeyhole, Languages, HelpCircle, LayoutGrid
 } from 'lucide-react';
 
 const App = () => {
   const [activeTab, setActiveTab] = useState<'income' | 'expense' | 'stats' | 'settings'>('income');
-  const [settingsSubTab, setSettingsSubTab] = useState<'general' | 'export' | 'branches' | 'users' | 'sync' | 'audit' | 'about'>('general');
+  const [settingsSubTab, setSettingsSubTab] = useState<'general' | 'export' | 'branches' | 'users' | 'sync' | 'audit' | 'about' | 'guide'>('general');
   const [isDark, setIsDark] = useState(() => localStorage.getItem('tokymon_theme') === 'dark');
   const [lang, setLang] = useState<Language>(() => (localStorage.getItem('tokymon_lang') as Language) || 'vi');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -423,7 +424,8 @@ const App = () => {
               <div className="space-y-6">
                 <div className="flex gap-2 overflow-x-auto no-scrollbar px-1 pb-2">
                   {[ 
-                    { id: 'general', label: t('branding'), icon: ImageIcon }, 
+                    { id: 'general', label: t('branding'), icon: LayoutGrid }, 
+                    { id: 'guide', label: t('guide'), icon: HelpCircle },
                     { id: 'export', label: 'Excel', icon: FileSpreadsheet }, 
                     { id: 'sync', label: 'Cloud', icon: Cloud }, 
                     { id: 'branches', label: t('branches'), icon: MapPin }, 
@@ -445,6 +447,7 @@ const App = () => {
                   ))}
                 </div>
                 <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-[2.5rem] p-5 border border-white/20 dark:border-slate-800 shadow-ios min-h-[450px]">
+                    {settingsSubTab === 'guide' && <GuideCenter lang={lang} />}
                     {settingsSubTab === 'sync' && (
                       <div className="space-y-10 max-w-sm mx-auto pt-10 text-center">
                         <div className="w-20 h-20 bg-brand-50/50 dark:bg-brand-900/10 text-brand-600 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner border border-brand-100 dark:border-brand-900/20" style={{ color: activeBranchColor }}><Cloud className="w-10 h-10" /></div>
@@ -459,7 +462,6 @@ const App = () => {
                     )}
                     {settingsSubTab === 'export' && <ExportManager transactions={activeTransactions} branches={activeBranches} lang={lang} />}
                     {settingsSubTab === 'branches' && <BranchManager branches={data.branches} setBranches={setBranchesWithDataCleanup} onAudit={addAuditLog} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} onResetBranchData={handleResetBranchData} lang={lang} />}
-                    {/* // Fixed: Changed setGlobalConfirm call to setConfirmModal to resolve undefined reference error */}
                     {settingsSubTab === 'users' && <UserManager users={data.users} setUsers={val => setData(p => ({...p, users: typeof val === 'function' ? val(p.users) : val}))} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} lang={lang} />}
                     {settingsSubTab === 'general' && ( <div className="space-y-10"><CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => {setData(prev => ({...prev, expenseCategories: cats}));}} lang={lang} /><RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={data.expenseCategories} onUpdate={(recs) => {setData(prev => ({...prev, recurringExpenses: recs}));}} onGenerateTransactions={txs => {setData(prev => ({...prev, transactions: [...txs, ...prev.transactions]}));}} branchId={currentBranchId === ALL_BRANCHES_ID ? allowedBranches[0]?.id : currentBranchId} lang={lang} /></div> )}
                     {settingsSubTab === 'audit' && (

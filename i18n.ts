@@ -34,6 +34,7 @@ export const translations = {
     confirm: "Xác nhận",
     update: "Cập nhật",
     add_new: "Thêm mới",
+    guide: "Hướng dẫn",
     
     // Dashboard & Stats
     overview_tab: "T.Quan",
@@ -85,7 +86,7 @@ export const translations = {
     handover_label: "Bàn giao",
     
     // Management & Branding
-    branding: "Thương hiệu",
+    branding: "Danh mục & Định kỳ",
     custom_logo: "Logo doanh nghiệp",
     upload_logo: "Tải lên Logo",
     reset_logo: "Khôi phục mặc định",
@@ -178,6 +179,7 @@ export const translations = {
     confirm: "Bestätigen",
     update: "Aktualisieren",
     add_new: "Hinzufügen",
+    guide: "Anleitung",
     
     // Dashboard & Stats
     overview_tab: "Überbl.",
@@ -229,7 +231,7 @@ export const translations = {
     handover_label: "Übergabe",
     
     // Management & Branding
-    branding: "Markenführung",
+    branding: "Kategorien & Abo",
     custom_logo: "Unternehmenslogo",
     upload_logo: "Logo hochladen",
     reset_logo: "Zurücksetzen",
@@ -262,7 +264,7 @@ export const translations = {
     online: "Online",
     developer: "Entwickler",
     support: "Technischer Support",
-    legal: "Rechtliches & Datenschutz",
+    legal: "Datenschutz",
     security: "Sicherheit",
     system_core: "Systemkern",
     active: "Aktiv",
