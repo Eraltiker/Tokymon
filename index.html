@@ -48,7 +48,8 @@
             boxShadow: {
               'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
               'vivid': '0 12px 24px -6px rgba(99, 102, 241, 0.15)',
-              'ios': '0 10px 30px -10px rgba(0,0,0,0.08)'
+              'ios': '0 10px 30px -10px rgba(0,0,0,0.08)',
+              'glass': 'inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 8px 32px 0 rgba(31, 38, 135, 0.37)'
             }
           }
         }
@@ -72,50 +73,79 @@
       }
       .dark body { background-color: #06070a; color: #F1F5F9; }
 
-      body::before {
-        content: '';
+      /* Hiệu ứng nền Mesh Gradient động cho Login */
+      .login-mesh {
         position: fixed;
         top: 0; left: 0; width: 100%; height: 100%;
-        background: radial-gradient(circle at 10% 10%, rgba(99, 102, 241, 0.04) 0%, transparent 40%),
-                    radial-gradient(circle at 90% 90%, rgba(168, 85, 247, 0.04) 0%, transparent 40%);
+        background-color: #f8fafc;
+        background-image: 
+          radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+          radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.15) 0px, transparent 50%),
+          radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+          radial-gradient(at 0% 100%, rgba(168, 85, 247, 0.15) 0px, transparent 50%);
         z-index: -1;
-        pointer-events: none;
       }
-      .dark body::before {
-        background: radial-gradient(circle at 20% 10%, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
-                    radial-gradient(circle at 80% 90%, rgba(79, 70, 229, 0.05) 0%, transparent 40%);
+      .dark .login-mesh {
+        background-color: #020617;
+        background-image: 
+          radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
+          radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.1) 0px, transparent 50%),
+          radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
+          radial-gradient(at 0% 100%, rgba(168, 85, 247, 0.1) 0px, transparent 50%);
       }
       
       .glass {
-        background: rgba(255, 255, 255, 0.88);
+        background: rgba(255, 255, 255, 0.7);
         backdrop-filter: saturate(180%) blur(25px);
         -webkit-backdrop-filter: saturate(180%) blur(25px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
       }
       .dark .glass {
-        background: rgba(10, 15, 25, 0.82);
+        background: rgba(15, 23, 42, 0.6);
         backdrop-filter: saturate(180%) blur(25px);
         -webkit-backdrop-filter: saturate(180%) blur(25px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
       }
       
+      /* Animation chạy ánh sáng trên nút */
+      @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+      .shimmer-btn {
+        position: relative;
+        overflow: hidden;
+      }
+      .shimmer-btn::after {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; width: 50%; height: 100%;
+        background: linear-gradient(to right, transparent, rgba(255,255,255,0.3), transparent);
+        transform: skewX(-20deg);
+        animation: shimmer 2s infinite;
+      }
+
       .safe-pt { padding-top: var(--sat); }
       .safe-pb { padding-bottom: var(--sab); }
-      .safe-mt { margin-top: var(--sat); }
-      .safe-mb { margin-bottom: var(--sab); }
-
       .active-scale:active { transform: scale(0.96); }
       
       .no-scrollbar::-webkit-scrollbar { display: none; }
-      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       
       @keyframes fadeSlideUp {
-        from { opacity: 0; transform: translateY(15px); }
-        to { opacity: 1; transform: translateY(0); }
+        from { opacity: 0; transform: translateY(30px) scale(0.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
       }
-      .animate-ios { animation: fadeSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+      .animate-ios { animation: fadeSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
 
-      /* Fix overlapping issues on mobile inputs */
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-8px); }
+        75% { transform: translateX(8px); }
+      }
+      .animate-shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+
       input, select, textarea {
-        font-size: 16px !important; /* Tránh iOS auto-zoom gây chồng chéo layout */
+        font-size: 16px !important;
       }
     </style>
   <script type="importmap">

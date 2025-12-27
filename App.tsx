@@ -23,7 +23,8 @@ import {
   AlertTriangle, Languages, UserCircle2, 
   ImageIcon, Lock, ArrowRight, Cpu,
   Globe, Check, Info, ShieldCheck, ExternalLink, Zap,
-  Sparkles, WifiOff, Wifi, Loader2, PartyPopper, X
+  Sparkles, WifiOff, Wifi, Loader2, PartyPopper, X,
+  KeyRound, Fingerprint
 } from 'lucide-react';
 
 const App = () => {
@@ -57,14 +58,11 @@ const App = () => {
   const pollTimerRef = useRef<number | null>(null);
   const dataRef = useRef(data);
 
-  // Cơ chế Version Guard: Tự động phát hiện phiên bản mới
   useEffect(() => {
     const lastVersion = localStorage.getItem('tokymon_system_version');
     if (lastVersion && lastVersion !== SCHEMA_VERSION && currentUser) {
-      // Nếu phiên bản cũ khác phiên bản code hiện tại, hiện modal thông báo
       setShowUpdateModal(true);
     }
-    // Cập nhật lại phiên bản mới nhất vào bộ nhớ
     localStorage.setItem('tokymon_system_version', SCHEMA_VERSION);
   }, [currentUser]);
 
@@ -216,38 +214,43 @@ const App = () => {
 
   if (!currentUser) {
     return (
-      <div className={`min-h-screen ${isDark ? 'bg-slate-950 text-white' : 'bg-[#F2F4F7] text-slate-900'} flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans transition-colors duration-500`}>
-        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-brand-600/10 blur-[120px] rounded-full animate-pulse pointer-events-none" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[120px] rounded-full animate-pulse delay-1000 pointer-events-none" />
+      <div className={`min-h-screen relative flex flex-col items-center justify-center p-6 font-sans transition-colors duration-500 overflow-hidden`}>
+        <div className="login-mesh" />
         
+        {/* Floating Decorative Blobs */}
+        <div className="absolute top-[-5%] left-[-5%] w-72 h-72 bg-brand-600/20 blur-[100px] rounded-full animate-pulse pointer-events-none" />
+        <div className="absolute bottom-[5%] right-[-5%] w-96 h-96 bg-purple-600/10 blur-[120px] rounded-full animate-pulse delay-1000 pointer-events-none" />
+
         <div className="absolute top-8 right-8 z-50 flex items-center gap-3 safe-mt">
-           <button onClick={() => setIsDark(!isDark)} className="w-11 h-11 glass rounded-2xl border dark:border-white/10 border-slate-200 flex items-center justify-center active-scale transition-all shadow-xl">
+           <button onClick={() => setIsDark(!isDark)} className="w-12 h-12 glass rounded-2xl flex items-center justify-center active-scale transition-all shadow-xl">
              {isDark ? <Sun className="w-5 h-5 text-amber-500" /> : <Moon className="w-5 h-5 text-brand-600" />}
            </button>
-           <button onClick={toggleLanguage} className="px-5 py-2.5 glass rounded-2xl border dark:border-white/10 border-slate-200 dark:text-white text-slate-700 active-scale transition-all flex items-center gap-3 shadow-xl group">
+           <button onClick={toggleLanguage} className="px-5 py-3 glass rounded-2xl dark:text-white text-slate-700 active-scale transition-all flex items-center gap-3 shadow-xl group">
               <Languages className="w-4 h-4 text-brand-500" />
-              <span className="text-[11px] font-black uppercase tracking-widest">{lang === 'vi' ? 'Tiếng Việt' : 'Deutsch'}</span>
+              <span className="text-[11px] font-black uppercase tracking-widest">{lang === 'vi' ? 'VI' : 'DE'}</span>
            </button>
         </div>
 
-        <div className="w-full max-w-[420px] z-10 space-y-12 animate-ios">
-          <div className="text-center space-y-8">
-            <div className="relative inline-block">
-              <div className="relative p-10 bg-white dark:bg-white/5 rounded-[4rem] backdrop-blur-3xl border border-white dark:border-white/10 shadow-2xl active-scale transition-all duration-500 overflow-hidden">
+        <div className="w-full max-w-[440px] z-10 space-y-12 animate-ios">
+          <div className="text-center space-y-10">
+            <div className="relative inline-block group">
+              <div className="absolute -inset-4 bg-gradient-to-tr from-brand-600 to-purple-600 rounded-[3.5rem] blur-2xl opacity-20 group-hover:opacity-40 transition-opacity duration-700" />
+              <div className="relative p-10 bg-white/40 dark:bg-white/5 rounded-[3.5rem] backdrop-blur-3xl border border-white/50 dark:border-white/10 shadow-glass active-scale transition-all duration-500">
                 {data.logoUrl ? (
-                  <img src={data.logoUrl} alt="Tokymon" className="w-24 h-24 mx-auto object-contain relative z-10" />
+                  <img src={data.logoUrl} alt="Tokymon" className="w-24 h-24 mx-auto object-contain" />
                 ) : (
-                  <UtensilsCrossed className="w-14 h-14 text-brand-600 mx-auto relative z-10" />
+                  <UtensilsCrossed className="w-16 h-16 text-brand-600 dark:text-brand-400 mx-auto" />
                 )}
-                <div className="absolute inset-0 bg-gradient-to-br from-brand-600/5 to-indigo-600/5 opacity-50" />
               </div>
             </div>
-            <div className="space-y-3">
-              <h1 className="text-5xl font-black dark:text-white text-slate-900 uppercase tracking-tighter leading-none">Tokymon</h1>
-              <div className="flex items-center justify-center gap-2">
-                <div className="h-[1px] w-10 bg-brand-500/30" />
-                <p className="text-[10px] font-black text-brand-500 dark:text-brand-400 uppercase tracking-[0.5em] translate-x-[0.25em]">Finance Core</p>
-                <div className="h-[1px] w-10 bg-brand-500/30" />
+            <div className="space-y-4">
+              <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-900 to-slate-500 dark:from-white dark:to-slate-400 uppercase tracking-[-0.08em] leading-none">
+                TOKYMON
+              </h1>
+              <div className="flex items-center justify-center gap-4">
+                <div className="h-[1.5px] w-8 bg-brand-500/40" />
+                <p className="text-[11px] font-black text-brand-600 dark:text-brand-400 uppercase tracking-[0.6em] translate-x-[0.3em]">Finance Core</p>
+                <div className="h-[1.5px] w-8 bg-brand-500/40" />
               </div>
             </div>
           </div>
@@ -256,42 +259,72 @@ const App = () => {
             onSubmit={(e) => {
               e.preventDefault();
               const user = activeUsers.find(u => u.username.toLowerCase() === loginForm.username.toLowerCase() && u.password === loginForm.password);
-              if (user) { setCurrentUser(user); localStorage.setItem('tokymon_user', JSON.stringify(user)); addAuditLog('LOGIN', 'USER', user.id, `Đăng nhập thành công`); } else { setLoginError(t('error_login')); }
+              if (user) { 
+                setCurrentUser(user); 
+                localStorage.setItem('tokymon_user', JSON.stringify(user)); 
+                addAuditLog('LOGIN', 'USER', user.id, `Đăng nhập thành công`); 
+              } else { 
+                setLoginError(t('error_login')); 
+              }
             }} 
-            className="bg-white/90 dark:bg-white/[0.04] backdrop-blur-3xl p-10 rounded-[3.5rem] border border-white dark:border-white/10 shadow-2xl space-y-10"
+            className={`glass p-10 sm:p-12 rounded-[4rem] shadow-2xl space-y-10 relative overflow-hidden group ${loginError ? 'animate-shake' : ''}`}
           >
+            {/* Form decorative light */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-brand-500/50 to-transparent opacity-50" />
+
             <div className="space-y-8">
               <div className="space-y-4">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2 block">Access ID</label>
-                <div className="relative group">
-                  <input type="text" value={loginForm.username} onChange={e => {setLoginForm({...loginForm, username: e.target.value}); setLoginError('');}} className="w-full p-6 bg-slate-100/40 dark:bg-white/5 focus:bg-white dark:focus:bg-white/[0.08] rounded-3xl font-bold border-2 border-transparent focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-16 text-sm" placeholder="admin" required />
-                  <UserCircle2 className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.25em] ml-2 block">System Identity</label>
+                <div className="relative group/input">
+                  <input 
+                    type="text" 
+                    value={loginForm.username} 
+                    onChange={e => {setLoginForm({...loginForm, username: e.target.value}); setLoginError('');}} 
+                    className="w-full p-7 bg-white/50 dark:bg-black/20 focus:bg-white dark:focus:bg-black/40 rounded-[2.2rem] font-bold border border-white/50 dark:border-white/5 focus:border-brand-500 dark:focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-16 text-base" 
+                    placeholder="Username" 
+                    required 
+                  />
+                  <UserCircle2 className="absolute left-7 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-400 group-focus-within/input:text-brand-500 transition-colors" />
                 </div>
               </div>
               <div className="space-y-4">
-                <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2 block">Secure Key</label>
-                <div className="relative group">
-                  <input type="password" value={loginForm.password} onChange={e => {setLoginForm({...loginForm, password: e.target.value}); setLoginError('');}} className="w-full p-6 bg-slate-100/40 dark:bg-white/5 focus:bg-white dark:focus:bg-white/[0.08] rounded-3xl font-bold border-2 border-transparent focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-16 text-sm" placeholder="••••••••" required />
-                  <Lock className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.25em] ml-2 block">Security Token</label>
+                <div className="relative group/input">
+                  <input 
+                    type="password" 
+                    value={loginForm.password} 
+                    onChange={e => {setLoginForm({...loginForm, password: e.target.value}); setLoginError('');}} 
+                    className="w-full p-7 bg-white/50 dark:bg-black/20 focus:bg-white dark:focus:bg-black/40 rounded-[2.2rem] font-bold border border-white/50 dark:border-white/5 focus:border-brand-500 dark:focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-16 text-base" 
+                    placeholder="••••••••" 
+                    required 
+                  />
+                  <Fingerprint className="absolute left-7 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-400 group-focus-within/input:text-brand-500 transition-colors" />
                 </div>
               </div>
             </div>
 
             {loginError && (
-              <div className="bg-rose-500/10 p-5 rounded-2xl border border-rose-500/20 flex items-center gap-4 animate-shake">
+              <div className="bg-rose-500/10 p-5 rounded-3xl border border-rose-500/20 flex items-center gap-4">
                 <AlertTriangle className="w-6 h-6 text-rose-500" />
-                <p className="text-rose-600 dark:text-rose-400 text-xs font-black uppercase">{loginError}</p>
+                <p className="text-rose-600 dark:text-rose-400 text-xs font-black uppercase tracking-tight">{loginError}</p>
               </div>
             )}
 
-            <button type="submit" className="w-full py-6 bg-brand-600 hover:bg-brand-500 text-white rounded-[2.2rem] font-black uppercase text-sm tracking-[0.25em] active-scale transition-all flex items-center justify-center gap-4 shadow-vivid mt-4">
-              {t('login')} <ArrowRight className="w-5 h-5" />
+            <button 
+              type="submit" 
+              className="w-full py-7 bg-slate-900 dark:bg-brand-600 hover:bg-black dark:hover:bg-brand-500 text-white rounded-[2.5rem] font-black uppercase text-sm tracking-[0.3em] active-scale transition-all flex items-center justify-center gap-4 shadow-vivid mt-4 shimmer-btn"
+            >
+              {t('login')} <ArrowRight className="w-6 h-6" />
             </button>
           </form>
 
-          <div className="text-center space-y-3 opacity-50 pb-8">
-             <p className="text-[10px] font-black dark:text-slate-400 text-slate-500 uppercase tracking-[0.4em]">Tokymon Finance • thPhuoc Dev</p>
-             <p className="text-[9px] font-bold dark:text-slate-500 text-slate-400 uppercase tracking-[0.2em]">v{SCHEMA_VERSION} • Persistent System Layer</p>
+          <div className="text-center space-y-4 opacity-40 pb-12">
+             <div className="flex items-center justify-center gap-4">
+                <span className="w-10 h-[1px] bg-slate-400" />
+                <Cpu className="w-5 h-5 text-slate-400" />
+                <span className="w-10 h-[1px] bg-slate-400" />
+             </div>
+             <p className="text-[11px] font-black dark:text-slate-400 text-slate-600 uppercase tracking-[0.4em]">Enterprise Security Layer v{SCHEMA_VERSION}</p>
           </div>
         </div>
       </div>
@@ -300,7 +333,7 @@ const App = () => {
 
   return (
     <div className="min-h-screen flex flex-col transition-colors duration-300 font-sans pb-[env(safe-area-inset-bottom)]">
-      {/* Modal thông báo cập nhật phiên bản mới */}
+      {/* Rest of the App UI remains the same... */}
       {showUpdateModal && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-xl animate-in fade-in" onClick={() => setShowUpdateModal(false)} />
