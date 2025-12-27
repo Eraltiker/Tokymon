@@ -8,12 +8,12 @@ import { Language, EXPENSE_CATEGORIES } from "../types";
 export const analyzeFinances = async (stats: any, lang: Language = 'vi'): Promise<string> => {
   const { totalIn, totalOut, profit, margin, totalDebt } = stats;
   
-  const prompt = `Phân tích tài chính nhà hàng Tokymon (${lang}):
-    - Doanh thu: ${totalIn} EUR
-    - Chi phí: ${totalOut} EUR
-    - Lợi nhuận: ${profit} EUR (${(margin * 100).toFixed(1)}%)
-    - Công nợ: ${totalDebt} EUR
-    Hãy đưa ra 3 nhận xét chiến lược cực kỳ súc tích. Định dạng Markdown.`;
+  const prompt = `Analyze finances for Tokymon restaurant in ${lang === 'vi' ? 'Vietnamese' : 'German'}:
+    - Revenue: ${totalIn} EUR
+    - Expenses: ${totalOut} EUR
+    - Profit: ${profit} EUR (${(margin * 100).toFixed(1)}%)
+    - Debt: ${totalDebt} EUR
+    Provide 3 concise strategic remarks. Markdown format.`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -29,25 +29,27 @@ export const analyzeFinances = async (stats: any, lang: Language = 'vi'): Promis
 };
 
 /**
- * Quét hóa đơn - Sử dụng Gemini 3 Flash cho tốc độ siêu nhanh và ổn định trên Mobile
+ * Quét hóa đơn - Sử dụng Gemini 3 Flash với cấu hình tối ưu nhất cho Mobile OCR
  */
 export const scanReceipt = async (base64Image: string, mimeType: string): Promise<any> => {
   const categoriesList = EXPENSE_CATEGORIES.join(', ');
-  const prompt = `Extract receipt data from Tokymon restaurant.
   
-  DATA FIELDS TO EXTRACT:
-  1. amount: Total sum (number).
-  2. date: Transaction date (YYYY-MM-DD).
-  3. category: Choose from: [${categoriesList}].
-  4. note: Concise vendor name.
+  // Prompt được tinh chỉnh để tập trung vào trích xuất dữ liệu thô (Raw OCR)
+  const prompt = `ACT AS OCR EXPERT. EXTRACT RAW DATA FROM THIS RECEIPT IMAGE.
+  
+  RULES:
+  1. amount: Find the FINAL TOTAL/TOTAL BRUTTO. (Number only)
+  2. date: Find the date of purchase (Format: YYYY-MM-DD).
+  3. category: Map to one of: [${categoriesList}].
+  4. note: Extract the shop/vendor name clearly.
 
-  JSON RESPONSE ONLY:
+  JSON OUTPUT ONLY:
   { "amount": number, "date": "string", "category": "string", "note": "string" }`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', // Sử dụng Flash để tăng tốc độ xử lý
+      model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { inlineData: { data: base64Image, mimeType: mimeType } },
@@ -69,10 +71,12 @@ export const scanReceipt = async (base64Image: string, mimeType: string): Promis
       }
     });
 
-    const text = response.text || "{}";
+    const text = response.text;
+    if (!text) throw new Error("AI returned empty response");
+    
     return JSON.parse(text);
   } catch (error: any) {
-    console.error("Smart Scan Error:", error);
+    console.error("Gemini Scan Error:", error);
     throw error;
   }
 };

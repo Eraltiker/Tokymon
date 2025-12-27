@@ -131,39 +131,39 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "3.5.2";
+export const SCHEMA_VERSION = "3.5.3";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
+  {
+    version: "3.5.3",
+    date: "2024-06-20",
+    changes: {
+      vi: [
+        "iOS Fix Pro: Khắc phục triệt để lỗi quét hóa đơn trên iPhone/iPad.",
+        "Bộ nhớ tối ưu: Quy trình xử lý ảnh mới không gây lag trình duyệt mobile.",
+        "AI Precision: Cải thiện độ chính xác khi đọc số tiền và ngày tháng.",
+        "Camera Ultra: Tương thích tốt hơn với hệ thống camera của iOS Safari."
+      ],
+      de: [
+        "iOS Fix Pro: Belegscan-Fehler auf iPhone/iPad endgültig behoben.",
+        "Speicheroptimierung: Neuer Bildverarbeitungsprozess ohne Mobile-Lag.",
+        "KI-Präzision: Verbesserte Genauigkeit beim Lesen von Beträgen und Daten.",
+        "Camera Ultra: Bessere Kompatibilität mit iOS Safari-Kamerasystemen."
+      ]
+    }
+  },
   {
     version: "3.5.2",
     date: "2024-06-15",
     changes: {
       vi: [
         "iOS Elite UI: Giao diện đăng nhập mới phong cách Apple.",
-        "Smooth Motion: Hiệu ứng chuyển cảnh mượt mà 120Hz trên iPhone đời mới.",
-        "Safe Area+: Tối ưu hóa vùng hiển thị cho Dynamic Island và thanh Home.",
-        "One-Tap Login: Cải thiện bàn phím và trải nghiệm nhập liệu mobile."
+        "Smooth Motion: Hiệu ứng chuyển cảnh mượt mà 120Hz."
       ],
       de: [
         "iOS Elite UI: Neues Login-Interface im Apple-Stil.",
-        "Smooth Motion: 120Hz Übergangseffekte für neue iPhones.",
-        "Safe Area+: Optimierung für Dynamic Island und Home-Bar.",
-        "One-Tap Login: Verbessertes Tastaturerlebnis auf Mobilgeräten."
-      ]
-    }
-  },
-  {
-    version: "3.5.1",
-    date: "2024-06-10",
-    changes: {
-      vi: [
-        "Nâng cấp AI Flash: Tăng tốc độ quét hóa đơn lên gấp 3 lần.",
-        "Fix lỗi iOS: Tối ưu hóa bộ nhớ khi xử lý ảnh trên iPhone/iPad."
-      ],
-      de: [
-        "AI Flash Upgrade: Erhöhung der Belegscan-Geschwindigkeit.",
-        "iOS Fix: Optimierung des Speichers auf iPhone/iPad."
+        "Smooth Motion: 120Hz Übergangseffekte."
       ]
     }
   }

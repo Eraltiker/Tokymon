@@ -64,61 +64,61 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   };
 
   /**
-   * Pipeline xử lý ảnh tối ưu cho iOS và Gemini Flash
+   * Pipeline xử lý ảnh TOÀN DIỆN cho iOS Safari
+   * Sử dụng Blob thay vì DataURL để tránh lỗi bộ nhớ trên iPhone
    */
   const processImageForMobile = async (file: File): Promise<{base64: string, type: string}> => {
     return new Promise((resolve, reject) => {
-      const url = URL.createObjectURL(file);
+      const reader = new FileReader();
       const img = new Image();
       
-      img.onload = async () => {
-        try {
-          if ('decode' in img) await img.decode();
+      reader.onload = (e) => {
+        img.src = e.target?.result as string;
+      };
 
-          const canvas = document.createElement('canvas');
-          // Tối ưu hóa MAX_SIZE: 1200 là lý tưởng cho AI Flash trích xuất dữ liệu nhanh
-          const MAX_SIZE = 1200; 
-          let width = img.width;
-          let height = img.height;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        // MAX_SIZE 1000px: Tối ưu cho OCR của Gemini Flash trên Mobile
+        const MAX_SIZE = 1000; 
+        let width = img.width;
+        let height = img.height;
 
-          if (width > height) {
-            if (width > MAX_SIZE) {
-              height *= MAX_SIZE / width;
-              width = MAX_SIZE;
-            }
-          } else {
-            if (height > MAX_SIZE) {
-              width *= MAX_SIZE / height;
-              height = MAX_SIZE;
-            }
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
           }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d', { alpha: false });
-          
-          if (!ctx) throw new Error("Canvas context failed");
-
-          ctx.fillStyle = "#FFFFFF";
-          ctx.fillRect(0, 0, width, height);
-          ctx.drawImage(img, 0, 0, width, height);
-
-          // Nén mạnh hơn để truyền tải nhanh trên mobile (0.7)
-          const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
-          URL.revokeObjectURL(url);
-          resolve({ base64, type: 'image/jpeg' });
-        } catch (err) {
-          URL.revokeObjectURL(url);
-          reject(err);
+        } else {
+          if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
         }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d', { alpha: false });
+        if (!ctx) return reject(new Error("Canvas context error"));
+
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Chuyển đổi sang Blob trước để tiết kiệm RAM trên iOS
+        canvas.toBlob((blob) => {
+          if (!blob) return reject(new Error("Blob conversion failed"));
+          
+          const finalReader = new FileReader();
+          finalReader.onloadend = () => {
+            const base64 = (finalReader.result as string).split(',')[1];
+            resolve({ base64, type: 'image/jpeg' });
+          };
+          finalReader.readAsDataURL(blob);
+        }, 'image/jpeg', 0.8);
       };
 
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error("Image load error"));
-      };
-      
-      img.src = url;
+      img.onerror = () => reject(new Error("Image processing failed"));
+      reader.readAsDataURL(file);
     });
   };
 
@@ -129,20 +129,30 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
     setIsScanning(true);
 
     try {
+      // 1. Xử lý ảnh sang Base64 tối ưu
       const processed = await processImageForMobile(file);
+      
+      // 2. Gửi đến AI
       const result = await scanReceipt(processed.base64, processed.type);
       
+      // 3. Cập nhật UI
       if (result) {
         if (result.amount) setExpenseAmount(result.amount.toString());
         if (result.category && expenseCategories.includes(result.category)) {
           setExpenseCategory(result.category);
+        } else if (result.category) {
+          // Tìm kiếm tương đối nếu AI trả về gần đúng
+          const found = expenseCategories.find(c => result.category.toLowerCase().includes(c.toLowerCase()));
+          if (found) setExpenseCategory(found);
         }
         if (result.note) setNote(result.note);
-        if (result.date) setDate(result.date);
+        if (result.date && /^\d{4}-\d{2}-\d{2}$/.test(result.date)) {
+          setDate(result.date);
+        }
       }
     } catch (error) { 
-      console.error("Smart Scan Failure:", error);
-      alert(lang === 'vi' ? "Lỗi phân tích hóa đơn. Vui lòng thử lại với ảnh nhỏ hơn hoặc nhập tay." : "Fehler beim Analysieren. Bitte versuchen Sie es mit einem kleineren Bild oder manuell.");
+      console.error("Tokymon Flash Scan Failed:", error);
+      alert(lang === 'vi' ? "AI không nhận diện được hóa đơn này. Vui lòng chụp rõ nét hơn hoặc nhập tay." : "Beleg nicht erkannt. Bitte deutlicher fotografieren oder manuell eingeben.");
     } finally {
       setIsScanning(false);
       setInputKey(Date.now());
@@ -180,15 +190,21 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
     <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-[2.2rem] shadow-ios border border-white dark:border-slate-800/50 flex flex-col relative overflow-hidden transition-all max-w-full lg:max-w-md mx-auto animate-ios">
       {isScanning && (
         <div className="absolute inset-0 z-[100] bg-slate-950/95 backdrop-blur-2xl flex flex-col items-center justify-center text-white p-6 animate-in fade-in duration-300">
-          <div className="relative mb-6">
-            <div className="w-16 h-16 border-4 border-brand-500/20 border-t-brand-500 rounded-full animate-spin" />
-            <Sparkles className="w-8 h-8 text-amber-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+          <div className="relative mb-8">
+            <div className="w-20 h-20 border-4 border-brand-500/20 border-t-brand-500 rounded-full animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+               <Zap className="w-8 h-8 text-brand-400 fill-brand-400 animate-pulse" />
+            </div>
           </div>
-          <div className="text-center space-y-3">
-            <p className="text-sm font-black uppercase tracking-[0.3em] text-brand-400">Tokymon Flash Scan</p>
-            <div className="space-y-1">
-               <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{t('ai_scanning_text')}</p>
-               <p className="text-[8px] font-medium text-slate-500 uppercase tracking-[0.2em]">High-speed data extraction active...</p>
+          <div className="text-center space-y-4">
+            <h4 className="text-lg font-black uppercase tracking-[0.2em] text-brand-400">Tokymon Flash AI</h4>
+            <div className="space-y-2">
+               <p className="text-[11px] font-bold text-slate-300 uppercase tracking-widest">{t('ai_scanning_text')}</p>
+               <div className="flex justify-center gap-1">
+                  <div className="w-1.5 h-1.5 bg-brand-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                  <div className="w-1.5 h-1.5 bg-brand-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                  <div className="w-1.5 h-1.5 bg-brand-500 rounded-full animate-bounce"></div>
+               </div>
             </div>
           </div>
         </div>
@@ -204,17 +220,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         
         {type === TransactionType.EXPENSE && (
           <div className="shrink-0">
-            <label className="relative flex items-center gap-2.5 px-5 py-3.5 bg-brand-600 hover:bg-brand-500 dark:bg-brand-500 rounded-2xl shadow-vivid text-white active-scale cursor-pointer transition-all">
-               <div className="relative">
-                 <Zap className="w-5 h-5 fill-white" />
-                 <Sparkles className="w-3 h-3 text-amber-300 absolute -top-1 -right-1 animate-pulse" />
-               </div>
+            <label className="relative flex items-center gap-2.5 px-6 py-4 bg-brand-600 hover:bg-brand-500 dark:bg-brand-500 rounded-2xl shadow-vivid text-white active-scale cursor-pointer transition-all">
+               <Camera className="w-5 h-5" />
                <span className="text-[11px] font-black uppercase tracking-widest">Flash Scan</span>
                <input 
                   key={inputKey} 
                   type="file" 
                   onChange={handleFileUpload} 
                   accept="image/*" 
+                  capture="environment"
                   className="absolute inset-0 opacity-0 cursor-pointer" 
                />
             </label>
