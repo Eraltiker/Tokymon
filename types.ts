@@ -131,37 +131,39 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "3.5.5";
+export const SCHEMA_VERSION = "3.5.6";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
+  {
+    version: "3.5.6",
+    date: "2024-07-05",
+    changes: {
+      vi: [
+        "Android Shield: Khắc phục triệt để lỗi quét ảnh trên Google Chrome Android.",
+        "Zero-Crash Pipeline: Quy trình nén ảnh mới siêu nhẹ cho máy cấu hình thấp.",
+        "Network Status: Hiển thị chỉ báo Online/Offline trực quan tại Header.",
+        "Smart Changelog: Phần Giới thiệu luôn cập nhật lịch sử thay đổi mới nhất."
+      ],
+      de: [
+        "Android Shield: Belegscan auf Chrome Android endgültig korrigiert.",
+        "Zero-Crash Pipeline: Ultraleichte Bildkompression für schwächere Handys.",
+        "Netzwerkstatus: Online/Offline-Anzeige direkt im Header.",
+        "Smart Changelog: Historie wird automatisch im Über-Bereich aktualisiert."
+      ]
+    }
+  },
   {
     version: "3.5.5",
     date: "2024-06-30",
     changes: {
       vi: [
-        "Header Restore: Khôi phục nút Đổi ngôn ngữ và Chế độ tối trong Header chính.",
-        "AI Scan Ultimate: Giải thuật nén ảnh Adaptive giúp quét mượt trên máy yếu.",
-        "Deep Contrast: Tự động tăng độ nét chữ hóa đơn trước khi gửi AI.",
-        "Regex Fallback: Chế độ dự phòng tự bóc tách số liệu nếu AI bị lỗi định dạng."
+        "Header Restore: Khôi phục nút Đổi ngôn ngữ và Chế độ tối.",
+        "Regex Fallback: Chế độ dự phòng tự bóc tách số liệu."
       ],
       de: [
-        "Header Restore: Buttons für Sprache und Darkmode im Header wiederhergestellt.",
-        "AI Scan Ultimate: Adaptive Bildkompression für schwächere Mobilgeräte.",
-        "Deep Contrast: Automatische Kontrastverbesserung für Belege.",
-        "Regex Fallback: Fallback-Modus für Datenextraktion bei KI-Formatfehlern."
-      ]
-    }
-  },
-  {
-    version: "3.5.4",
-    date: "2024-06-25",
-    changes: {
-      vi: [
-        "Vision Max Engine: Nâng cấp AI nhận diện hóa đơn thông minh hơn."
-      ],
-      de: [
-        "Vision Max Engine: KI-Belegkennung verbessert."
+        "Header Restore: Sprache und Darkmode Buttons wiederhergestellt.",
+        "Regex Fallback: Automatischer Fallback-Modus."
       ]
     }
   }

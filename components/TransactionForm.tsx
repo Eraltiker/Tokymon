@@ -64,10 +64,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
   };
 
   /**
-   * Pipeline xử lý ảnh Ultimate Adaptive
+   * Pipeline xử lý ảnh Android Shield (Tối ưu RAM & GPU di động)
    */
   const processImageForMobile = async (file: File): Promise<{base64: string, type: string}> => {
     return new Promise((resolve, reject) => {
+      if (!file.type.startsWith('image/')) return reject(new Error("File is not an image"));
+
       const reader = new FileReader();
       const img = new Image();
       
@@ -77,8 +79,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
 
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        // 1100px: Adaptive resolution cân bằng giữa chi tiết và bộ nhớ RAM di động
-        const MAX_SIZE = 1100; 
+        // 1000px: Mức lý tưởng nhất để AI đọc rõ mà không gây tràn RAM trên Android Chrome
+        const MAX_SIZE = 1000; 
         let width = img.width;
         let height = img.height;
 
@@ -96,40 +98,39 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
 
         canvas.width = width;
         canvas.height = height;
-        const ctx = canvas.getContext('2d', { alpha: false });
-        if (!ctx) return reject(new Error("Canvas failure"));
+        const ctx = canvas.getContext('2d', { 
+          alpha: false,
+          willReadFrequently: true // Android optimization
+        });
 
-        // Phủ nền trắng để tránh hiện tượng ảnh nền trong suốt bị đen
+        if (!ctx) return reject(new Error("Canvas context creation failed"));
+
+        // Xử lý ảnh cơ bản - Tránh dùng Filter phức tạp trên mobile GPU
         ctx.fillStyle = "#FFFFFF";
         ctx.fillRect(0, 0, width, height);
-        
-        // Vẽ ảnh
         ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'medium';
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Ultimate Contrast Filter: Tăng độ tương phản để AI đọc chữ rõ hơn
-        // Chuyển sang đen trắng (grayscale) và tăng độ sáng nhẹ
-        ctx.globalCompositeOperation = 'difference';
-        ctx.fillStyle = 'rgba(0,0,0,0.05)';
-        ctx.fillRect(0,0,width,height);
-        ctx.globalCompositeOperation = 'source-over';
-
-        // Nén 0.85: Tối ưu cho đường truyền mobile và bộ nhớ
+        // Chuyển trực tiếp sang Blob với chất lượng vừa phải 0.8
         canvas.toBlob((blob) => {
-          if (!blob) return reject(new Error("Blob failed"));
+          if (!blob) return reject(new Error("Canvas to Blob conversion failed"));
           
           const finalReader = new FileReader();
           finalReader.onloadend = () => {
-            const base64 = (finalReader.result as string).split(',')[1];
-            resolve({ base64, type: 'image/jpeg' });
+            const base64Data = (finalReader.result as string).split(',')[1];
+            resolve({ base64: base64Data, type: 'image/jpeg' });
           };
           finalReader.readAsDataURL(blob);
-        }, 'image/jpeg', 0.85);
+        }, 'image/jpeg', 0.8);
       };
 
-      img.onerror = () => reject(new Error("Image Load Error"));
-      reader.readAsDataURL(file);
+      img.onerror = () => reject(new Error("Image decoding failed"));
+      reader.readAsArrayBuffer(file); // Dùng ArrayBuffer ổn định hơn cho DataURL lớn
+      // Re-read as data url for the img.src
+      const dataReader = new FileReader();
+      dataReader.onload = (e) => { img.src = e.target?.result as string; };
+      dataReader.readAsDataURL(file);
     });
   };
 
@@ -140,6 +141,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
     setIsScanning(true);
 
     try {
+      if (!navigator.onLine) {
+        throw new Error("OFFLINE");
+      }
+
       const processed = await processImageForMobile(file);
       const result = await scanReceipt(processed.base64, processed.type);
       
@@ -153,9 +158,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
       }
     } catch (error: any) { 
       console.error("Tokymon AI Scan Detailed Error:", error);
-      alert(lang === 'vi' 
-        ? "Thiết bị gặp lỗi khi xử lý ảnh hoặc AI không nhận dạng được. \n\nHãy thử: Chụp GẦN hơn, vướt PHẲNG hóa đơn và đủ ÁNH SÁNG." 
-        : "Bildverarbeitung fehlgeschlagen oder KI erkennt Beleg nicht. \n\nBitte näher fotografieren und für besseres Licht sorgen.");
+      const msg = error.message === "OFFLINE" 
+        ? (lang === 'vi' ? "Cần kết nối mạng để sử dụng quét AI." : "Internetverbindung für KI-Scan erforderlich.")
+        : (lang === 'vi' 
+            ? "Lỗi camera hoặc AI không nhận diện được. Hãy thử chụp GẦN và RÕ NÉT hơn." 
+            : "Kamera-Fehler oder KI erkennt Beleg nicht. Bitte näher und schärfer fotografieren.");
+      alert(msg);
     } finally {
       setIsScanning(false);
       setInputKey(Date.now());
@@ -200,7 +208,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
             </div>
           </div>
           <div className="text-center space-y-4">
-            <h4 className="text-lg font-black uppercase tracking-[0.2em] text-brand-400">Vision Ultimate AI</h4>
+            <h4 className="text-lg font-black uppercase tracking-[0.2em] text-brand-400">Vision Shield AI</h4>
             <div className="space-y-2">
                <p className="text-[11px] font-bold text-slate-300 uppercase tracking-widest">{t('ai_scanning_text')}</p>
                <div className="h-1 w-32 bg-slate-800 rounded-full mx-auto overflow-hidden">

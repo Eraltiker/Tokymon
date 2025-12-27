@@ -35,21 +35,21 @@ export const scanReceipt = async (base64Image: string, mimeType: string): Promis
   const categoriesList = EXPENSE_CATEGORIES.join(', ');
   const currentDate = new Date().toISOString().split('T')[0];
   
-  const prompt = `ACT AS EXPERT FINANCIAL OCR.
-  TASK: Extract data from the receipt image.
+  // Prompt cực kỳ tinh gọn để AI không bị nhầm lẫn
+  const prompt = `OCR TASK: Extract financial data from receipt.
   
-  STRICT RULES:
-  1. amount: The FINAL TOTAL / SUMME BRUTTO. (Number only)
-  2. date: Format YYYY-MM-DD. If fuzzy, use "${currentDate}".
-  3. category: Pick from [${categoriesList}]. Default to "Chi phí khác".
-  4. note: Vendor name.
+  MANDATORY JSON FIELDS:
+  1. amount: Number. The TOTAL/SUMME amount to pay.
+  2. date: String. YYYY-MM-DD format. Default to "${currentDate}" if not clear.
+  3. category: String. Choose from: [${categoriesList}]. Default to "Chi phí khác".
+  4. note: String. Vendor/Store name.
 
-  JSON FORMAT REQUIRED.`;
+  RETURN ONLY VALID JSON.`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    // Attempt 1: Structured JSON output
+    // Sử dụng model Flash 3 để xử lý nhanh và ổn định nhất
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
@@ -74,32 +74,39 @@ export const scanReceipt = async (base64Image: string, mimeType: string): Promis
     });
 
     const text = response.text;
-    if (text) return JSON.parse(text);
+    if (text) {
+      const result = JSON.parse(text);
+      // Clean up date if AI returns something weird
+      if (result.date && !/^\d{4}-\d{2}-\d{2}$/.test(result.date)) {
+         result.date = currentDate;
+      }
+      return result;
+    }
 
-    // Attempt 2: Regex Fallback (if JSON structure fails)
+    // Fallback: Nếu JSON schema thất bại
     const fallbackResponse = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { inlineData: { data: base64Image, mimeType: mimeType } },
-          { text: "List the total amount, date (YYYY-MM-DD), category, and shop name from this receipt. Just the facts." }
+          { text: "What is the total amount and shop name on this receipt? Format: Amount|Shop" }
         ]
       }
     });
 
     const rawText = fallbackResponse.text || "";
-    const amountMatch = rawText.match(/(\d+[.,]\d{2})/);
-    const dateMatch = rawText.match(/(\d{4}-\d{2}-\d{2})/);
+    const parts = rawText.split('|');
+    const amountMatch = parts[0]?.match(/(\d+[.,]\d{2})|(\d+)/);
     
     return {
       amount: amountMatch ? parseFloat(amountMatch[0].replace(',', '.')) : 0,
-      date: dateMatch ? dateMatch[0] : currentDate,
+      date: currentDate,
       category: "Chi phí khác",
-      note: "Auto-extracted"
+      note: parts[1]?.trim() || "Auto-extracted"
     };
 
   } catch (error: any) {
-    console.error("Ultimate Vision Error:", error);
+    console.error("Vision Scan Error:", error);
     throw error;
   }
 };

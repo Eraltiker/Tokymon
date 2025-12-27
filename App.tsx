@@ -24,7 +24,7 @@ import {
   ImageIcon, ArrowRight, Cpu,
   Globe, Check, Info, ShieldCheck, Zap,
   Sparkles, WifiOff, Wifi, Loader2, PartyPopper, X,
-  Fingerprint, Heart, LockKeyhole
+  Fingerprint, Heart, LockKeyhole, Wifi as WifiIcon
 } from 'lucide-react';
 
 const App = () => {
@@ -352,7 +352,11 @@ const App = () => {
           </div>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Restore missing header controls */}
+          {/* Network Indicator */}
+          <div className={`w-8 h-8 flex items-center justify-center rounded-full ${isOnline ? 'text-emerald-500 bg-emerald-500/10' : 'text-rose-500 bg-rose-500/10 animate-pulse'}`}>
+             {isOnline ? <WifiIcon className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
+          </div>
+          
           <button onClick={() => setIsDark(!isDark)} className="w-9 h-9 sm:w-10 sm:h-10 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center active-scale transition-all shadow-sm">
              {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-brand-600" />}
           </button>
@@ -436,7 +440,7 @@ const App = () => {
                       </div>
                     )}
                     {settingsSubTab === 'about' && (
-                      <div className="space-y-10 animate-ios max-w-xl mx-auto py-4">
+                      <div className="space-y-8 animate-ios max-w-xl mx-auto py-4">
                         <div className="text-center space-y-6">
                            <div className="relative inline-block">{data.logoUrl ? ( <img src={data.logoUrl} className="w-20 h-20 object-contain mx-auto" alt="L" /> ) : (
                                <div className="w-20 h-20 bg-brand-600 rounded-[1.8rem] mx-auto flex items-center justify-center shadow-vivid" style={{ backgroundColor: activeBranchColor }}><UtensilsCrossed className="w-10 h-10 text-white" /></div>
@@ -444,6 +448,31 @@ const App = () => {
                            </div>
                            <div><h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter leading-none mb-2">Tokymon Finance</h2><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Enterprise Core {SCHEMA_VERSION}</p></div>
                         </div>
+
+                        {/* Updated Changelog Display */}
+                        <div className="space-y-6">
+                           <h3 className="text-xs font-black uppercase text-brand-600 dark:text-brand-400 tracking-widest flex items-center gap-2">
+                             <HistoryIcon className="w-4 h-4" /> {t('version_history')}
+                           </h3>
+                           <div className="space-y-4">
+                             {APP_CHANGELOG.map((entry, idx) => (
+                               <div key={idx} className="p-5 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-100 dark:border-slate-700/60">
+                                 <div className="flex justify-between items-center mb-3">
+                                   <span className="text-[10px] font-black px-2 py-1 bg-indigo-600 text-white rounded-lg">v{entry.version}</span>
+                                   <span className="text-[9px] font-bold text-slate-400">{entry.date}</span>
+                                 </div>
+                                 <ul className="space-y-2">
+                                   {entry.changes[lang].map((item, i) => (
+                                     <li key={i} className="flex gap-2 text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                                       <Check className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" /> {item}
+                                     </li>
+                                   ))}
+                                 </ul>
+                               </div>
+                             ))}
+                           </div>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-3">
                            <div className="bg-slate-50 dark:bg-slate-800/40 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60"><p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-widest">Uptime Status</p><div className="flex items-center gap-2 text-emerald-500"><div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" /><span className="text-[10px] font-black uppercase tracking-widest">{isOnline ? t('online') : 'Offline'}</span></div></div>
                            <div className="bg-slate-50 dark:bg-slate-800/40 p-5 rounded-3xl border border-slate-100 dark:border-slate-700/60"><p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-widest">Storage</p><div className="flex items-center gap-2 text-brand-600" style={{ color: activeBranchColor }}><ShieldCheck className="w-4 h-4" /><span className="text-[10px] font-black uppercase tracking-widest">IndexedDB</span></div></div>
