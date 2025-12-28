@@ -53,7 +53,6 @@ export const StorageService = {
     };
   },
 
-  // Fix: Added syncWithCloud method to enable enterprise cloud sync via kvdb.io
   async syncWithCloud(syncKey: string, localData: AppData): Promise<AppData> {
     if (!syncKey || syncKey.trim() === '') return localData;
     const url = `https://kvdb.io/${syncKey}/tokymon_v1`;
@@ -62,7 +61,6 @@ export const StorageService = {
       if (response.ok) {
         const remoteData = await response.json();
         const merged = StorageService.mergeAppData(localData, remoteData);
-        // Save merged back to cloud
         await fetch(url, {
           method: 'POST',
           body: JSON.stringify(merged),
@@ -70,7 +68,6 @@ export const StorageService = {
         });
         return merged;
       } else if (response.status === 404) {
-        // First time sync, push local data to cloud
         await fetch(url, {
           method: 'POST',
           body: JSON.stringify(localData),
@@ -109,7 +106,6 @@ export const StorageService = {
       return {
         ...StorageService.getEmptyData(),
         ...data,
-        // Bảo vệ tài khoản admin root nếu vô tình bị xóa trong db cục bộ
         users: data.users && data.users.some((u: any) => u.username === 'admin') 
           ? data.users 
           : [StorageService.getEmptyData().users[0], ...(data.users || [])]

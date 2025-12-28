@@ -1,61 +1,48 @@
 
-const CACHE_NAME = 'tokymon-finance-v1.2'; // Cập nhật version để bust cache
+const CACHE_NAME = 'tokymon-finance-v1.3'; // Version mới cưỡng bức
 const ASSETS_TO_CACHE = [
   './',
-  './index.html',
-  'https://cdn.tailwindcss.com',
-  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap'
+  './index.html'
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
   );
-  // Buộc Service Worker mới kích hoạt ngay lập tức
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            console.log('Tokymon: Clearing old cache', key);
+            return caches.delete(key);
+          }
+        })
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  // Đảm bảo client được điều khiển ngay lập tức
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
-  const url = event.request.url;
-  
-  // Tuyệt đối không cache các API quan trọng hoặc dữ liệu cloud
-  if (url.includes('kvdb.io') || url.includes('generativelanguage')) {
+  // Tuyệt đối không cache dữ liệu API hoặc Sync
+  if (event.request.url.includes('kvdb.io') || event.request.url.includes('generativelanguage')) {
     return;
   }
 
-  // Chiến lược: Network First, falling back to cache
-  // Giúp trình duyệt luôn ưu tiên lấy bản mới nhất từ mạng
+  // Luôn ưu tiên mạng (Network First) để lấy bản mới nhất
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        if (!response || response.status !== 200 || response.type !== 'basic') {
-          return response;
+        if (response.status === 200) {
+          const resClone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, resClone));
         }
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
         return response;
       })
       .catch(() => caches.match(event.request))
   );
-});
-
-// Lắng nghe lệnh skipWaiting từ giao diện
-self.addEventListener('message', (event) => {
-  if (event.data === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
 });

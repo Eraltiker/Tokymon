@@ -3,58 +3,52 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-// Đăng ký Service Worker với logic tự động cập nhật nâng cao
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    try {
-      const swUrl = new URL('sw.js', window.location.href).href;
-      
-      navigator.serviceWorker.register(swUrl)
-        .then(reg => {
-          console.log('Tokymon Security Core registered:', reg.scope);
+// Hard reset Service Worker nếu bản cũ bị kẹt
+async function manageServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    const currentVersion = localStorage.getItem('tokymon_sw_version');
+    const TARGET_VERSION = '1.3';
 
-          // Phát hiện khi có bản cập nhật mới đang chờ
-          reg.addEventListener('updatefound', () => {
-            const newWorker = reg.installing;
-            if (newWorker) {
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  // Thông báo cho người dùng có bản cập nhật mới
-                  if (window.confirm('Phiên bản mới của Tokymon đã sẵn sàng. Cập nhật ngay? / Eine neue Version ist verfügbar. Jetzt aktualisieren?')) {
-                    window.location.reload();
-                  }
-                }
-              });
-            }
-          });
-        })
-        .catch(err => {
-          console.warn('Service Worker registration failed:', err);
-        });
-
-      // Tự động làm mới khi Service Worker mới chiếm quyền điều khiển
-      let refreshing = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!refreshing) {
-          window.location.reload();
-          refreshing = true;
-        }
-      });
-
-    } catch (e) {
-      console.warn('Could not initialize Service Worker:', e);
+    if (currentVersion !== TARGET_VERSION) {
+      // Xóa tất cả Service Worker cũ
+      for (let registration of registrations) {
+        await registration.unregister();
+      }
+      localStorage.setItem('tokymon_sw_version', TARGET_VERSION);
+      // Ép tải lại trang từ server
+      window.location.reload();
+      return;
     }
-  });
+
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => {
+        reg.onupdatefound = () => {
+          const installingWorker = reg.installing;
+          if (installingWorker) {
+            installingWorker.onstatechange = () => {
+              if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // Có bản cập nhật mới, thông báo và reload
+                if (window.confirm('Hệ thống có bản cập nhật bảo mật mới. Cập nhật ngay?')) {
+                  window.location.reload();
+                }
+              }
+            };
+          }
+        };
+      })
+      .catch(err => console.error('SW Registration Failed', err));
+  }
 }
+
+manageServiceWorker();
 
 const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
+if (rootElement) {
+  const root = ReactDOM.createRoot(rootElement);
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
 }
-
-const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
