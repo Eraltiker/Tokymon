@@ -26,14 +26,14 @@ import {
   Globe, Check, Info, ShieldCheck,
   Loader2, PartyPopper, X,
   Heart, LockKeyhole, HelpCircle, LayoutGrid, Terminal, ShieldAlert,
-  Database, CloudCheck, Languages
+  Database, CloudCheck, Languages, Copy, CheckCircle, Wrench, WifiOff
 } from 'lucide-react';
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 phút
 const GLOBAL_SYNC_KEY = 'NZQkBLdrxvnEEMUw928weK';
+const SYNC_DEBOUNCE_MS = 20000; // Tăng lên 20 giây để tránh lỗi 429
 
 const App = () => {
-  // Ghi nhớ Tab cuối cùng người dùng sử dụng
   const [activeTab, setActiveTab] = useState<'income' | 'expense' | 'stats' | 'settings'>(() => {
     return (localStorage.getItem('tokymon_last_tab') as any) || 'stats';
   });
@@ -47,6 +47,7 @@ const App = () => {
   const [data, setData] = useState<AppData>(StorageService.getEmptyData());
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const isSyncInProgressRef = useRef(false); // Ref để kiểm soát đồng bộ chồng chéo
   const [syncStatus, setSyncStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{show: boolean, title: string, message: string, onConfirm: () => void} | null>(null);
@@ -65,7 +66,6 @@ const App = () => {
   const dataRef = useRef(data);
   const syncDebounceRef = useRef<number | null>(null);
 
-  // --- LOGIC GHI NHỚ LỰA CHỌN ---
   useEffect(() => {
     localStorage.setItem('tokymon_last_tab', activeTab);
   }, [activeTab]);
@@ -76,7 +76,6 @@ const App = () => {
     }
   }, [currentBranchId]);
 
-  // --- LOGIC TỰ ĐỘNG LOGOUT (SECURITY) ---
   const handleLogout = useCallback(() => {
     localStorage.removeItem('tokymon_user');
     setCurrentUser(null);
@@ -89,8 +88,6 @@ const App = () => {
     
     inactivityTimerRef.current = window.setTimeout(() => {
       handleLogout();
-      // Thông báo nhỏ khi logout tự động (tùy chọn)
-      console.log("Session expired due to inactivity");
     }, INACTIVITY_TIMEOUT);
   }, [currentUser, handleLogout]);
 
@@ -98,7 +95,7 @@ const App = () => {
     if (currentUser) {
       const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
       events.forEach(event => window.addEventListener(event, resetInactivityTimer));
-      resetInactivityTimer(); // Khởi tạo timer khi vừa login
+      resetInactivityTimer();
       return () => {
         events.forEach(event => window.removeEventListener(event, resetInactivityTimer));
         if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
@@ -106,22 +103,38 @@ const App = () => {
     }
   }, [currentUser, resetInactivityTimer]);
 
-  // --- CLOUD SYNC LOGIC ---
-  const handleCloudSync = useCallback(async (silent = false, specificData?: AppData) => {
-    if (!navigator.onLine) return;
+  const handleCloudSync = useCallback(async (silent = false, specificData?: AppData, forcePush: boolean = false) => {
+    if (!navigator.onLine) {
+      setSyncStatus('IDLE');
+      return;
+    }
+    
+    // Ngăn chặn đồng bộ đồng thời
+    if (isSyncInProgressRef.current) return;
+    isSyncInProgressRef.current = true;
+    
     if (!silent) setIsSyncing(true);
     try {
       const targetData = specificData || dataRef.current;
-      const merged = await StorageService.syncWithCloud(GLOBAL_SYNC_KEY, targetData);
-      if (JSON.stringify(merged) !== JSON.stringify(dataRef.current)) {
-        setData(merged);
-      }
+      const merged = await StorageService.syncWithCloud(GLOBAL_SYNC_KEY, targetData, forcePush);
+      
+      setData(prev => {
+        const hasChanges = JSON.stringify(prev) !== JSON.stringify(merged);
+        if (hasChanges) {
+          dataRef.current = merged;
+          return merged;
+        }
+        return prev;
+      });
+      
       setSyncStatus('SUCCESS');
       if (!silent) setTimeout(() => setSyncStatus('IDLE'), 3000);
     } catch (e: any) { 
       setSyncStatus('ERROR'); 
+      console.error("Sync Failed", e);
     } finally {
       if (!silent) setIsSyncing(false);
+      isSyncInProgressRef.current = false;
     }
   }, []);
 
@@ -150,11 +163,12 @@ const App = () => {
 
   useEffect(() => {
     if (isDataLoaded) {
-      dataRef.current = data;
       StorageService.saveLocal(data);
+      dataRef.current = data;
+      
       if (isOnline) {
         if (syncDebounceRef.current) window.clearTimeout(syncDebounceRef.current);
-        syncDebounceRef.current = window.setTimeout(() => handleCloudSync(true), 1500);
+        syncDebounceRef.current = window.setTimeout(() => handleCloudSync(true), SYNC_DEBOUNCE_MS);
       }
     }
   }, [data, isDataLoaded, isOnline, handleCloudSync]);
@@ -286,7 +300,6 @@ const App = () => {
             </button>
           </form>
 
-          {/* NÚT ĐỔI NGÔN NGỮ TẠI MÀN HÌNH LOGIN */}
           <div className="flex justify-center gap-4 pt-2">
              <button 
                onClick={toggleLanguage} 
@@ -329,8 +342,10 @@ const App = () => {
 
         <div className="flex items-center gap-2">
            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${isOnline ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' : 'bg-rose-500/10 border-rose-500/20 text-rose-500'}`}>
-              {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <CloudCheck className="w-3 h-3" />}
-              <span className="text-[8px] font-black uppercase tracking-widest">{isSyncing ? 'Syncing...' : 'Synced'}</span>
+              {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : (syncStatus === 'SUCCESS' ? <CheckCircle className="w-3 h-3" /> : (syncStatus === 'ERROR' ? <AlertTriangle className="w-3 h-3 text-rose-500" /> : <CloudCheck className="w-3 h-3" />))}
+              <span className="text-[8px] font-black uppercase tracking-widest">
+                {!isOnline ? 'Offline' : (isSyncing ? 'Syncing...' : (syncStatus === 'ERROR' ? 'Sync Error' : 'Synced'))}
+              </span>
            </div>
            <div className="p-1 rounded-full border border-white dark:border-slate-700/50 flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800/40">
              <button onClick={toggleLanguage} className="w-8 h-8 rounded-lg flex items-center justify-center active-scale text-slate-600 dark:text-slate-300">
@@ -432,14 +447,68 @@ const App = () => {
                              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{isOnline ? 'Cloud Active' : 'Offline Mode'}</p>
                            </div>
                         </div>
-                        <div className="p-6 bg-emerald-50/50 dark:bg-emerald-900/10 border-2 border-emerald-200 dark:border-emerald-800 rounded-[2rem] text-center space-y-4">
-                           <div className="w-12 h-12 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center mx-auto shadow-sm"><ShieldCheck className="w-6 h-6 text-emerald-600" /></div>
-                           <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase leading-relaxed tracking-tight">Dữ liệu được bảo mật vĩnh viễn với mã Bucket hệ thống.</p>
+
+                        <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-[2rem] border-2 border-slate-200 dark:border-slate-800 space-y-4">
+                           <div className="flex items-center justify-between">
+                             <span className="text-[9px] font-black uppercase text-slate-400">Cloud Bucket ID</span>
+                             <button onClick={() => { navigator.clipboard.writeText(GLOBAL_SYNC_KEY); alert('Bucket ID copied!'); }} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                               <Copy className="w-3.5 h-3.5 text-brand-600" />
+                             </button>
+                           </div>
+                           <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800 font-mono text-[11px] font-bold dark:text-brand-400 break-all">
+                              {GLOBAL_SYNC_KEY}
+                           </div>
+                           <p className="text-[8px] font-bold text-slate-400 uppercase text-center">{lang === 'vi' ? 'Dùng chung mã này cho tất cả thiết bị' : 'Use this ID for all devices'}</p>
                         </div>
-                        <button onClick={() => handleCloudSync()} disabled={isSyncing || !isOnline} className="w-full py-5 bg-brand-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 active-scale shadow-vivid disabled:opacity-40 transition-all" style={{ backgroundColor: activeBranchColor }}>
-                           <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /> 
-                           {isSyncing ? 'Syncing...' : 'Làm mới dữ liệu Cloud'}
-                        </button>
+
+                        <div className="p-6 bg-emerald-50/50 dark:bg-emerald-900/10 border-2 border-emerald-200 dark:border-emerald-800 rounded-[2rem] space-y-3">
+                           <div className="flex items-center gap-3">
+                             <div className="w-10 h-10 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center shadow-sm">
+                                {syncStatus === 'ERROR' ? <ShieldAlert className="w-5 h-5 text-rose-500" /> : <ShieldCheck className="w-5 h-5 text-emerald-600" />}
+                             </div>
+                             <div className="min-w-0">
+                               <p className="text-[9px] font-black uppercase text-emerald-600 leading-none" style={{ color: syncStatus === 'ERROR' ? '#f43f5e' : '' }}>Status</p>
+                               <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase truncate">
+                                 {syncStatus === 'ERROR' ? (lang === 'vi' ? 'Lỗi kết nối' : 'Sync Error') : (data.lastSync ? `Last Sync: ${new Date(data.lastSync).toLocaleString()}` : 'Never Synced')}
+                               </p>
+                             </div>
+                           </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <button 
+                            onClick={() => handleCloudSync()} 
+                            disabled={isSyncing || !isOnline} 
+                            className="w-full py-5 bg-brand-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 active-scale shadow-vivid disabled:opacity-40 transition-all" 
+                            style={{ backgroundColor: activeBranchColor }}
+                          >
+                            <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /> 
+                            {isSyncing ? 'Synchronizing...' : (lang === 'vi' ? 'Đồng bộ lại ngay' : 'Sync Now')}
+                          </button>
+
+                          {syncStatus === 'ERROR' && (
+                            <button 
+                              onClick={() => {
+                                if(window.confirm(lang === 'vi' ? 'Sử dụng dữ liệu máy này để ghi đè lên Cloud và đồng nhất tất cả các máy khác?' : 'Use this device data to overwrite cloud and fix all other devices?')) {
+                                  handleCloudSync(false, undefined, true);
+                                }
+                              }} 
+                              className="w-full py-5 bg-rose-500/10 text-rose-600 border border-rose-200 rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 active-scale transition-all"
+                            >
+                              <Wrench className="w-4 h-4" /> 
+                              {lang === 'vi' ? 'Sửa lỗi Cloud (Ghi đè)' : 'Force Repair Cloud'}
+                            </button>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-2xl">
+                          <Info className="w-5 h-5 text-amber-600 shrink-0" />
+                          <p className="text-[9px] font-bold text-amber-700 dark:text-amber-400 leading-relaxed">
+                            {lang === 'vi' 
+                              ? 'Nếu 2 máy không giống nhau: Hãy bấm "Đồng bộ lại ngay" trên cả 2 máy. Nếu vẫn lỗi, dùng "Sửa lỗi Cloud" trên máy có dữ liệu ĐÚNG nhất.' 
+                              : 'If devices mismatch: Press "Sync Now" on both. If persists, use "Force Repair" on the device with CORRECT data.'}
+                          </p>
+                        </div>
                       </div>
                     )}
                     {settingsSubTab === 'export' && <ExportManager transactions={activeTransactions} branches={activeBranches} lang={lang} />}

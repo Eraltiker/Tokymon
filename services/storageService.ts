@@ -25,12 +25,19 @@ const getDB = (): Promise<IDBDatabase> => {
 export const StorageService = {
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
     const map = new Map<string, T>();
+    // Ưu tiên dữ liệu local trước
     (local || []).forEach(item => { if (item?.id) map.set(item.id, item); });
+    
+    // So sánh với remote để lấy bản mới nhất
     (remote || []).forEach(remoteItem => {
       if (!remoteItem?.id) return;
       const localItem = map.get(remoteItem.id);
-      // Nếu local chưa có, hoặc remote mới hơn thì cập nhật
-      if (!localItem || new Date(remoteItem.updatedAt || 0).getTime() > new Date(localItem.updatedAt || 0).getTime()) {
+      
+      const rTime = new Date(remoteItem.updatedAt || 0).getTime() || 0;
+      const lTime = localItem ? (new Date(localItem.updatedAt || 0).getTime() || 0) : -1;
+
+      // Remote thắng nếu nó mới hơn local hoặc local chưa có bản ghi này
+      if (!localItem || rTime > lTime) {
         map.set(remoteItem.id, remoteItem);
       }
     });
@@ -54,38 +61,67 @@ export const StorageService = {
     };
   },
 
-  async syncWithCloud(syncKey: string, localData: AppData): Promise<AppData> {
+  async syncWithCloud(syncKey: string, localData: AppData, forcePush: boolean = false): Promise<AppData> {
     if (!syncKey || syncKey.trim() === '') return localData;
     const url = `https://kvdb.io/${syncKey}/tokymon_v1`;
+    
     try {
-      const response = await fetch(url);
-      if (response.ok) {
-        const remoteData = await response.json();
-        const merged = StorageService.mergeAppData(localData, remoteData);
-        
-        // Chỉ lưu lại Cloud nếu dữ liệu sau khi merge có thay đổi (tránh vòng lặp vô hạn)
-        if (JSON.stringify(merged) !== JSON.stringify(remoteData)) {
-          await fetch(url, {
-            method: 'POST',
-            body: JSON.stringify(merged),
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
-        return merged;
-      } else if (response.status === 404) {
-        // Nếu bucket chưa tồn tại trên cloud, tạo mới với dữ liệu local
-        await fetch(url, {
+      if (forcePush) {
+        // Chế độ cưỡng bức: Ghi đè toàn bộ dữ liệu máy này lên Cloud để sửa lỗi đồng bộ
+        const res = await fetch(url, {
           method: 'POST',
           body: JSON.stringify(localData),
           headers: { 'Content-Type': 'application/json' }
         });
+        if (res.status === 429) throw new Error("429");
+        return { ...localData, lastSync: new Date().toISOString() };
+      }
+
+      // 1. Thử lấy dữ liệu từ Cloud
+      const response = await fetch(url, { cache: 'no-store' });
+      let remoteData: AppData;
+      
+      if (response.ok) {
+        const text = await response.text();
+        try {
+          remoteData = JSON.parse(text);
+          if (!remoteData.transactions || !Array.isArray(remoteData.transactions)) {
+            throw new Error("Invalid structure");
+          }
+        } catch (parseError) {
+          console.error("Cloud data corrupted, preparing to overwrite with local.");
+          remoteData = StorageService.getEmptyData();
+        }
+      } else if (response.status === 404) {
+        remoteData = StorageService.getEmptyData();
+      } else if (response.status === 429) {
+        // Rate limited: Im lặng trả về local để thử lại sau
+        return localData;
+      } else {
+        throw new Error(`Server status: ${response.status}`);
+      }
+
+      // 2. Hợp nhất (Merge)
+      const merged = StorageService.mergeAppData(localData, remoteData);
+      
+      // 3. Đẩy lại bản gộp tốt nhất lên Cloud
+      const pushRes = await fetch(url, {
+        method: 'POST',
+        body: JSON.stringify(merged),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (pushRes.status === 429) return localData;
+
+      return merged;
+    } catch (e) {
+      if (e instanceof Error && e.message === "429") {
+        console.warn("KVDB Rate limited (429). Retrying next cycle.");
         return localData;
       }
-    } catch (e) {
-      console.error("Cloud Sync Error", e);
-      throw e; // Để App.tsx có thể bắt lỗi và hiển thị trạng thái
+      console.error("Critical Cloud Sync Error:", e);
+      throw e;
     }
-    return localData;
   },
 
   async saveLocal(data: AppData) {
@@ -110,12 +146,16 @@ export const StorageService = {
 
       if (!data) return StorageService.getEmptyData();
       
+      const empty = StorageService.getEmptyData();
       return {
-        ...StorageService.getEmptyData(),
+        ...empty,
         ...data,
-        users: data.users && data.users.some((u: any) => u.username === 'admin') 
-          ? data.users 
-          : [StorageService.getEmptyData().users[0], ...(data.users || [])]
+        transactions: data.transactions || [],
+        branches: data.branches || empty.branches,
+        users: data.users || empty.users,
+        auditLogs: data.auditLogs || [],
+        expenseCategories: data.expenseCategories || empty.expenseCategories,
+        recurringExpenses: data.recurringExpenses || [],
       };
     } catch (e) { return StorageService.getEmptyData(); }
   },
