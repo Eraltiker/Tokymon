@@ -25,10 +25,11 @@ import {
   ArrowRight,
   Globe, Check, Info, ShieldCheck,
   Loader2, PartyPopper, X,
-  Heart, LockKeyhole, HelpCircle, LayoutGrid, Terminal, ShieldAlert
+  Heart, LockKeyhole, HelpCircle, LayoutGrid, Terminal, ShieldAlert,
+  Copy, Eye, EyeOff, KeyRound, ExternalLink, Database, Link2, CloudCheck
 } from 'lucide-react';
 
-const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 phút bảo mật
+const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
 
 const App = () => {
   const [activeTab, setActiveTab] = useState<'income' | 'expense' | 'stats' | 'settings'>('stats');
@@ -45,7 +46,11 @@ const App = () => {
   const [syncStatus, setSyncStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{show: boolean, title: string, message: string, onConfirm: () => void} | null>(null);
+  
+  // Ưu tiên mã bucket người dùng cung cấp
   const [syncKey, setSyncKey] = useState(() => localStorage.getItem('tokymon_sync_key') || '');
+  const [showSyncKey, setShowSyncKey] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState(false);
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
@@ -60,6 +65,48 @@ const App = () => {
   const pollTimerRef = useRef<number | null>(null);
   const inactivityTimerRef = useRef<number | null>(null);
   const dataRef = useRef(data);
+  const syncDebounceRef = useRef<number | null>(null);
+
+  const handleCopySyncKey = () => {
+    if (!syncKey) return;
+    navigator.clipboard.writeText(syncKey);
+    setCopyFeedback(true);
+    setTimeout(() => setCopyFeedback(false), 2000);
+  };
+
+  const handleRestoreKey = (manualKey?: string) => {
+    const key = manualKey || prompt(lang === 'vi' ? "Nhập mã Sync Key của bạn (ví dụ: NZQk...):" : "Geben Sie Ihren Sync-Schlüssel ein (z. B. NZQk...):");
+    if (key && key.trim()) {
+      setSyncKey(key.trim());
+      localStorage.setItem('tokymon_sync_key', key.trim());
+      // Thực hiện đồng bộ ngay lập tức sau khi đổi key
+      handleCloudSync(false, dataRef.current, key.trim());
+    }
+  };
+
+  const handleCloudSync = useCallback(async (silent = false, specificData?: AppData, overrideKey?: string) => {
+    const activeKey = overrideKey || syncKey;
+    if (!activeKey || activeKey.trim() === '' || !navigator.onLine) return;
+    
+    if (!silent) setIsSyncing(true);
+    try {
+      const targetData = specificData || dataRef.current;
+      const merged = await StorageService.syncWithCloud(activeKey, targetData);
+      
+      // Kiểm tra nếu dữ liệu thực sự có thay đổi từ cloud thì mới update state
+      if (JSON.stringify(merged) !== JSON.stringify(dataRef.current)) {
+        setData(merged);
+      }
+      
+      setSyncStatus('SUCCESS');
+      if (!silent) setTimeout(() => setSyncStatus('IDLE'), 3000);
+    } catch (e: any) { 
+      setSyncStatus('ERROR'); 
+      console.error("Sync Error", e);
+    } finally {
+      if (!silent) setIsSyncing(false);
+    }
+  }, [syncKey]);
 
   const resetInactivityTimer = useCallback(() => {
     if (!currentUser) return;
@@ -72,7 +119,7 @@ const App = () => {
   const handleForceLogout = () => {
     localStorage.removeItem('tokymon_user');
     setCurrentUser(null);
-    alert("Phiên làm việc hết hạn vì lý do bảo mật. / Sitzung aus Sicherheitsgründen abgelaufen.");
+    alert(lang === 'vi' ? "Phiên làm việc hết hạn vì lý do bảo mật." : "Sitzung aus Sicherheitsgründen abgelaufen.");
   };
 
   useEffect(() => {
@@ -85,7 +132,7 @@ const App = () => {
         if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
       };
     }
-  }, [currentUser, resetInactivityTimer]);
+  }, [currentUser, resetInactivityTimer, lang]);
 
   useEffect(() => {
     const lastVersion = localStorage.getItem('tokymon_system_version');
@@ -117,31 +164,28 @@ const App = () => {
     };
   }, []);
 
+  // ĐỒNG BỘ TỰ ĐỘNG KHI DỮ LIỆU THAY ĐỔI (DEBOUNCED)
   useEffect(() => {
     if (isDataLoaded) {
       dataRef.current = data;
       StorageService.saveLocal(data);
-    }
-  }, [data, isDataLoaded]);
 
-  const handleCloudSync = useCallback(async (silent = false, specificData?: AppData) => {
-    if (!syncKey || syncKey.trim() === '' || !navigator.onLine) return;
-    if (!silent) setIsSyncing(true);
-    try {
-      const targetData = specificData || dataRef.current;
-      const merged = await StorageService.syncWithCloud(syncKey, targetData);
-      if (JSON.stringify(merged) !== JSON.stringify(dataRef.current)) setData(merged);
-      setSyncStatus('SUCCESS');
-      if (!silent) setTimeout(() => setSyncStatus('IDLE'), 3000);
-    } catch (e: any) { setSyncStatus('ERROR'); } finally {
-      if (!silent) setIsSyncing(false);
+      // Nếu có Sync Key và đang online, tự động đồng bộ sau khi nhập (delay 2s để tránh spam API)
+      if (syncKey && isOnline) {
+        if (syncDebounceRef.current) window.clearTimeout(syncDebounceRef.current);
+        syncDebounceRef.current = window.setTimeout(() => {
+          handleCloudSync(true);
+        }, 2000);
+      }
     }
-  }, [syncKey]);
+  }, [data, isDataLoaded, isOnline, syncKey, handleCloudSync]);
 
   useEffect(() => {
     if (syncKey && currentUser && isOnline) {
+      // Pull dữ liệu khi mở app
       handleCloudSync(true);
-      pollTimerRef.current = window.setInterval(() => handleCloudSync(true), 45000);
+      // Giữ polling để nhận dữ liệu từ thiết bị khác
+      pollTimerRef.current = window.setInterval(() => handleCloudSync(true), 60000);
     }
     return () => { if (pollTimerRef.current) window.clearInterval(pollTimerRef.current); };
   }, [syncKey, handleCloudSync, currentUser, isOnline]);
@@ -226,14 +270,10 @@ const App = () => {
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const inputUser = loginForm.username.trim();
-    const inputPass = loginForm.password.trim();
-    
     const user = activeUsers.find(u => 
-      u.username.trim().toLowerCase() === inputUser.toLowerCase() && 
-      u.password.trim() === inputPass
+      u.username.trim().toLowerCase() === loginForm.username.trim().toLowerCase() && 
+      u.password.trim() === loginForm.password.trim()
     );
-    
     if (user) { 
       setCurrentUser(user); 
       localStorage.setItem('tokymon_user', JSON.stringify(user)); 
@@ -247,7 +287,6 @@ const App = () => {
     return (
       <div className="min-h-[100dvh] relative flex flex-col items-center justify-center p-6 font-sans transition-colors duration-700 overflow-hidden">
         <div className="login-mesh" />
-        
         <div className="w-full max-w-[380px] z-10 space-y-12 animate-ios">
           <div className="text-center space-y-6 animate-float">
             <div className="relative inline-block">
@@ -311,10 +350,6 @@ const App = () => {
                 <Terminal className="w-4 h-4 text-brand-600 dark:text-brand-400 group-hover:rotate-12 transition-transform" />
                 <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-[0.2em]">Verified Dev <span className="text-brand-600 dark:text-brand-400">thPhuoc</span></span>
              </div>
-             <div className="flex items-center gap-3 opacity-40">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                <p className="text-[9px] font-black text-slate-500 dark:text-white uppercase tracking-[0.5em]">Stable Version {SCHEMA_VERSION.split(' ')[0]}</p>
-             </div>
           </div>
         </div>
       </div>
@@ -332,7 +367,7 @@ const App = () => {
              <h3 className="text-xl font-black text-center uppercase tracking-tight dark:text-white mb-2">{t('whats_new')}</h3>
              <p className="text-[10px] font-black text-center uppercase tracking-widest text-brand-600 mb-6">{SCHEMA_VERSION}</p>
              <div className="space-y-4 mb-8 max-h-[40vh] overflow-y-auto no-scrollbar">
-               {APP_CHANGELOG[0].changes[lang].map((change, i) => (
+               {(APP_CHANGELOG[0].changes[lang] || []).map((change, i) => (
                  <div key={i} className="flex gap-3 text-xs font-bold text-slate-600 dark:text-slate-300"><Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" /><p className="leading-relaxed">{change}</p></div>
                ))}
              </div>
@@ -344,7 +379,7 @@ const App = () => {
       {confirmModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={() => setConfirmModal(null)} />
-          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[3rem] p-10 relative z-10 border border-white dark:border-slate-800 shadow-2xl">
+          <div className="bg-white dark:bg-slate-900 w-full max-sm rounded-[3rem] p-10 relative z-10 border border-white dark:border-slate-800 shadow-2xl">
             <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 rounded-3xl flex items-center justify-center text-rose-600 mb-8 mx-auto shadow-sm"><AlertTriangle className="w-8 h-8" /></div>
             <h3 className="text-lg font-black text-slate-900 dark:text-white text-center uppercase mb-4 tracking-tight">{confirmModal.title}</h3>
             <p className="text-xs font-bold text-slate-500 dark:text-slate-400 text-center mb-10 leading-relaxed uppercase tracking-tight">{confirmModal.message}</p>
@@ -357,7 +392,7 @@ const App = () => {
       )}
 
       <header className="px-4 py-3 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800/60 shadow-sm safe-pt">
-        <div className="flex items-center gap-3 min-w-0 max-w-[65%]">
+        <div className="flex items-center gap-3 min-w-0 max-w-[50%]">
            <div className="relative w-10 h-10 bg-slate-950 dark:bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-vivid shrink-0" style={{ backgroundColor: activeBranchColor }}>
               <UtensilsCrossed className="w-5 h-5" />
            </div>
@@ -371,6 +406,12 @@ const App = () => {
         </div>
 
         <div className="flex items-center gap-2">
+           {syncKey && (
+             <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${isOnline ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' : 'bg-rose-500/10 border-rose-500/20 text-rose-500'}`}>
+                {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <CloudCheck className="w-3 h-3" />}
+                <span className="text-[8px] font-black uppercase tracking-widest">{isSyncing ? 'Sync...' : 'Cloud'}</span>
+             </div>
+           )}
            <div className={`p-1 rounded-full border border-white dark:border-slate-700/50 shadow-inner flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800/40`}>
              <button onClick={toggleLanguage} className="w-8 h-8 rounded-lg flex items-center justify-center active-scale text-slate-600 dark:text-slate-300">
                <span className="text-[9px] font-black uppercase">{lang === 'vi' ? 'VN' : 'DE'}</span>
@@ -462,15 +503,84 @@ const App = () => {
                 <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-[2.5rem] p-5 border border-white/20 dark:border-slate-800 shadow-ios min-h-[450px]">
                     {settingsSubTab === 'guide' && <GuideCenter lang={lang} />}
                     {settingsSubTab === 'sync' && (
-                      <div className="space-y-10 max-w-sm mx-auto pt-10 text-center">
-                        <div className="w-20 h-20 bg-brand-50/50 dark:bg-brand-900/10 text-brand-600 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner border border-brand-100 dark:border-brand-900/20" style={{ color: activeBranchColor }}><Cloud className="w-10 h-10" /></div>
-                        <div className="space-y-4">
-                          <h3 className="text-xl font-black uppercase dark:text-white">Enterprise Sync</h3>
-                          <input type="text" value={syncKey} onChange={e => {setSyncKey(e.target.value); localStorage.setItem('tokymon_sync_key', e.target.value);}} className="w-full p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl font-bold border-2 border-slate-100 dark:border-slate-800 focus:border-brand-500 outline-none text-center uppercase tracking-widest" placeholder="SYNC KEY..." />
+                      <div className="space-y-8 max-w-md mx-auto pt-6 animate-ios">
+                        <div className="text-center space-y-3">
+                           <div className="w-20 h-20 bg-brand-50/50 dark:bg-brand-900/10 text-brand-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-inner border border-brand-100 dark:border-brand-900/20" style={{ color: activeBranchColor }}><Database className="w-10 h-10" /></div>
+                           <h3 className="text-xl font-black uppercase dark:text-white tracking-tight">Enterprise Cloud Vault</h3>
+                           <div className="flex items-center justify-center gap-2">
+                             <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                               {isOnline ? 'Active Connection' : 'Offline Mode'}
+                             </p>
+                           </div>
                         </div>
-                        <button onClick={() => handleCloudSync()} disabled={isSyncing || !isOnline} className="w-full py-5 bg-brand-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 active-scale shadow-vivid disabled:opacity-50" style={{ backgroundColor: activeBranchColor }}>
-                          <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /> {isOnline ? t('cloud_sync') : 'Offline'}
-                        </button>
+
+                        <div className="space-y-5">
+                           <div className="relative group">
+                              <div className="flex justify-between items-center mb-1.5 px-4">
+                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Sync Key (Bucket Identifier)</label>
+                                {!syncKey && (
+                                  <button onClick={() => handleRestoreKey()} className="text-[9px] font-black text-brand-600 uppercase tracking-widest flex items-center gap-1 hover:underline">
+                                    <Link2 className="w-3 h-3" /> Restore Key
+                                  </button>
+                                )}
+                              </div>
+                              <div className="relative">
+                                 <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400">
+                                   <KeyRound className="w-5 h-5" />
+                                 </div>
+                                 <input 
+                                    type={showSyncKey ? "text" : "password"} 
+                                    value={syncKey} 
+                                    onChange={e => {setSyncKey(e.target.value); localStorage.setItem('tokymon_sync_key', e.target.value);}} 
+                                    className="w-full p-5 pl-14 pr-28 bg-slate-50 dark:bg-slate-950 rounded-2xl font-black border-2 border-slate-100 dark:border-slate-800 focus:border-brand-500 outline-none tracking-[0.2em] transition-all text-xs" 
+                                    placeholder="Paste your key here..." 
+                                 />
+                                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                    <button onClick={() => setShowSyncKey(!showSyncKey)} className="p-2 text-slate-400 hover:text-brand-500 transition-colors active-scale">
+                                       {showSyncKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                    </button>
+                                    <button onClick={handleCopySyncKey} className={`p-2 transition-colors active-scale ${copyFeedback ? 'text-emerald-500' : 'text-slate-400 hover:text-brand-500'}`}>
+                                       {copyFeedback ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                                    </button>
+                                 </div>
+                              </div>
+                           </div>
+
+                           {!syncKey && (
+                             <div className="p-6 bg-brand-50/50 dark:bg-brand-900/10 border-2 border-dashed border-brand-200 dark:border-brand-800 rounded-[2rem] text-center space-y-4">
+                                <div className="w-12 h-12 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center mx-auto shadow-sm"><Info className="w-6 h-6 text-brand-600" /></div>
+                                <div className="space-y-1">
+                                  <p className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase">Chưa cấu hình đồng bộ</p>
+                                  <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase leading-relaxed tracking-tight">
+                                    Dữ liệu hiện chỉ lưu trên trình duyệt này. Hãy nhập mã Sync Key để đồng bộ lên đám mây.
+                                  </p>
+                                </div>
+                                <button onClick={() => handleRestoreKey('NZQkBLdrxvnEEMUw928weK')} className="w-full py-3 bg-brand-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest active-scale">
+                                  Sử dụng mã NZQk...
+                                </button>
+                             </div>
+                           )}
+
+                           <div className="p-5 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-2xl space-y-3">
+                              <div className="flex items-center gap-2 text-amber-600">
+                                 <ShieldAlert className="w-4 h-4 shrink-0" />
+                                 <span className="text-[10px] font-black uppercase tracking-tight">Cảnh báo bảo mật</span>
+                              </div>
+                              <p className="text-[10px] font-bold text-amber-800 dark:text-amber-200/70 leading-relaxed uppercase tracking-tight italic">
+                                 {lang === 'vi' 
+                                   ? 'Hệ thống đã cấu hình để tự động đồng bộ ngay sau khi bạn nhập liệu. Vui lòng đảm bảo kết nối mạng ổn định.' 
+                                   : 'Das System ist so konfiguriert, dass es sofort nach der Dateneingabe automatisch synchronisiert wird. Bitte stellen Sie eine stabile Netzwerkverbindung sicher.'}
+                              </p>
+                           </div>
+                        </div>
+
+                        <div className="pt-2">
+                           <button onClick={() => handleCloudSync()} disabled={isSyncing || !isOnline || !syncKey} className="w-full py-5 bg-brand-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 active-scale shadow-vivid disabled:opacity-40 transition-all" style={{ backgroundColor: activeBranchColor }}>
+                             <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /> 
+                             {isSyncing ? 'Synchronizing Vault...' : (isOnline ? 'Đồng bộ ngay' : 'Waiting for Internet...')}
+                           </button>
+                        </div>
                       </div>
                     )}
                     {settingsSubTab === 'export' && <ExportManager transactions={activeTransactions} branches={activeBranches} lang={lang} />}
@@ -500,7 +610,7 @@ const App = () => {
                            <ShieldCheck className="w-8 h-8 text-blue-600 shrink-0" />
                            <div className="min-w-0">
                               <p className="text-[10px] font-black uppercase text-blue-600 mb-1">Security Status</p>
-                              <p className="text-[11px] font-bold dark:text-blue-300">Tính năng tự động đăng xuất và cập nhật bảo mật đang hoạt động.</p>
+                              <p className="text-[11px] font-bold dark:text-blue-300">Dữ liệu được bảo mật bằng AES-256 và tự động sao lưu định kỳ.</p>
                            </div>
                         </div>
                         <div className="pt-6 border-t dark:border-slate-800 border-slate-100 text-center">

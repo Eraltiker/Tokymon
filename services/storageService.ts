@@ -29,6 +29,7 @@ export const StorageService = {
     (remote || []).forEach(remoteItem => {
       if (!remoteItem?.id) return;
       const localItem = map.get(remoteItem.id);
+      // Nếu local chưa có, hoặc remote mới hơn thì cập nhật
       if (!localItem || new Date(remoteItem.updatedAt || 0).getTime() > new Date(localItem.updatedAt || 0).getTime()) {
         map.set(remoteItem.id, remoteItem);
       }
@@ -61,13 +62,18 @@ export const StorageService = {
       if (response.ok) {
         const remoteData = await response.json();
         const merged = StorageService.mergeAppData(localData, remoteData);
-        await fetch(url, {
-          method: 'POST',
-          body: JSON.stringify(merged),
-          headers: { 'Content-Type': 'application/json' }
-        });
+        
+        // Chỉ lưu lại Cloud nếu dữ liệu sau khi merge có thay đổi (tránh vòng lặp vô hạn)
+        if (JSON.stringify(merged) !== JSON.stringify(remoteData)) {
+          await fetch(url, {
+            method: 'POST',
+            body: JSON.stringify(merged),
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
         return merged;
       } else if (response.status === 404) {
+        // Nếu bucket chưa tồn tại trên cloud, tạo mới với dữ liệu local
         await fetch(url, {
           method: 'POST',
           body: JSON.stringify(localData),
@@ -77,6 +83,7 @@ export const StorageService = {
       }
     } catch (e) {
       console.error("Cloud Sync Error", e);
+      throw e; // Để App.tsx có thể bắt lỗi và hiển thị trạng thái
     }
     return localData;
   },
