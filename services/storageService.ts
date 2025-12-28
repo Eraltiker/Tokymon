@@ -1,34 +1,24 @@
 
-import { AppData, SCHEMA_VERSION, EXPENSE_CATEGORIES, Transaction, Branch, User, RecurringTransaction, ReportSettings } from '../types';
+import { AppData, SCHEMA_VERSION, EXPENSE_CATEGORIES, Transaction, Branch, User, RecurringTransaction, ReportSettings, UserRole } from '../types';
 
 const DB_NAME = 'TokymonDB';
 const DB_VERSION = 1;
 const STORE_NAME = 'app_data';
 const DATA_KEY = 'master';
 
-// Singleton DB Promise for instant access
 let dbPromise: Promise<IDBDatabase> | null = null;
 
 const getDB = (): Promise<IDBDatabase> => {
   if (dbPromise) return dbPromise;
-  
   dbPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-    
     request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME);
-      }
+      if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
     };
-    
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => {
-      dbPromise = null;
-      reject(request.error);
-    };
+    request.onerror = () => { dbPromise = null; reject(request.error); };
   });
-  
   return dbPromise;
 };
 
@@ -63,15 +53,44 @@ export const StorageService = {
     };
   },
 
+  // Fix: Added syncWithCloud method to enable enterprise cloud sync via kvdb.io
+  async syncWithCloud(syncKey: string, localData: AppData): Promise<AppData> {
+    if (!syncKey || syncKey.trim() === '') return localData;
+    const url = `https://kvdb.io/${syncKey}/tokymon_v1`;
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        const remoteData = await response.json();
+        const merged = StorageService.mergeAppData(localData, remoteData);
+        // Save merged back to cloud
+        await fetch(url, {
+          method: 'POST',
+          body: JSON.stringify(merged),
+          headers: { 'Content-Type': 'application/json' }
+        });
+        return merged;
+      } else if (response.status === 404) {
+        // First time sync, push local data to cloud
+        await fetch(url, {
+          method: 'POST',
+          body: JSON.stringify(localData),
+          headers: { 'Content-Type': 'application/json' }
+        });
+        return localData;
+      }
+    } catch (e) {
+      console.error("Cloud Sync Error", e);
+    }
+    return localData;
+  },
+
   async saveLocal(data: AppData) {
     try {
       const db = await getDB();
       const transaction = db.transaction(STORE_NAME, 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
       store.put(data, DATA_KEY);
-    } catch (e) {
-      console.error("IDB Save Error", e);
-    }
+    } catch (e) { console.error("IDB Save Error", e); }
   },
 
   async loadLocal(): Promise<AppData> {
@@ -90,22 +109,39 @@ export const StorageService = {
       return {
         ...StorageService.getEmptyData(),
         ...data,
-        transactions: data.transactions || [],
-        branches: data.branches || [],
-        users: data.users || [],
-        auditLogs: data.auditLogs || []
+        // Bảo vệ tài khoản admin root nếu vô tình bị xóa trong db cục bộ
+        users: data.users && data.users.some((u: any) => u.username === 'admin') 
+          ? data.users 
+          : [StorageService.getEmptyData().users[0], ...(data.users || [])]
       };
-    } catch (e) {
-      return StorageService.getEmptyData();
-    }
+    } catch (e) { return StorageService.getEmptyData(); }
   },
 
   getEmptyData: (): AppData => ({
     version: SCHEMA_VERSION,
     lastSync: '',
     transactions: [],
-    branches: [],
-    users: [{ id: 'admin_root', username: 'admin', password: 'admin', role: 'SUPER_ADMIN' as any, assignedBranchIds: [], updatedAt: new Date().toISOString() }],
+    branches: [
+      { 
+        id: 'br_default', 
+        name: 'Tokymon Bad Nauheim', 
+        address: 'Bad Nauheim, Germany', 
+        initialCash: 0, 
+        initialCard: 0, 
+        color: '#6366f1', 
+        updatedAt: new Date().toISOString() 
+      }
+    ],
+    users: [
+      { 
+        id: 'admin_root', 
+        username: 'admin', 
+        password: 'admin123', 
+        role: UserRole.SUPER_ADMIN, 
+        assignedBranchIds: [], 
+        updatedAt: new Date().toISOString() 
+      }
+    ],
     expenseCategories: EXPENSE_CATEGORIES,
     recurringExpenses: [],
     auditLogs: [],
@@ -117,30 +153,5 @@ export const StorageService = {
       showActualCash: true,
       showProfit: true
     }
-  }),
-
-  syncWithCloud: async (bucketId: string, localData: AppData): Promise<AppData> => {
-    if (!navigator.onLine) throw new Error("Offline");
-    const sanitizedId = bucketId?.trim();
-    if (!sanitizedId) return localData;
-    
-    const BUCKET_URL = `https://kvdb.io/${sanitizedId}/main`;
-    try {
-      const response = await fetch(BUCKET_URL);
-      let remoteData: AppData | null = null;
-      if (response.ok) {
-        const text = await response.text();
-        if (text && text.trim() !== "null") remoteData = JSON.parse(text);
-      }
-      const merged = remoteData ? StorageService.mergeAppData(localData, remoteData) : localData;
-      await fetch(BUCKET_URL, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(merged)
-      });
-      return merged;
-    } catch (error) {
-      throw error;
-    }
-  }
+  })
 };

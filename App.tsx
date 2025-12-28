@@ -25,11 +25,11 @@ import {
   ImageIcon, ArrowRight,
   Globe, Check, Info, ShieldCheck,
   Sparkles, Loader2, PartyPopper, X,
-  Fingerprint, Heart, LockKeyhole, Languages, HelpCircle, LayoutGrid
+  Fingerprint, Heart, LockKeyhole, Languages, HelpCircle, LayoutGrid, Terminal
 } from 'lucide-react';
 
 const App = () => {
-  const [activeTab, setActiveTab] = useState<'income' | 'expense' | 'stats' | 'settings'>('income');
+  const [activeTab, setActiveTab] = useState<'income' | 'expense' | 'stats' | 'settings'>('stats');
   const [settingsSubTab, setSettingsSubTab] = useState<'general' | 'export' | 'branches' | 'users' | 'sync' | 'audit' | 'about' | 'guide'>('general');
   const [isDark, setIsDark] = useState(() => localStorage.getItem('tokymon_theme') === 'dark');
   const [lang, setLang] = useState<Language>(() => (localStorage.getItem('tokymon_lang') as Language) || 'vi');
@@ -43,7 +43,7 @@ const App = () => {
   const [syncStatus, setSyncStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{show: boolean, title: string, message: string, onConfirm: () => void} | null>(null);
-  const [syncKey, setSyncKey] = useState(() => localStorage.getItem('tokymon_sync_key') || 'NZQkBLdrxvnEEMUw928weK');
+  const [syncKey, setSyncKey] = useState(() => localStorage.getItem('tokymon_sync_key') || '');
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
@@ -66,7 +66,6 @@ const App = () => {
     localStorage.setItem('tokymon_system_version', SCHEMA_VERSION);
   }, [currentUser]);
 
-  // Siêu tối ưu khởi tạo: Nạp dữ liệu song song với render login
   useEffect(() => {
     let isMounted = true;
     const initData = async () => {
@@ -147,18 +146,16 @@ const App = () => {
     return activeBranches.filter(b => currentUser.assignedBranchIds.includes(b.id));
   }, [activeBranches, currentUser, isAdmin]);
 
-  const dropdownBranches = useMemo(() => allowedBranches, [allowedBranches]);
-
   useEffect(() => {
-    if (currentUser && dropdownBranches.length > 0) {
-      const isValid = dropdownBranches.some(b => b.id === currentBranchId) || currentBranchId === ALL_BRANCHES_ID;
+    if (currentUser && allowedBranches.length > 0) {
+      const isValid = allowedBranches.some(b => b.id === currentBranchId) || currentBranchId === ALL_BRANCHES_ID;
       if (!currentBranchId || !isValid) {
-        const first = dropdownBranches[0].id;
+        const first = isAdmin ? ALL_BRANCHES_ID : allowedBranches[0].id;
         setCurrentBranchId(first);
         localStorage.setItem('tokymon_current_branch', first);
       }
     }
-  }, [dropdownBranches, currentBranchId, currentUser]);
+  }, [allowedBranches, currentBranchId, currentUser, isAdmin]);
 
   const addAuditLog = useCallback((action: AuditLogEntry['action'], entityType: AuditLogEntry['entityType'], entityId: string, details: string) => {
     if (!currentUser) return;
@@ -168,13 +165,6 @@ const App = () => {
     };
     setData(prev => ({ ...prev, auditLogs: [newLog, ...prev.auditLogs].slice(0, 500) }));
   }, [currentUser]);
-
-  const setBranchesWithDataCleanup = useCallback((update: any) => {
-    setData(prev => ({
-      ...prev,
-      branches: typeof update === 'function' ? update(prev.branches) : update
-    }));
-  }, []);
 
   const handleResetBranchData = useCallback((branchId: string) => {
     setData(prev => ({
@@ -206,65 +196,68 @@ const App = () => {
     showCardRevenue: true, showActualCash: true, showProfit: true
   };
 
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const inputUser = loginForm.username.trim();
+    const inputPass = loginForm.password.trim();
+    
+    const user = activeUsers.find(u => 
+      u.username.trim().toLowerCase() === inputUser.toLowerCase() && 
+      u.password.trim() === inputPass
+    );
+    
+    if (user) { 
+      setCurrentUser(user); 
+      localStorage.setItem('tokymon_user', JSON.stringify(user)); 
+      addAuditLog('LOGIN', 'USER', user.id, `Đăng nhập thành công`); 
+    } else { 
+      setLoginError(t('error_login')); 
+    }
+  };
+
   if (!currentUser) {
     return (
-      <div className="min-h-[100dvh] relative flex flex-col items-center justify-between p-6 font-sans transition-colors duration-700 overflow-hidden">
+      <div className="min-h-[100dvh] relative flex flex-col items-center justify-center p-6 font-sans transition-colors duration-700 overflow-hidden">
         <div className="login-mesh" />
         
-        <div className="w-full flex justify-between items-center safe-pt relative z-50">
-           <div className="flex gap-2">
-             <div className="px-3 py-1 bg-white/40 dark:bg-black/20 rounded-full backdrop-blur-md border border-white/20">
-                <p className="text-[10px] font-black uppercase text-slate-500 tracking-tighter">v{SCHEMA_VERSION.split(' ')[0]}</p>
-             </div>
-           </div>
-           <div className="flex gap-2">
-             <button onClick={() => setIsDark(!isDark)} className="w-10 h-10 glass rounded-full flex items-center justify-center active-scale">
-               {isDark ? <Sun className="w-4.5 h-4.5 text-amber-500" /> : <Moon className="w-4.5 h-4.5 text-brand-600" />}
-             </button>
-             <button onClick={toggleLanguage} className="px-4 h-10 glass rounded-full flex items-center gap-2 active-scale">
-                <Languages className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                <span className="text-[10px] font-black uppercase dark:text-white">{lang === 'vi' ? 'VN' : 'DE'}</span>
-             </button>
-           </div>
-        </div>
-
-        <div className="w-full max-w-[380px] z-10 space-y-8 py-10 animate-ios">
-          <div className="text-center space-y-4">
+        <div className="w-full max-w-sm z-10 space-y-10 animate-ios">
+          <div className="text-center space-y-6">
             <div className="relative inline-block">
               <div className="absolute inset-0 bg-brand-500/20 rounded-full blur-2xl animate-pulse" />
-              <div className="relative w-24 h-24 bg-white/80 dark:bg-white/5 rounded-[2.5rem] backdrop-blur-2xl border border-white/40 dark:border-white/10 shadow-ios flex items-center justify-center mx-auto">
-                {data.logoUrl ? (
-                  <img src={data.logoUrl} alt="Logo" className="w-16 h-16 object-contain" />
-                ) : (
-                  <UtensilsCrossed className="w-12 h-12 text-brand-600 dark:text-brand-400" />
-                )}
+              <div className="relative w-24 h-24 bg-white/80 dark:bg-white/5 rounded-[2.8rem] backdrop-blur-2xl border border-white/40 dark:border-white/10 shadow-ios flex items-center justify-center mx-auto">
+                <UtensilsCrossed className="w-12 h-12 text-brand-600 dark:text-brand-400" />
               </div>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-2">
               <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-900 to-slate-500 dark:from-white dark:to-slate-400 tracking-tighter leading-none">TOKYMON</h1>
-              <p className="text-[9px] font-black text-brand-600 dark:text-brand-500 uppercase tracking-[0.4em] opacity-80">Official Edition</p>
+              <p className="text-[10px] font-black text-brand-600 dark:text-brand-500 uppercase tracking-[0.4em] opacity-80">Enterprise Management</p>
             </div>
           </div>
 
-          <form onSubmit={(e) => {
-              e.preventDefault();
-              const user = activeUsers.find(u => u.username.toLowerCase() === loginForm.username.toLowerCase() && u.password === loginForm.password);
-              if (user) { 
-                setCurrentUser(user); 
-                localStorage.setItem('tokymon_user', JSON.stringify(user)); 
-                addAuditLog('LOGIN', 'USER', user.id, `Đăng nhập thành công`); 
-              } else { setLoginError(t('error_login')); }
-            }} 
-            className={`glass p-8 rounded-[3rem] shadow-2xl space-y-6 relative overflow-hidden ${loginError ? 'animate-shake' : ''}`}
-          >
-            <div className="space-y-4">
-              <div className="relative">
-                <input type="text" value={loginForm.username} onChange={e => {setLoginForm({...loginForm, username: e.target.value}); setLoginError('');}} className="w-full p-5 bg-white/50 dark:bg-black/20 rounded-2xl font-bold border border-white/50 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-12 text-[16px]" placeholder="Username" required />
-                <UserCircle2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <form onSubmit={handleLoginSubmit} className={`glass p-10 rounded-[3.5rem] shadow-vivid space-y-7 relative overflow-hidden ${loginError ? 'animate-shake' : ''}`}>
+            <div className="space-y-5">
+              <div className="relative group">
+                <input 
+                  type="text" 
+                  value={loginForm.username} 
+                  onChange={e => {setLoginForm({...loginForm, username: e.target.value}); setLoginError('');}} 
+                  className="w-full p-5 bg-white/50 dark:bg-black/20 rounded-2xl font-bold border border-white/50 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-12 text-[16px]" 
+                  placeholder={t('username')} 
+                  autoCapitalize="none"
+                  required 
+                />
+                <UserCircle2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
               </div>
-              <div className="relative">
-                <input type="password" value={loginForm.password} onChange={e => {setLoginForm({...loginForm, password: e.target.value}); setLoginError('');}} className="w-full p-5 bg-white/50 dark:bg-black/20 rounded-2xl font-bold border border-white/50 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-12 text-[16px]" placeholder="••••••••" required />
-                <LockKeyhole className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <div className="relative group">
+                <input 
+                  type="password" 
+                  value={loginForm.password} 
+                  onChange={e => {setLoginForm({...loginForm, password: e.target.value}); setLoginError('');}} 
+                  className="w-full p-5 bg-white/50 dark:bg-black/20 rounded-2xl font-bold border border-white/50 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-12 text-[16px]" 
+                  placeholder={t('password')} 
+                  required 
+                />
+                <LockKeyhole className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
               </div>
             </div>
 
@@ -275,16 +268,18 @@ const App = () => {
               </div>
             )}
 
-            <button type="submit" className="w-full h-16 bg-slate-950 dark:bg-brand-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest active-scale transition-all flex items-center justify-center gap-2 shadow-vivid shimmer-btn">
+            <button type="submit" className="w-full h-16 bg-slate-950 dark:bg-brand-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest active-scale transition-all flex items-center justify-center gap-3 shadow-vivid relative overflow-hidden">
                {t('login')} <ArrowRight className="w-5 h-5" />
             </button>
           </form>
-        </div>
 
-        <div className="w-full max-w-[420px] pb-6 text-center space-y-4 relative z-10 opacity-60">
-           <p className="text-[9px] font-black dark:text-slate-400 text-slate-500 uppercase tracking-widest flex items-center justify-center gap-2 leading-none">
-              v1.0 Official with <Heart className="w-2.5 h-2.5 text-rose-500 fill-rose-500" /> by thPhuoc
-           </p>
+          <div className="pt-4 flex flex-col items-center gap-4">
+             <div className="px-5 py-2.5 bg-white/40 dark:bg-slate-900/40 rounded-full border border-white/20 backdrop-blur-md flex items-center gap-2">
+                <Terminal className="w-3.5 h-3.5 text-brand-600" />
+                <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Dev by <span className="text-brand-600">thPhuoc</span></span>
+             </div>
+             <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Official Version {SCHEMA_VERSION.split(' ')[0]}</p>
+          </div>
         </div>
       </div>
     );
@@ -325,65 +320,47 @@ const App = () => {
         </div>
       )}
 
-      {/* HEADER v5.1 - HYPER-DRIVE LAYOUT */}
       <header className="px-4 py-3 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800/60 shadow-sm safe-pt">
-        
-        {/* LEFT: IDENTITY */}
         <div className="flex items-center gap-3 min-w-0 max-w-[65%]">
-           <div className="relative w-10 h-10 bg-slate-950 dark:bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-vivid shrink-0 overflow-hidden" style={{ backgroundColor: activeBranchColor }}>
-              {data.logoUrl ? ( <img src={data.logoUrl} className="w-6 h-6 object-contain" alt="L" /> ) : ( <UtensilsCrossed className="w-5 h-5" /> )}
+           <div className="relative w-10 h-10 bg-slate-950 dark:bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-vivid shrink-0" style={{ backgroundColor: activeBranchColor }}>
+              <UtensilsCrossed className="w-5 h-5" />
            </div>
-           <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex flex-col items-start min-w-0 group">
+           <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex flex-col items-start min-w-0">
               <div className="flex items-center gap-1.5 w-full">
                 <span className="text-[13px] font-black uppercase dark:text-white truncate tracking-tighter leading-none">{currentBranchName}</span>
                 <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showBranchDropdown ? 'rotate-180' : ''}`} />
               </div>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                 <div className="px-1 py-0.5 bg-slate-950/10 dark:bg-white/10 rounded">
-                    <p className="text-[7px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-none">{currentUser?.role}</p>
-                 </div>
-                 <p className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none">v{SCHEMA_VERSION.split(' ')[0]}</p>
-              </div>
+              <p className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mt-0.5">{currentUser?.role}</p>
            </button>
         </div>
 
-        {/* RIGHT: CONTROL STRIP */}
-        <div className="flex items-center gap-1.5">
-           <div className={`p-1 rounded-full border border-white dark:border-slate-700/50 shadow-inner flex items-center gap-0.5 ${isSyncing ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'bg-slate-100 dark:bg-slate-800/40'}`}>
-             {/* Status Indicator */}
-             <div className={`w-1.5 h-1.5 rounded-full mx-1 ${isOnline ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-rose-500 animate-pulse'}`} title={isOnline ? 'Online' : 'Offline'} />
-             
-             <div className="w-px h-3 bg-slate-200 dark:bg-slate-700 mx-0.5" />
-             
-             {/* Language Toggle - New Prominence */}
-             <button onClick={toggleLanguage} className="w-8 h-8 rounded-lg flex items-center justify-center active-scale hover:bg-white dark:hover:bg-slate-700 transition-all text-slate-600 dark:text-slate-300">
+        <div className="flex items-center gap-2">
+           <div className={`p-1 rounded-full border border-white dark:border-slate-700/50 shadow-inner flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800/40`}>
+             <button onClick={toggleLanguage} className="w-8 h-8 rounded-lg flex items-center justify-center active-scale text-slate-600 dark:text-slate-300">
                <span className="text-[9px] font-black uppercase">{lang === 'vi' ? 'VN' : 'DE'}</span>
              </button>
-
-             <button onClick={() => setIsDark(!isDark)} className="w-8 h-8 rounded-lg flex items-center justify-center active-scale transition-all hover:bg-white dark:hover:bg-slate-700">
+             <button onClick={() => setIsDark(!isDark)} className="w-8 h-8 rounded-lg flex items-center justify-center active-scale">
                {isDark ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5 text-brand-600" />}
              </button>
-             
-             <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })} className="w-8 h-8 text-rose-500 rounded-lg active-scale flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all">
+             <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: () => { localStorage.removeItem('tokymon_user'); setCurrentUser(null); } })} className="w-8 h-8 text-rose-500 rounded-lg active-scale flex items-center justify-center">
                <LogOut className="w-3.5 h-3.5" />
              </button>
            </div>
         </div>
 
-        {/* BRANCH DROPDOWN */}
         {showBranchDropdown && (
           <>
             <div className="fixed inset-0 z-[1001]" onClick={() => setShowBranchDropdown(false)} />
             <div className="absolute top-full left-4 mt-2 w-64 bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800 z-[1002] overflow-hidden animate-in slide-in-from-top-2">
               {isAdmin && (
-                <button onClick={() => { setCurrentBranchId(ALL_BRANCHES_ID); localStorage.setItem('tokymon_current_branch', ALL_BRANCHES_ID); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-4.5 hover:bg-slate-900 hover:text-white transition-all flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`}>
+                <button onClick={() => { setCurrentBranchId(ALL_BRANCHES_ID); localStorage.setItem('tokymon_current_branch', ALL_BRANCHES_ID); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-4.5 transition-all flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`}>
                     <div className="flex items-center gap-3"><Globe className="w-4.5 h-4.5" /><span className="text-[11px] font-black uppercase">{t('all_branches')}</span></div>
                     {currentBranchId === ALL_BRANCHES_ID && <Check className="w-3.5 h-3.5" />}
                 </button>
               )}
               <div className="max-h-[60vh] overflow-y-auto no-scrollbar">
-                {dropdownBranches.map(b => (
-                  <button key={b.id} onClick={() => { setCurrentBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-4.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-slate-50 dark:bg-slate-800/50 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`} style={{ color: currentBranchId === b.id ? b.color : 'inherit' }}>
+                {allowedBranches.map(b => (
+                  <button key={b.id} onClick={() => { setCurrentBranchId(b.id); localStorage.setItem('tokymon_current_branch', b.id); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-4.5 transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-slate-50 dark:bg-slate-800/50 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`} style={{ color: currentBranchId === b.id ? b.color : 'inherit' }}>
                     <div className="flex items-center gap-3">
                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: b.color }} />
                        <span className="text-[11px] font-black uppercase">{b.name}</span>
@@ -461,7 +438,7 @@ const App = () => {
                       </div>
                     )}
                     {settingsSubTab === 'export' && <ExportManager transactions={activeTransactions} branches={activeBranches} lang={lang} />}
-                    {settingsSubTab === 'branches' && <BranchManager branches={data.branches} setBranches={setBranchesWithDataCleanup} onAudit={addAuditLog} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} onResetBranchData={handleResetBranchData} lang={lang} />}
+                    {settingsSubTab === 'branches' && <BranchManager branches={data.branches} setBranches={(update: any) => setData(p => ({...p, branches: typeof update === 'function' ? update(p.branches) : update}))} onAudit={addAuditLog} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} onResetBranchData={handleResetBranchData} lang={lang} />}
                     {settingsSubTab === 'users' && <UserManager users={data.users} setUsers={val => setData(p => ({...p, users: typeof val === 'function' ? val(p.users) : val}))} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={(m) => setConfirmModal({ ...m, show: true })} lang={lang} />}
                     {settingsSubTab === 'general' && ( <div className="space-y-10"><CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => {setData(prev => ({...prev, expenseCategories: cats}));}} lang={lang} /><RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={data.expenseCategories} onUpdate={(recs) => {setData(prev => ({...prev, recurringExpenses: recs}));}} onGenerateTransactions={txs => {setData(prev => ({...prev, transactions: [...txs, ...prev.transactions]}));}} branchId={currentBranchId === ALL_BRANCHES_ID ? allowedBranches[0]?.id : currentBranchId} lang={lang} /></div> )}
                     {settingsSubTab === 'audit' && (
@@ -474,41 +451,15 @@ const App = () => {
                     {settingsSubTab === 'about' && (
                       <div className="space-y-6 animate-ios max-w-xl mx-auto py-2">
                         <div className="text-center space-y-4">
-                           <div className="relative inline-block">{data.logoUrl ? ( <img src={data.logoUrl} className="w-16 h-16 object-contain mx-auto" alt="L" /> ) : (
+                           <div className="relative inline-block">
                                <div className="w-14 h-14 bg-brand-600 rounded-[1.4rem] mx-auto flex items-center justify-center shadow-vivid" style={{ backgroundColor: activeBranchColor }}><UtensilsCrossed className="w-7 h-7 text-white" /></div>
-                             )}<div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white text-[8px] font-black px-1 py-0.5 rounded-full border border-white dark:border-slate-900 uppercase leading-none">{t('active')}</div>
+                               <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white text-[8px] font-black px-1 py-0.5 rounded-full border border-white dark:border-slate-900 uppercase leading-none">{t('active')}</div>
                            </div>
                            <div><h2 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none mb-1">Tokymon Official</h2><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Enterprise Release {SCHEMA_VERSION}</p></div>
                         </div>
-
-                        <div className="space-y-4">
-                           <h3 className="text-[10px] font-black uppercase text-brand-600 dark:text-brand-400 tracking-[0.2em] flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-1.5">
-                             <HistoryIcon className="w-4 h-4" /> {t('version_history')}
-                           </h3>
-                           <div className="space-y-3">
-                             {APP_CHANGELOG.map((entry, idx) => (
-                               <div key={idx} className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-700/60">
-                                 <div className="flex justify-between items-center mb-2">
-                                   <span className="text-[9px] font-black px-1.5 py-0.5 bg-indigo-600 text-white rounded-lg leading-none">v{entry.version}</span>
-                                   <span className="text-[8px] font-bold text-slate-400">{entry.date}</span>
-                                 </div>
-                                 <ul className="space-y-1.5">
-                                   {entry.changes[lang].map((item, i) => (
-                                     <li key={i} className="flex gap-2 text-[10px] font-bold text-slate-600 dark:text-slate-300">
-                                       <Check className="w-3 h-3 text-emerald-500 shrink-0 mt-0.5" /> {item}
-                                     </li>
-                                   ))}
-                                 </ul>
-                               </div>
-                             ))}
-                           </div>
+                        <div className="pt-6 border-t dark:border-slate-800 border-slate-100 text-center">
+                          <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Developed with <Heart className="w-3 h-3 text-rose-500 inline mx-1 fill-rose-500" /> by <span className="text-brand-600 font-extrabold" style={{ color: activeBranchColor }}>thPhuoc</span></p>
                         </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                           <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest leading-none">System Engine</p><div className="flex items-center gap-2 text-emerald-500"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-sm" /><span className="text-[9px] font-black uppercase tracking-widest leading-none">Official {SCHEMA_VERSION.split(' ')[0]}</span></div></div>
-                           <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/60"><p className="text-[8px] font-black text-slate-400 uppercase mb-1 tracking-widest leading-none">Status</p><div className="flex items-center gap-2 text-brand-600" style={{ color: activeBranchColor }}><ShieldCheck className="w-3.5 h-3.5" /><span className="text-[9px] font-black uppercase tracking-widest leading-none">{isOnline ? 'Active' : 'Offline'}</span></div></div>
-                        </div>
-                        <div className="pt-6 border-t dark:border-slate-800 border-slate-100 text-center"><p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Built with <Heart className="w-3 h-3 text-rose-500 inline mx-1 fill-rose-500" /> by <span className="text-brand-600 font-extrabold" style={{ color: activeBranchColor }}>thPhuoc</span></p></div>
                       </div>
                     )}
                 </div>
