@@ -23,38 +23,52 @@ const getDB = (): Promise<IDBDatabase> => {
 };
 
 export const StorageService = {
+  /**
+   * CƠ CHẾ GỘP DỮ LIỆU CHỐNG PHỤC HỒI (Anti-Resurrection Merge)
+   * Quy tắc:
+   * 1. Bản ghi mới nhất (updatedAt lớn nhất) thắng.
+   * 2. Nếu updatedAt bằng nhau: Bản ghi nào có deletedAt THẮNG (Ưu tiên xóa).
+   * 3. Nếu một bên đã xóa và bên kia vẫn sống: Chỉ cho phép "sống lại" nếu bản ghi sống có updatedAt MỚI HƠN hẳn bản ghi xóa.
+   */
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
-    const map = new Map<string, T>();
+    const combinedMap = new Map<string, T>();
     
-    // Nạp toàn bộ dữ liệu local trước
-    (local || []).forEach(item => { if (item?.id) map.set(item.id, item); });
-    
-    // So sánh và gộp với remote
-    (remote || []).forEach(remoteItem => {
-      if (!remoteItem?.id) return;
-      const localItem = map.get(remoteItem.id);
-      
-      if (!localItem) {
-        map.set(remoteItem.id, remoteItem);
-        return;
-      }
-      
-      const rTime = new Date(remoteItem.updatedAt || 0).getTime();
-      const lTime = new Date(localItem.updatedAt || 0).getTime();
+    // Gộp tất cả IDs từ cả 2 nguồn
+    const allIds = new Set([
+      ...(local || []).map(i => i.id),
+      ...(remote || []).map(i => i.id)
+    ]);
 
-      // Trường hợp 1: Remote mới hơn hoàn toàn
-      if (rTime > lTime) {
-        map.set(remoteItem.id, remoteItem);
-      } 
-      // Trường hợp 2: Cùng thời điểm hoặc Remote cũ hơn, nhưng Remote đã được đánh dấu Xóa
-      // (Bảo vệ Tombstone: Đã xóa thì ưu tiên giữ trạng thái xóa)
-      else if (rTime === lTime && remoteItem.deletedAt && !localItem.deletedAt) {
-        map.set(remoteItem.id, remoteItem);
+    allIds.forEach(id => {
+      const l = (local || []).find(i => i.id === id);
+      const r = (remote || []).find(i => i.id === id);
+
+      if (l && r) {
+        const lTime = new Date(l.updatedAt).getTime();
+        const rTime = new Date(r.updatedAt).getTime();
+
+        if (lTime > rTime) {
+          // Local mới hơn: Nếu local đã xóa, remote không được hồi sinh nó
+          combinedMap.set(id, l);
+        } else if (rTime > lTime) {
+          // Remote mới hơn: Chấp nhận dữ liệu từ Cloud
+          combinedMap.set(id, r);
+        } else {
+          // Thời gian bằng nhau: Ưu tiên trạng thái đã xóa (Tombstone)
+          if (l.deletedAt || r.deletedAt) {
+            combinedMap.set(id, l.deletedAt ? l : r);
+          } else {
+            combinedMap.set(id, l);
+          }
+        }
+      } else if (l) {
+        combinedMap.set(id, l);
+      } else if (r) {
+        combinedMap.set(id, r);
       }
-      // Ngược lại giữ nguyên bản Local (vì Local đang mới hơn hoặc bằng và Remote không có gì đặc biệt)
     });
-    
-    return Array.from(map.values());
+
+    return Array.from(combinedMap.values());
   },
 
   mergeAppData: (local: AppData, remote: AppData): AppData => {
@@ -85,51 +99,39 @@ export const StorageService = {
           body: JSON.stringify(localData),
           headers: { 'Content-Type': 'application/json' }
         });
-        if (res.status === 429) throw new Error("429");
+        if (res.status === 429) return localData;
         return { ...localData, lastSync: new Date().toISOString() };
       }
 
+      // Lấy dữ liệu từ Cloud
       const response = await fetch(url, { cache: 'no-store' });
-      
-      if (response.status === 429) {
-        console.warn("KVDB Rate limited (429). Skipping this sync cycle.");
-        return localData; 
-      }
+      if (response.status === 429) return localData;
 
       let remoteData: AppData;
       if (response.ok) {
         const text = await response.text();
         try {
           remoteData = JSON.parse(text);
-          if (!remoteData.transactions || !Array.isArray(remoteData.transactions)) {
-            throw new Error("Invalid structure");
-          }
-        } catch (parseError) {
-          console.error("Cloud data invalid, treating as empty.");
+        } catch (e) {
           remoteData = StorageService.getEmptyData();
         }
-      } else if (response.status === 404) {
-        remoteData = StorageService.getEmptyData();
       } else {
-        throw new Error(`Cloud Error: ${response.status}`);
+        remoteData = StorageService.getEmptyData();
       }
 
+      // Gộp dữ liệu
       const merged = StorageService.mergeAppData(localData, remoteData);
       
-      const pushRes = await fetch(url, {
+      // Đẩy ngược lại Cloud ngay lập tức bản gộp (để chốt các Tombstones)
+      await fetch(url, {
         method: 'POST',
         body: JSON.stringify(merged),
         headers: { 'Content-Type': 'application/json' }
       });
-      
-      if (pushRes.status === 429) {
-        console.warn("KVDB Rate limited (429) on push.");
-        return localData;
-      }
 
       return merged;
     } catch (e) {
-      console.error("Sync Process Error:", e);
+      console.error("Sync Failure:", e);
       throw e;
     }
   },
@@ -140,7 +142,7 @@ export const StorageService = {
       const transaction = db.transaction(STORE_NAME, 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
       store.put(data, DATA_KEY);
-    } catch (e) { console.error("IDB Save Error", e); }
+    } catch (e) { console.error("IDB Error", e); }
   },
 
   async loadLocal(): Promise<AppData> {
@@ -155,7 +157,6 @@ export const StorageService = {
       });
 
       if (!data) return StorageService.getEmptyData();
-      
       const empty = StorageService.getEmptyData();
       return {
         ...empty,
@@ -163,9 +164,9 @@ export const StorageService = {
         transactions: data.transactions || [],
         branches: data.branches || empty.branches,
         users: data.users || empty.users,
-        auditLogs: data.auditLogs || [],
         expenseCategories: data.expenseCategories || empty.expenseCategories,
         recurringExpenses: data.recurringExpenses || [],
+        auditLogs: data.auditLogs || []
       };
     } catch (e) { return StorageService.getEmptyData(); }
   },

@@ -101,6 +101,7 @@ const BranchManager: React.FC<BranchManagerProps> = ({ branches, setBranches, on
       message: t('confirm_delete_branch'),
       onConfirm: () => {
         const now = new Date().toISOString();
+        // Cập nhật cả deletedAt và updatedAt để Tombstone thắng khi đồng bộ
         setBranches(prev => prev.map(x => x.id === id ? { ...x, deletedAt: now, updatedAt: now } : x));
         onAudit('DELETE', 'BRANCH', id, `${t('delete')}: ${branchName}`);
         if (editingBranchId === id) clearForm();

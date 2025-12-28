@@ -105,7 +105,9 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
       title: t('delete'),
       message: `${t('delete')} ${u.username}?`,
       onConfirm: () => {
-        setUsers(prev => prev.map(x => x.id === u.id ? { ...x, deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() } : x));
+        const now = new Date().toISOString();
+        // Cập nhật cả deletedAt và updatedAt để Tombstone thắng
+        setUsers(prev => prev.map(x => x.id === u.id ? { ...x, deletedAt: now, updatedAt: now } : x));
         onAudit('DELETE', 'USER', u.id, `Xóa tài khoản: ${u.username}`);
         if (editingUserId === u.id) clearForm();
         setGlobalConfirm(null);

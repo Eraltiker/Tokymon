@@ -29,9 +29,9 @@ import {
   Database, CloudCheck, Languages, Copy, CheckCircle, Wrench, WifiOff
 } from 'lucide-react';
 
-const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 phút
+const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
 const GLOBAL_SYNC_KEY = 'NZQkBLdrxvnEEMUw928weK';
-const SYNC_DEBOUNCE_MS = 25000; // Tránh lỗi 429 từ kvdb.io
+const SYNC_DEBOUNCE_MS = 25000;
 
 const App = () => {
   const [activeTab, setActiveTab] = useState<'income' | 'expense' | 'stats' | 'settings'>(() => {
@@ -133,7 +133,6 @@ const App = () => {
       if (!silent) setTimeout(() => setSyncStatus('IDLE'), 3000);
     } catch (e: any) { 
       setSyncStatus('ERROR'); 
-      console.error("Sync Failed", e);
     } finally {
       if (!silent) setIsSyncing(false);
       isSyncInProgressRef.current = false;
@@ -220,20 +219,44 @@ const App = () => {
     setData(prev => ({ ...prev, auditLogs: [newLog, ...prev.auditLogs].slice(0, 500) }));
   }, [currentUser]);
 
-  const handleDeleteTransaction = (id: string) => {
+  /**
+   * HÀM XÓA CẢI TIẾN:
+   * 1. Cập nhật deletedAt và updatedAt (để bản ghi này thắng mọi bản ghi cũ hơn trên Cloud).
+   * 2. Lưu local.
+   * 3. Gọi đồng bộ Cloud ngay lập tức (không đợi debounce).
+   */
+  const handleDeleteTransaction = async (id: string) => {
     const now = new Date().toISOString();
-    setData(p => ({
-      ...p, 
-      transactions: p.transactions.map(t => 
+    
+    // Cập nhật trạng thái xóa cục bộ
+    setData(prev => {
+      const updatedTransactions = prev.transactions.map(t => 
         t.id === id ? { ...t, deletedAt: now, updatedAt: now } : t
-      )
-    }));
-    addAuditLog('DELETE', 'TRANSACTION', id, `Xóa giao dịch`);
+      );
+      const newData = { ...prev, transactions: updatedTransactions };
+      
+      // Kích hoạt Sync ngay lập tức sau khi State được cập nhật
+      if (navigator.onLine) {
+        handleCloudSync(true, newData);
+      }
+      
+      return newData;
+    });
+
+    addAuditLog('DELETE', 'TRANSACTION', id, `Xóa giao dịch vĩnh viễn`);
   };
 
   const handleResetBranchData = (branchId: string) => {
-    setData(prev => ({...prev, transactions: prev.transactions.filter(tx => tx.branchId !== branchId)}));
-    addAuditLog('DELETE', 'BRANCH', branchId, `Reset dữ liệu chi nhánh`);
+    const now = new Date().toISOString();
+    setData(prev => {
+      const updatedTransactions = prev.transactions.map(tx => 
+        tx.branchId === branchId ? { ...tx, deletedAt: now, updatedAt: now } : tx
+      );
+      const newData = { ...prev, transactions: updatedTransactions };
+      if (navigator.onLine) handleCloudSync(true, newData);
+      return newData;
+    });
+    addAuditLog('DELETE', 'BRANCH', branchId, `Reset toàn bộ dữ liệu chi nhánh`);
   };
 
   const currentBranchName = currentBranchId === ALL_BRANCHES_ID ? t('all_branches') : activeBranches.find(b => b.id === currentBranchId)?.name || '---';
