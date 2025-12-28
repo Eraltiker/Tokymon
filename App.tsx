@@ -30,6 +30,8 @@ import {
 } from 'lucide-react';
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
+// MÃ BUCKET CỐ ĐỊNH CỦA BẠN
+const GLOBAL_SYNC_KEY = 'NZQkBLdrxvnEEMUw928weK';
 
 const App = () => {
   const [activeTab, setActiveTab] = useState<'income' | 'expense' | 'stats' | 'settings'>('stats');
@@ -47,10 +49,8 @@ const App = () => {
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{show: boolean, title: string, message: string, onConfirm: () => void} | null>(null);
   
-  // Ưu tiên mã bucket người dùng cung cấp
-  const [syncKey, setSyncKey] = useState(() => localStorage.getItem('tokymon_sync_key') || '');
-  const [showSyncKey, setShowSyncKey] = useState(false);
-  const [copyFeedback, setCopyFeedback] = useState(false);
+  // Luôn sử dụng GLOBAL_SYNC_KEY
+  const syncKey = GLOBAL_SYNC_KEY;
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
@@ -67,33 +67,15 @@ const App = () => {
   const dataRef = useRef(data);
   const syncDebounceRef = useRef<number | null>(null);
 
-  const handleCopySyncKey = () => {
-    if (!syncKey) return;
-    navigator.clipboard.writeText(syncKey);
-    setCopyFeedback(true);
-    setTimeout(() => setCopyFeedback(false), 2000);
-  };
-
-  const handleRestoreKey = (manualKey?: string) => {
-    const key = manualKey || prompt(lang === 'vi' ? "Nhập mã Sync Key của bạn (ví dụ: NZQk...):" : "Geben Sie Ihren Sync-Schlüssel ein (z. B. NZQk...):");
-    if (key && key.trim()) {
-      setSyncKey(key.trim());
-      localStorage.setItem('tokymon_sync_key', key.trim());
-      // Thực hiện đồng bộ ngay lập tức sau khi đổi key
-      handleCloudSync(false, dataRef.current, key.trim());
-    }
-  };
-
-  const handleCloudSync = useCallback(async (silent = false, specificData?: AppData, overrideKey?: string) => {
-    const activeKey = overrideKey || syncKey;
-    if (!activeKey || activeKey.trim() === '' || !navigator.onLine) return;
+  const handleCloudSync = useCallback(async (silent = false, specificData?: AppData) => {
+    if (!navigator.onLine) return;
     
     if (!silent) setIsSyncing(true);
     try {
       const targetData = specificData || dataRef.current;
-      const merged = await StorageService.syncWithCloud(activeKey, targetData);
+      const merged = await StorageService.syncWithCloud(GLOBAL_SYNC_KEY, targetData);
       
-      // Kiểm tra nếu dữ liệu thực sự có thay đổi từ cloud thì mới update state
+      // Nếu dữ liệu Cloud khác dữ liệu hiện tại, cập nhật ngay
       if (JSON.stringify(merged) !== JSON.stringify(dataRef.current)) {
         setData(merged);
       }
@@ -106,7 +88,7 @@ const App = () => {
     } finally {
       if (!silent) setIsSyncing(false);
     }
-  }, [syncKey]);
+  }, []);
 
   const resetInactivityTimer = useCallback(() => {
     if (!currentUser) return;
@@ -145,10 +127,17 @@ const App = () => {
   useEffect(() => {
     let isMounted = true;
     const initData = async () => {
+      // 1. Load từ IndexedDB trước
       const loadedData = await StorageService.loadLocal();
       if (isMounted) {
         setData(loadedData);
+        dataRef.current = loadedData;
         setIsDataLoaded(true);
+        
+        // 2. NGAY LẬP TỨC ĐỒNG BỘ CLOUD ĐỂ LẤY DỮ LIỆU MỚI NHẤT
+        if (navigator.onLine) {
+          handleCloudSync(true, loadedData);
+        }
       }
     };
     initData();
@@ -162,33 +151,30 @@ const App = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [handleCloudSync]);
 
-  // ĐỒNG BỘ TỰ ĐỘNG KHI DỮ LIỆU THAY ĐỔI (DEBOUNCED)
+  // ĐỒNG BỘ TỰ ĐỘNG KHI CÓ THAY ĐỔI DỮ LIỆU CỤC BỘ
   useEffect(() => {
     if (isDataLoaded) {
       dataRef.current = data;
       StorageService.saveLocal(data);
 
-      // Nếu có Sync Key và đang online, tự động đồng bộ sau khi nhập (delay 2s để tránh spam API)
-      if (syncKey && isOnline) {
+      if (isOnline) {
         if (syncDebounceRef.current) window.clearTimeout(syncDebounceRef.current);
         syncDebounceRef.current = window.setTimeout(() => {
           handleCloudSync(true);
-        }, 2000);
+        }, 1500); // Rút ngắn thời gian delay đồng bộ sau khi nhập
       }
     }
-  }, [data, isDataLoaded, isOnline, syncKey, handleCloudSync]);
+  }, [data, isDataLoaded, isOnline, handleCloudSync]);
 
+  // Polling định kỳ để nhận cập nhật từ thiết bị khác
   useEffect(() => {
-    if (syncKey && currentUser && isOnline) {
-      // Pull dữ liệu khi mở app
-      handleCloudSync(true);
-      // Giữ polling để nhận dữ liệu từ thiết bị khác
-      pollTimerRef.current = window.setInterval(() => handleCloudSync(true), 60000);
+    if (currentUser && isOnline) {
+      pollTimerRef.current = window.setInterval(() => handleCloudSync(true), 30000); // 30s check 1 lần
     }
     return () => { if (pollTimerRef.current) window.clearInterval(pollTimerRef.current); };
-  }, [syncKey, handleCloudSync, currentUser, isOnline]);
+  }, [handleCloudSync, currentUser, isOnline]);
 
   useEffect(() => {
     if (isDark) document.documentElement.classList.add('dark');
@@ -406,12 +392,10 @@ const App = () => {
         </div>
 
         <div className="flex items-center gap-2">
-           {syncKey && (
-             <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${isOnline ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' : 'bg-rose-500/10 border-rose-500/20 text-rose-500'}`}>
-                {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <CloudCheck className="w-3 h-3" />}
-                <span className="text-[8px] font-black uppercase tracking-widest">{isSyncing ? 'Sync...' : 'Cloud'}</span>
-             </div>
-           )}
+           <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${isOnline ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' : 'bg-rose-500/10 border-rose-500/20 text-rose-500'}`}>
+              {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <CloudCheck className="w-3 h-3" />}
+              <span className="text-[8px] font-black uppercase tracking-widest">{isSyncing ? 'Syncing...' : 'Synced'}</span>
+           </div>
            <div className={`p-1 rounded-full border border-white dark:border-slate-700/50 shadow-inner flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800/40`}>
              <button onClick={toggleLanguage} className="w-8 h-8 rounded-lg flex items-center justify-center active-scale text-slate-600 dark:text-slate-300">
                <span className="text-[9px] font-black uppercase">{lang === 'vi' ? 'VN' : 'DE'}</span>
@@ -510,75 +494,40 @@ const App = () => {
                            <div className="flex items-center justify-center gap-2">
                              <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
                              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                               {isOnline ? 'Active Connection' : 'Offline Mode'}
+                               {isOnline ? 'Global Cloud Connected' : 'Offline Mode'}
                              </p>
                            </div>
                         </div>
 
                         <div className="space-y-5">
-                           <div className="relative group">
-                              <div className="flex justify-between items-center mb-1.5 px-4">
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Sync Key (Bucket Identifier)</label>
-                                {!syncKey && (
-                                  <button onClick={() => handleRestoreKey()} className="text-[9px] font-black text-brand-600 uppercase tracking-widest flex items-center gap-1 hover:underline">
-                                    <Link2 className="w-3 h-3" /> Restore Key
-                                  </button>
-                                )}
-                              </div>
-                              <div className="relative">
-                                 <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400">
-                                   <KeyRound className="w-5 h-5" />
-                                 </div>
-                                 <input 
-                                    type={showSyncKey ? "text" : "password"} 
-                                    value={syncKey} 
-                                    onChange={e => {setSyncKey(e.target.value); localStorage.setItem('tokymon_sync_key', e.target.value);}} 
-                                    className="w-full p-5 pl-14 pr-28 bg-slate-50 dark:bg-slate-950 rounded-2xl font-black border-2 border-slate-100 dark:border-slate-800 focus:border-brand-500 outline-none tracking-[0.2em] transition-all text-xs" 
-                                    placeholder="Paste your key here..." 
-                                 />
-                                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                                    <button onClick={() => setShowSyncKey(!showSyncKey)} className="p-2 text-slate-400 hover:text-brand-500 transition-colors active-scale">
-                                       {showSyncKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                                    </button>
-                                    <button onClick={handleCopySyncKey} className={`p-2 transition-colors active-scale ${copyFeedback ? 'text-emerald-500' : 'text-slate-400 hover:text-brand-500'}`}>
-                                       {copyFeedback ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
-                                    </button>
-                                 </div>
+                           <div className="p-6 bg-emerald-50/50 dark:bg-emerald-900/10 border-2 border-emerald-200 dark:border-emerald-800 rounded-[2rem] text-center space-y-4">
+                              <div className="w-12 h-12 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center mx-auto shadow-sm"><ShieldCheck className="w-6 h-6 text-emerald-600" /></div>
+                              <div className="space-y-1">
+                                <p className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase">Hệ thống đã kết nối</p>
+                                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase leading-relaxed tracking-tight">
+                                  Dữ liệu đang được đồng bộ tự động với mã Bucket hệ thống:<br/>
+                                  <span className="text-indigo-600 font-black">{GLOBAL_SYNC_KEY.slice(0, 8)}...</span>
+                                </p>
                               </div>
                            </div>
 
-                           {!syncKey && (
-                             <div className="p-6 bg-brand-50/50 dark:bg-brand-900/10 border-2 border-dashed border-brand-200 dark:border-brand-800 rounded-[2rem] text-center space-y-4">
-                                <div className="w-12 h-12 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center mx-auto shadow-sm"><Info className="w-6 h-6 text-brand-600" /></div>
-                                <div className="space-y-1">
-                                  <p className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase">Chưa cấu hình đồng bộ</p>
-                                  <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase leading-relaxed tracking-tight">
-                                    Dữ liệu hiện chỉ lưu trên trình duyệt này. Hãy nhập mã Sync Key để đồng bộ lên đám mây.
-                                  </p>
-                                </div>
-                                <button onClick={() => handleRestoreKey('NZQkBLdrxvnEEMUw928weK')} className="w-full py-3 bg-brand-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest active-scale">
-                                  Sử dụng mã NZQk...
-                                </button>
-                             </div>
-                           )}
-
-                           <div className="p-5 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-2xl space-y-3">
-                              <div className="flex items-center gap-2 text-amber-600">
-                                 <ShieldAlert className="w-4 h-4 shrink-0" />
-                                 <span className="text-[10px] font-black uppercase tracking-tight">Cảnh báo bảo mật</span>
+                           <div className="p-5 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl space-y-3">
+                              <div className="flex items-center gap-2 text-blue-600">
+                                 <CloudCheck className="w-4 h-4 shrink-0" />
+                                 <span className="text-[10px] font-black uppercase tracking-tight">Tính năng đồng bộ đa thiết bị</span>
                               </div>
-                              <p className="text-[10px] font-bold text-amber-800 dark:text-amber-200/70 leading-relaxed uppercase tracking-tight italic">
+                              <p className="text-[10px] font-bold text-blue-800 dark:text-blue-200/70 leading-relaxed uppercase tracking-tight italic">
                                  {lang === 'vi' 
-                                   ? 'Hệ thống đã cấu hình để tự động đồng bộ ngay sau khi bạn nhập liệu. Vui lòng đảm bảo kết nối mạng ổn định.' 
-                                   : 'Das System ist so konfiguriert, dass es sofort nach der Dateneingabe automatisch synchronisiert wird. Bitte stellen Sie eine stabile Netzwerkverbindung sicher.'}
+                                   ? 'Toàn bộ lịch sử doanh thu và chi phí sẽ tự động xuất hiện trên mọi thiết bị đăng nhập vào cùng một hệ thống Tokymon này.' 
+                                   : 'Die gesamte Historie der Einnahmen und Ausgaben wird automatisch auf jedem Gerät angezeigt, das sich bei diesem Tokymon-System anmeldet.'}
                               </p>
                            </div>
                         </div>
 
                         <div className="pt-2">
-                           <button onClick={() => handleCloudSync()} disabled={isSyncing || !isOnline || !syncKey} className="w-full py-5 bg-brand-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 active-scale shadow-vivid disabled:opacity-40 transition-all" style={{ backgroundColor: activeBranchColor }}>
+                           <button onClick={() => handleCloudSync()} disabled={isSyncing || !isOnline} className="w-full py-5 bg-brand-600 text-white rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-3 active-scale shadow-vivid disabled:opacity-40 transition-all" style={{ backgroundColor: activeBranchColor }}>
                              <RefreshCw className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} /> 
-                             {isSyncing ? 'Synchronizing Vault...' : (isOnline ? 'Đồng bộ ngay' : 'Waiting for Internet...')}
+                             {isSyncing ? 'Synchronizing...' : (isOnline ? 'Làm mới dữ liệu Cloud' : 'Waiting for Internet...')}
                            </button>
                         </div>
                       </div>
@@ -610,7 +559,7 @@ const App = () => {
                            <ShieldCheck className="w-8 h-8 text-blue-600 shrink-0" />
                            <div className="min-w-0">
                               <p className="text-[10px] font-black uppercase text-blue-600 mb-1">Security Status</p>
-                              <p className="text-[11px] font-bold dark:text-blue-300">Dữ liệu được bảo mật bằng AES-256 và tự động sao lưu định kỳ.</p>
+                              <p className="text-[11px] font-bold dark:text-blue-300">Hệ thống đang được bảo vệ bằng mã hóa đồng bộ đa lớp.</p>
                            </div>
                         </div>
                         <div className="pt-6 border-t dark:border-slate-800 border-slate-100 text-center">
