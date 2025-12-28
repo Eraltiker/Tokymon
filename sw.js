@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'tokymon-finance-v1.1';
+const CACHE_NAME = 'tokymon-finance-v1.2'; // Cập nhật version để bust cache
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
   );
+  // Buộc Service Worker mới kích hoạt ngay lập tức
   self.skipWaiting();
 });
 
@@ -22,16 +23,20 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
+  // Đảm bảo client được điều khiển ngay lập tức
   self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
-  // Không cache API calls
+  
+  // Tuyệt đối không cache các API quan trọng hoặc dữ liệu cloud
   if (url.includes('kvdb.io') || url.includes('generativelanguage')) {
     return;
   }
 
+  // Chiến lược: Network First, falling back to cache
+  // Giúp trình duyệt luôn ưu tiên lấy bản mới nhất từ mạng
   event.respondWith(
     fetch(event.request)
       .then((response) => {
@@ -46,4 +51,11 @@ self.addEventListener('fetch', (event) => {
       })
       .catch(() => caches.match(event.request))
   );
+});
+
+// Lắng nghe lệnh skipWaiting từ giao diện
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });

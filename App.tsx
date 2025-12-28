@@ -22,11 +22,13 @@ import {
   History as HistoryIcon, MapPin, Users, RefreshCw, 
   ChevronDown, Cloud, FileSpreadsheet, LayoutPanelTop,
   AlertTriangle, UserCircle2, 
-  ImageIcon, ArrowRight,
+  ArrowRight,
   Globe, Check, Info, ShieldCheck,
-  Sparkles, Loader2, PartyPopper, X,
-  Fingerprint, Heart, LockKeyhole, Languages, HelpCircle, LayoutGrid, Terminal
+  Loader2, PartyPopper, X,
+  Heart, LockKeyhole, HelpCircle, LayoutGrid, Terminal, ShieldAlert
 } from 'lucide-react';
+
+const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 phút bảo mật
 
 const App = () => {
   const [activeTab, setActiveTab] = useState<'income' | 'expense' | 'stats' | 'settings'>('stats');
@@ -56,7 +58,34 @@ const App = () => {
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const pollTimerRef = useRef<number | null>(null);
+  const inactivityTimerRef = useRef<number | null>(null);
   const dataRef = useRef(data);
+
+  const resetInactivityTimer = useCallback(() => {
+    if (!currentUser) return;
+    if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
+    inactivityTimerRef.current = window.setTimeout(() => {
+      handleForceLogout();
+    }, INACTIVITY_TIMEOUT);
+  }, [currentUser]);
+
+  const handleForceLogout = () => {
+    localStorage.removeItem('tokymon_user');
+    setCurrentUser(null);
+    alert("Phiên làm việc hết hạn vì lý do bảo mật. / Sitzung aus Sicherheitsgründen abgelaufen.");
+  };
+
+  useEffect(() => {
+    if (currentUser) {
+      const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+      events.forEach(event => window.addEventListener(event, resetInactivityTimer));
+      resetInactivityTimer();
+      return () => {
+        events.forEach(event => window.removeEventListener(event, resetInactivityTimer));
+        if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
+      };
+    }
+  }, [currentUser, resetInactivityTimer]);
 
   useEffect(() => {
     const lastVersion = localStorage.getItem('tokymon_system_version');
@@ -130,7 +159,6 @@ const App = () => {
   };
 
   const activeBranches = useMemo(() => data.branches.filter(b => !b.deletedAt), [data.branches]);
-  
   const activeTransactions = useMemo(() => {
     if (!data.transactions || data.transactions.length === 0) return [];
     const activeBranchIds = new Set(activeBranches.map(b => b.id));
@@ -220,28 +248,31 @@ const App = () => {
       <div className="min-h-[100dvh] relative flex flex-col items-center justify-center p-6 font-sans transition-colors duration-700 overflow-hidden">
         <div className="login-mesh" />
         
-        <div className="w-full max-w-sm z-10 space-y-10 animate-ios">
-          <div className="text-center space-y-6">
+        <div className="w-full max-w-[380px] z-10 space-y-12 animate-ios">
+          <div className="text-center space-y-6 animate-float">
             <div className="relative inline-block">
-              <div className="absolute inset-0 bg-brand-500/20 rounded-full blur-2xl animate-pulse" />
-              <div className="relative w-24 h-24 bg-white/80 dark:bg-white/5 rounded-[2.8rem] backdrop-blur-2xl border border-white/40 dark:border-white/10 shadow-ios flex items-center justify-center mx-auto">
-                <UtensilsCrossed className="w-12 h-12 text-brand-600 dark:text-brand-400" />
+              <div className="absolute inset-0 bg-brand-500/20 rounded-[2.5rem] blur-3xl" />
+              <div className="relative w-28 h-28 bg-white/80 dark:bg-slate-900/40 rounded-[3.2rem] backdrop-blur-3xl border border-white/50 dark:border-white/10 shadow-vivid flex items-center justify-center mx-auto">
+                <UtensilsCrossed className="w-14 h-14 text-brand-600 dark:text-brand-400 drop-shadow-sm" />
               </div>
             </div>
-            <div className="space-y-2">
-              <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-900 to-slate-500 dark:from-white dark:to-slate-400 tracking-tighter leading-none">TOKYMON</h1>
-              <p className="text-[10px] font-black text-brand-600 dark:text-brand-500 uppercase tracking-[0.4em] opacity-80">Enterprise Management</p>
+            <div className="space-y-3">
+              <h1 className="text-5xl font-black text-slate-950 dark:text-white tracking-[0.15em] leading-none text-shadow-sm">TOKYMON</h1>
+              <div className="flex items-center justify-center gap-2">
+                 <ShieldCheck className="w-3.5 h-3.5 text-brand-500" />
+                 <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.4em]">Enterprise Core</p>
+              </div>
             </div>
           </div>
 
-          <form onSubmit={handleLoginSubmit} className={`glass p-10 rounded-[3.5rem] shadow-vivid space-y-7 relative overflow-hidden ${loginError ? 'animate-shake' : ''}`}>
-            <div className="space-y-5">
+          <form onSubmit={handleLoginSubmit} className={`glass p-10 rounded-[3.5rem] shadow-2xl space-y-8 relative overflow-hidden ${loginError ? 'animate-shake' : ''}`}>
+            <div className="space-y-6">
               <div className="relative group">
                 <input 
                   type="text" 
                   value={loginForm.username} 
                   onChange={e => {setLoginForm({...loginForm, username: e.target.value}); setLoginError('');}} 
-                  className="w-full p-5 bg-white/50 dark:bg-black/20 rounded-2xl font-bold border border-white/50 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-12 text-[16px]" 
+                  className="w-full p-5 bg-slate-50/50 dark:bg-black/30 rounded-2xl font-black border border-slate-200 dark:border-white/5 focus:border-brand-500 focus:bg-white dark:focus:bg-black outline-none dark:text-white text-slate-950 transition-all pl-12 text-[15px]" 
                   placeholder={t('username')} 
                   autoCapitalize="none"
                   required 
@@ -253,7 +284,7 @@ const App = () => {
                   type="password" 
                   value={loginForm.password} 
                   onChange={e => {setLoginForm({...loginForm, password: e.target.value}); setLoginError('');}} 
-                  className="w-full p-5 bg-white/50 dark:bg-black/20 rounded-2xl font-bold border border-white/50 dark:border-white/5 focus:border-brand-500 outline-none dark:text-white text-slate-900 transition-all pl-12 text-[16px]" 
+                  className="w-full p-5 bg-slate-50/50 dark:bg-black/30 rounded-2xl font-black border border-slate-200 dark:border-white/5 focus:border-brand-500 focus:bg-white dark:focus:bg-black outline-none dark:text-white text-slate-950 transition-all pl-12 text-[15px]" 
                   placeholder={t('password')} 
                   required 
                 />
@@ -262,23 +293,28 @@ const App = () => {
             </div>
 
             {loginError && (
-              <div className="bg-rose-500/10 p-4 rounded-2xl border border-rose-500/20 flex items-center gap-3">
-                <AlertTriangle className="w-4 h-4 text-rose-500" />
-                <p className="text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-tight">{loginError}</p>
+              <div className="bg-rose-500/10 p-4 rounded-2xl border border-rose-500/20 flex items-center gap-3 animate-in zoom-in-95 duration-200">
+                <ShieldAlert className="w-5 h-5 text-rose-500 shrink-0" />
+                <p className="text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-tight leading-snug">{loginError}</p>
               </div>
             )}
 
-            <button type="submit" className="w-full h-16 bg-slate-950 dark:bg-brand-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest active-scale transition-all flex items-center justify-center gap-3 shadow-vivid relative overflow-hidden">
-               {t('login')} <ArrowRight className="w-5 h-5" />
+            <button type="submit" className="w-full h-16 bg-slate-950 dark:bg-brand-600 text-white rounded-2xl font-black uppercase text-xs tracking-[0.3em] active-scale transition-all flex items-center justify-center gap-3 shadow-vivid relative overflow-hidden group">
+               <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+               <span className="relative z-10">{t('login')}</span> 
+               <ArrowRight className="w-5 h-5 relative z-10 transition-transform group-hover:translate-x-1" />
             </button>
           </form>
 
-          <div className="pt-4 flex flex-col items-center gap-4">
-             <div className="px-5 py-2.5 bg-white/40 dark:bg-slate-900/40 rounded-full border border-white/20 backdrop-blur-md flex items-center gap-2">
-                <Terminal className="w-3.5 h-3.5 text-brand-600" />
-                <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Dev by <span className="text-brand-600">thPhuoc</span></span>
+          <div className="pt-8 flex flex-col items-center gap-6">
+             <div className="flex items-center gap-2 px-6 py-3 bg-white/50 dark:bg-slate-900/30 rounded-full border border-white/40 dark:border-white/10 backdrop-blur-xl shadow-ios group">
+                <Terminal className="w-4 h-4 text-brand-600 dark:text-brand-400 group-hover:rotate-12 transition-transform" />
+                <span className="text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-[0.2em]">Verified Dev <span className="text-brand-600 dark:text-brand-400">thPhuoc</span></span>
              </div>
-             <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Official Version {SCHEMA_VERSION.split(' ')[0]}</p>
+             <div className="flex items-center gap-3 opacity-40">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                <p className="text-[9px] font-black text-slate-500 dark:text-white uppercase tracking-[0.5em]">Stable Version {SCHEMA_VERSION.split(' ')[0]}</p>
+             </div>
           </div>
         </div>
       </div>
@@ -455,7 +491,17 @@ const App = () => {
                                <div className="w-14 h-14 bg-brand-600 rounded-[1.4rem] mx-auto flex items-center justify-center shadow-vivid" style={{ backgroundColor: activeBranchColor }}><UtensilsCrossed className="w-7 h-7 text-white" /></div>
                                <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white text-[8px] font-black px-1 py-0.5 rounded-full border border-white dark:border-slate-900 uppercase leading-none">{t('active')}</div>
                            </div>
-                           <div><h2 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none mb-1">Tokymon Official</h2><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Enterprise Release {SCHEMA_VERSION}</p></div>
+                           <div>
+                              <h2 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none mb-1">Tokymon Official</h2>
+                              <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Enterprise Release {SCHEMA_VERSION}</p>
+                           </div>
+                        </div>
+                        <div className="p-5 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800 flex items-center gap-4">
+                           <ShieldCheck className="w-8 h-8 text-blue-600 shrink-0" />
+                           <div className="min-w-0">
+                              <p className="text-[10px] font-black uppercase text-blue-600 mb-1">Security Status</p>
+                              <p className="text-[11px] font-bold dark:text-blue-300">Tính năng tự động đăng xuất và cập nhật bảo mật đang hoạt động.</p>
+                           </div>
                         </div>
                         <div className="pt-6 border-t dark:border-slate-800 border-slate-100 text-center">
                           <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Developed with <Heart className="w-3 h-3 text-rose-500 inline mx-1 fill-rose-500" /> by <span className="text-brand-600 font-extrabold" style={{ color: activeBranchColor }}>thPhuoc</span></p>

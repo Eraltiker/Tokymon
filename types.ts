@@ -131,25 +131,25 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "1.0.0 (Official)";
+export const SCHEMA_VERSION = "1.0.1 (Enterprise Security)";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
   {
-    version: "1.0.0",
-    date: "2024-08-15",
+    version: "1.0.1",
+    date: "2024-08-20",
     changes: {
       vi: [
-        "Phát hành bản Official v1.0: Hệ thống quản lý tài chính toàn diện.",
-        "Fix lỗi hiển thị: Loại bỏ ký hiệu Euro kép trong giao diện nhập liệu.",
-        "Siêu tối ưu Database: Tăng tốc độ truy xuất dữ liệu từ bộ nhớ cục bộ ngay sau khi đăng nhập.",
-        "Gia cố bảo mật: Quản lý phiên làm việc và đồng bộ hóa an toàn hơn."
+        "Hệ thống tự động cập nhật: Tự động phát hiện và cài đặt bản vá mới nhất ngay khi mở app.",
+        "Bảo mật nâng cao: Tự động đăng xuất sau 30 phút không hoạt động.",
+        "Tối ưu hóa bộ nhớ: Dọn dẹp cache cũ để tăng tốc độ khởi động.",
+        "Gia cố lớp bảo vệ dữ liệu: Ngăn chặn truy cập trái phép khi phiên làm việc hết hạn."
       ],
       de: [
-        "Offizielle Version v1.0: Umfassendes Finanzmanagementsystem.",
-        "Anzeigefehler behoben: Doppelte Euro-Symbole in der Eingabemaske entfernt.",
-        "Datenbank-Optimierung: Schnellere Datenabfrage aus dem lokalen Speicher nach dem Login.",
-        "Sicherheits-Upgrade: Sicherere Sitzungsverwaltung und Synchronisierung."
+        "Auto-Update-System: Erkennt und installiert die neuesten Patches automatisch beim Öffnen.",
+        "Erweiterte Sicherheit: Automatischer Logout nach 30 Minuten Inaktivität.",
+        "Speicheroptimierung: Bereinigung alter Caches für schnelleren Start.",
+        "Daten-Schutzschild: Verhindert unbefugten Zugriff nach Ablauf der Sitzung."
       ]
     }
   }

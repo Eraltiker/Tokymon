@@ -3,31 +3,44 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-// Đăng ký Service Worker cho chế độ Offline
+// Đăng ký Service Worker với logic tự động cập nhật nâng cao
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    // Trong môi trường sandbox như Google AI Studio, Service Worker thường bị chặn
-    // do chính sách Same-Origin khi chạy trong iframe. 
-    // Chúng ta sử dụng URL tuyệt đối dựa trên location hiện tại để đảm bảo tính chính xác.
     try {
       const swUrl = new URL('sw.js', window.location.href).href;
-      const swOrigin = new URL(swUrl).origin;
+      
+      navigator.serviceWorker.register(swUrl)
+        .then(reg => {
+          console.log('Tokymon Security Core registered:', reg.scope);
 
-      // Chỉ thử đăng ký nếu origin của file SW khớp với origin của trang hiện tại
-      if (swOrigin === window.location.origin) {
-        navigator.serviceWorker.register(swUrl)
-          .then(reg => {
-            console.log('Tokymon SW registered with scope:', reg.scope);
-          })
-          .catch(err => {
-            // Lỗi origin mismatch là phổ biến trong preview, chúng ta log nhẹ nhàng
-            if (err.message.includes('origin')) {
-              console.warn('Service Worker blocked by sandbox origin policy. Offline mode disabled.');
-            } else {
-              console.error('Service Worker registration failed:', err);
+          // Phát hiện khi có bản cập nhật mới đang chờ
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // Thông báo cho người dùng có bản cập nhật mới
+                  if (window.confirm('Phiên bản mới của Tokymon đã sẵn sàng. Cập nhật ngay? / Eine neue Version ist verfügbar. Jetzt aktualisieren?')) {
+                    window.location.reload();
+                  }
+                }
+              });
             }
           });
-      }
+        })
+        .catch(err => {
+          console.warn('Service Worker registration failed:', err);
+        });
+
+      // Tự động làm mới khi Service Worker mới chiếm quyền điều khiển
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          window.location.reload();
+          refreshing = true;
+        }
+      });
+
     } catch (e) {
       console.warn('Could not initialize Service Worker:', e);
     }
