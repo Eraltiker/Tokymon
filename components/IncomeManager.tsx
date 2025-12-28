@@ -1,9 +1,9 @@
-
 import React, { useState } from 'react';
-import { Transaction, TransactionType, UserRole, Branch, Language } from '../types';
+import { Transaction, TransactionType, UserRole, Language } from '../types';
 import TransactionForm from './TransactionForm';
 import TransactionList from './TransactionList';
 import EditTransactionModal from './EditTransactionModal';
+import { useTranslation } from '../i18n';
 
 interface IncomeManagerProps {
   transactions: Transaction[];
@@ -26,10 +26,13 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({
   initialBalances, 
   userRole,
   branchName,
-  lang = 'vi'
+  // Fix: Explicitly cast default value to Language to prevent type widening to string
+  lang = 'vi' as Language
 }) => {
+  const { t } = useTranslation(lang);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
-  const incomeTransactions = transactions.filter(t => t.type === TransactionType.INCOME && t.branchId === branchId && !t.deletedAt);
+  // Fix: Renamed filter parameter 't' to 'tx' to avoid shadowing the 't' translation function
+  const incomeTransactions = transactions.filter(tx => tx.type === TransactionType.INCOME && tx.branchId === branchId && !tx.deletedAt);
   const isViewer = userRole === UserRole.VIEWER;
 
   return (
@@ -53,7 +56,7 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({
           transactions={incomeTransactions} 
           onDelete={onDeleteTransaction}
           onEdit={(tx) => setEditingTx(tx)}
-          title={`Doanh Thu - ${branchName}`} 
+          title={`${t('income')} - ${branchName}`} 
           userRole={userRole}
           lang={lang}
         />
@@ -68,6 +71,7 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({
             onEditTransaction(updated);
             setEditingTx(null);
           }}
+          lang={lang}
         />
       )}
     </div>

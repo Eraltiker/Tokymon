@@ -5,7 +5,7 @@ import { useTranslation } from '../i18n';
 import { 
   Save, ChevronLeft, ChevronRight, Store, 
   ChevronDown, CreditCard, Calendar,
-  Wallet, ShieldCheck, Euro
+  Wallet, ShieldCheck
 } from 'lucide-react';
 
 interface TransactionFormProps {
@@ -20,7 +20,7 @@ interface TransactionFormProps {
 }
 
 const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, expenseCategories, fixedType, branchId, transactions, lang = 'vi', branchName }) => {
-  const t = useTranslation(lang as Language);
+  const { t, translateCategory, translateSource } = useTranslation(lang as Language);
   const [type] = useState<TransactionType>(fixedType || TransactionType.INCOME);
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [note, setNote] = useState<string>('');
@@ -50,13 +50,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
     setDate(current.toISOString().split('T')[0]);
   };
 
-  const formatDateDisplay = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString(lang === 'vi' ? 'vi-VN' : 'de-DE', { 
-      day: '2-digit', month: '2-digit', year: 'numeric' 
-    });
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const now = new Date().toISOString();
@@ -77,7 +70,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
       const revenue = kasse + app;
       if (revenue <= 0) return;
       onAddTransaction({
-        ...commonData, type: TransactionType.INCOME, amount: revenue, category: t('income'),
+        ...commonData, type: TransactionType.INCOME, amount: revenue, category: 'Income',
         incomeBreakdown: { cash: Math.max(0, revenue - cardTotal), card: cardTotal, delivery: app },
       });
       setKasseInput(''); setAppInput(''); setCardTotalInput(''); setNote('');
@@ -95,7 +88,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         </div>
         <div className="shrink-0 flex items-center gap-1 opacity-50">
            <ShieldCheck className="w-3.5 h-3.5 text-brand-600" />
-           <span className="text-[9px] font-black uppercase tracking-widest">Official</span>
+           <span className="text-[9px] font-black uppercase tracking-widest">Tokymon</span>
         </div>
       </div>
       
@@ -105,7 +98,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
           <div className="flex-1 text-center relative h-9 flex items-center justify-center">
             <span className="text-[10px] font-black dark:text-white uppercase tracking-tight flex items-center gap-2">
               <Calendar className="w-4 h-4 text-brand-500" />
-              {formatDateDisplay(date)}
+              {date.split('-').reverse().join('/')}
             </span>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer w-full" />
           </div>
@@ -133,7 +126,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
         ) : (
           <div className="space-y-4">
             <div className="space-y-1 text-center">
-              <label className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('chi_phi')} (€)</label>
+              <label className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('expense')} (€)</label>
               <input type="text" inputMode="decimal" value={expenseAmount} onChange={e => validateAndSetAmount(e.target.value, setExpenseAmount)} className="w-full py-3 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 focus:border-rose-500 rounded-2xl font-black text-xl text-rose-600 text-center outline-none" required />
             </div>
             
@@ -145,7 +138,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
             <div className="space-y-3">
               <div className="relative">
                 <select value={expenseCategory} onChange={e => setExpenseCategory(e.target.value)} className="w-full px-5 py-3 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 focus:border-brand-500 rounded-2xl font-black text-[10px] uppercase outline-none appearance-none transition-all text-slate-700 dark:text-slate-200">
-                  {expenseCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                  {expenseCategories.map(c => <option key={c} value={c}>{translateCategory(c)}</option>)}
                 </select>
                 <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
@@ -155,9 +148,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
               ) : (
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: ExpenseSource.SHOP_CASH, label: t('shop_cash'), icon: Store },
-                    { id: ExpenseSource.WALLET, label: t('master_wallet'), icon: Wallet },
-                    { id: ExpenseSource.CARD, label: t('card_bank'), icon: CreditCard }
+                    { id: ExpenseSource.SHOP_CASH, label: translateSource(ExpenseSource.SHOP_CASH), icon: Store },
+                    { id: ExpenseSource.WALLET, label: translateSource(ExpenseSource.WALLET), icon: Wallet },
+                    { id: ExpenseSource.CARD, label: translateSource(ExpenseSource.CARD), icon: CreditCard }
                   ].map((s) => (
                     <button key={s.id} type="button" onClick={() => setExpenseSource(s.id)} className={`py-2 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 active-scale ${expenseSource === s.id ? `bg-brand-600 border-brand-600 text-white` : 'bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-500'}`}>
                       <s.icon className="w-4 h-4" />
@@ -174,11 +167,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({ onAddTransaction, exp
           <div className="bg-white dark:bg-slate-950/30 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-inner">
             <textarea value={note} onChange={e => setNote(e.target.value)} placeholder={t('note')} className="w-full bg-transparent text-[11px] font-bold outline-none dark:text-white resize-none h-16 leading-relaxed" />
           </div>
-
-          <button 
-            type="submit" 
-            className="w-full h-14 bg-slate-950 dark:bg-brand-600 text-white rounded-2xl font-black uppercase tracking-[0.25em] text-[11px] active-scale transition-all flex items-center justify-center gap-2 shadow-vivid"
-          >
+          <button type="submit" className="w-full h-14 bg-brand-600 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] active-scale shadow-vivid flex items-center justify-center gap-2">
             <Save className="w-5 h-5" /> {t('save_transaction')}
           </button>
         </div>

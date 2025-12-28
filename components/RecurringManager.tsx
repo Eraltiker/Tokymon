@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { RecurringTransaction, ExpenseSource, EXPENSE_SOURCE_LABELS, Transaction, TransactionType, formatCurrency, Language } from '../types';
+import { RecurringTransaction, ExpenseSource, Transaction, TransactionType, formatCurrency, Language } from '../types';
 import { useTranslation } from '../i18n';
 import { Plus, Trash2, CalendarClock, PlayCircle } from 'lucide-react';
 
@@ -14,10 +14,11 @@ interface RecurringManagerProps {
 }
 
 const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringExpenses, onUpdate, categories, onGenerateTransactions, branchId, lang }) => {
-  const t = useTranslation(lang);
+  // Fix: Destructure t from useTranslation result
+  const { t } = useTranslation(lang);
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState(categories[0] || '');
-  const [source, setSource] = useState<ExpenseSource>(ExpenseSource.WALLET);
+  const [source] = useState<ExpenseSource>(ExpenseSource.WALLET);
   const [day, setDay] = useState('1');
   const [note, setNote] = useState('');
 

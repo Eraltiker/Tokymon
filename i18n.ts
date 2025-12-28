@@ -1,5 +1,5 @@
 
-import { Language } from './types';
+import { Language, ExpenseSource } from './types';
 
 export const translations = {
   vi: {
@@ -35,7 +35,34 @@ export const translations = {
     update: "Cập nhật",
     add_new: "Thêm mới",
     guide: "Hướng dẫn",
+    branding: "Danh mục & Định kỳ",
     
+    // Categories Translation
+    cat_rent: "Tiền nhà / Điện",
+    cat_trash: "Rác",
+    cat_salary: "Lương công nhân",
+    cat_ingredients: "Nguyên liệu",
+    cat_tax: "Thuế",
+    cat_bonus: "Bonus",
+    cat_gutschein: "Gutschein",
+    cat_error: "Sai / Nhầm",
+    cat_debt: "Nợ / Tiền ứng",
+    cat_insurance: "Bảo hiểm",
+    cat_other: "Chi phí khác",
+
+    // Sources Translation
+    src_shop_cash: "Tiền Quán",
+    src_wallet: "Ví Tổng",
+    src_card: "Thẻ/Bank",
+    debt_label: "Công nợ",
+    
+    // Login & About
+    login_welcome: "Chào mừng trở lại",
+    login_sub: "Hệ thống quản lý tài chính Tokymon",
+    dev_by: "Phát triển bởi",
+    ver: "Phiên bản",
+    enterprise_security: "Bảo mật Doanh nghiệp",
+
     // Dashboard & Stats
     overview_tab: "T.Quan",
     daily_tab: "Ngày",
@@ -43,109 +70,74 @@ export const translations = {
     wallet_tab: "Ví tiền",
     liabilities_tab: "Nợ",
     revenue_month: "Doanh thu tháng này",
-    tab_monthly: "Tháng",
     profit: "Lợi nhuận",
-    total_out: "Tổng chi",
-    margin: "Tỷ suất lợi nhuận",
-    top_expense: "Top hạng mục chi",
-    assets: "Dòng tiền & Tài sản",
-    cash_wallet: "Tiền Mặt (Ví Tổng)",
-    bank_card: "Tài Khoản (Thẻ)",
-    assets_available: "Tổng tài sản khả dụng",
-    daily_report: "Báo cáo ngày",
-    handover_cash: "Tiền mặt bàn giao",
-    liabilities: "Công nợ NCC",
+    margin: "Tỷ suất",
     debt_total: "Tổng công nợ NCC",
-    vendor_name: "Nhà cung cấp / Chủ nợ",
-    revenue_source: "Phân bổ nguồn thu",
+    handover_label: "Bàn giao",
+    revenue_source: "Nguồn thu",
     top_categories: "Chi phí lớn nhất",
-    ai_analysis_title: "Phân tích tài chính AI",
-    ai_scanning_text: "Đang quét dữ liệu hệ thống...",
-    ai_hint: "Nhấn phân tích để nhận lời khuyên từ AI",
+    ai_analysis_title: "Phân tích AI",
     ai_btn: "Phân tích",
     ranking: "Xếp hạng",
+    daily_revenue_chart: "Biểu đồ doanh thu ngày",
+    revenue_comparison: "So sánh doanh thu",
+    liabilities_list: "Danh sách công nợ",
     
-    // Forms & Inputs
+    // Forms
     chot_so: "Chốt Sổ Ngày",
-    chi_phi: "Nhập Chi Phí",
+    chi_phi: "Chi Phí",
     kasse_total: "Tổng Kasse Shop",
     card_total: "Tổng Thẻ",
     app_total: "Tiền App",
     paid: "Đã trả",
     unpaid: "Chưa trả",
-    shop_cash: "Tiền Quán",
-    master_wallet: "Ví Tổng",
-    card_bank: "Thẻ/Bank",
-    scan_ai: "AI Vision Scanning...",
+    vendor_name: "Nhà cung cấp / Chủ nợ",
     save_transaction: "Lưu Giao Dịch",
     placeholder_search: "Tìm nội dung...",
-    min_amount: "Tiền từ",
-    max_amount: "Đến",
-    reset_filter: "Xóa bộ lọc",
-    debt_label: "Công nợ",
-    handover_label: "Bàn giao",
-    
-    // Management & Branding
-    branding: "Danh mục & Định kỳ",
-    custom_logo: "Logo doanh nghiệp",
-    upload_logo: "Tải lên Logo",
-    reset_logo: "Khôi phục mặc định",
-    logo_hint: "Logo sẽ tự động tách nền để hòa hợp với giao diện.",
-    dev_info: "Hệ thống được phát triển bởi thPhuoc",
-    categories_man: "Hạng mục",
-    display_settings: "Báo cáo",
-    export_excel: "Xuất Excel",
-    cloud_sync: "Đồng bộ Cloud",
-    audit_log: "Nhật ký hệ thống",
-    add_branch: "Thêm cơ sở mới",
-    update_branch: "Cập nhật cơ sở",
-    branch_name: "Tên chi nhánh",
-    branch_address: "Địa chỉ",
-    initial_cash: "Vốn tiền mặt",
-    initial_card: "Vốn trong thẻ",
-    user_man: "Quản trị nhân sự",
-    assign_branch: "Gán chi nhánh",
-    recurring_expense: "Chi phí định kỳ",
-    create_monthly: "Tạo nhanh tháng này",
-    role: "Quyền hạn",
-    staff: "Nhân viên",
-    action: "Thao tác",
-
-    // About & Changelog
-    about: "Giới thiệu",
-    whats_new: "Có gì mới",
-    version_history: "Lịch sử phiên bản",
-    system_status: "Trạng thái",
-    online: "Trực tuyến",
-    developer: "Nhà phát triển",
-    support: "Hỗ trợ kỹ thuật",
-    legal: "Pháp lý & Bảo mật",
-    security: "Bảo mật",
-    system_core: "Lõi hệ thống",
-    active: "Hoạt động",
-    
-    // Messages & Modals
-    confirm_logout: "Rời khỏi hệ thống Tokymon?",
-    confirm_delete_branch: "Xóa vĩnh viễn cơ sở này?",
-    confirm_delete_cat: "Xóa danh mục này?",
-    confirm_reset_data: "CẢNH BÁO: Hành động này sẽ XÓA TOÀN BỘ doanh thu và chi phí. Tiếp tục?",
-    no_data: "Không tìm thấy dữ liệu",
-    error_login: "Sai tài khoản hoặc mật khẩu!",
-    system_info: "Hệ thống quản lý tài chính Tokymon",
-    version: "Phiên bản",
-    developed_by: "Phát triển bởi",
-    reset_success: "Đã reset dữ liệu chi nhánh",
-    sync_success: "Đã đồng bộ với Cloud",
-    export_empty: "Không có dữ liệu để xuất!",
     from_date: "Từ ngày",
     to_date: "Đến ngày",
-    download_now: "Tải báo cáo ngay",
-    duplicate_date_error: "Ngày này đã có dữ liệu chốt sổ!",
-    choose_branch_hint: "Vui lòng chọn chi nhánh để nhập liệu",
+    reset_filter: "Xóa bộ lọc",
+    choose_branch_hint: "Chọn chi nhánh để nhập liệu",
     select_branch_btn: "Chọn chi nhánh",
     edit_title: "Chỉnh sửa",
     save_changes_btn: "Cập nhật ngay",
-    update_now_btn: "Khám phá ngay"
+    update_now_btn: "Khám phá ngay",
+    whats_new: "Có gì mới",
+    about: "Giới thiệu",
+    active: "Hoạt động",
+    confirm_logout: "Rời khỏi hệ thống Tokymon?",
+    error_login: "Sai tài khoản hoặc mật khẩu!",
+    export_empty: "Không có dữ liệu để xuất!",
+    download_now: "Tải báo cáo ngay",
+    
+    // Management & Labels
+    ai_scanning_text: "AI đang phân tích dữ liệu...",
+    ai_hint: "Nhấn nút để bắt đầu phân tích tài chính",
+    assets_available: "Tài sản hiện có",
+    cash_wallet: "Tiền mặt / Ví",
+    bank_card: "Thẻ / Ngân hàng",
+    no_data: "Không có dữ liệu",
+    categories_man: "Quản lý hạng mục",
+    recurring_expense: "Chi phí định kỳ",
+    create_monthly: "Tạo chi phí tháng này",
+    update_branch: "Cập nhật chi nhánh",
+    add_branch: "Thêm chi nhánh",
+    branch_name: "Tên chi nhánh",
+    branch_address: "Địa chỉ",
+    initial_cash: "Vốn tiền mặt",
+    initial_card: "Vốn thẻ/bank",
+    confirm_delete_branch: "Bạn có chắc chắn muốn xóa chi nhánh này?",
+    confirm_reset_data: "Bạn có chắc chắn muốn xóa dữ liệu của chi nhánh này?",
+    role: "Quyền hạn",
+    assign_branch: "Gán chi nhánh",
+    export_excel: "Xuất báo cáo Excel",
+    support: "Hỗ trợ kỹ thuật",
+    branch_config_sub: "Cấu hình cơ sở kinh doanh",
+    brand_color: "Màu sắc nhận diện",
+    personnel_list: "Danh sách nhân sự",
+    system_permission: "Phân quyền hệ thống",
+    user_add_title: "Thêm tài khoản mới",
+    user_edit_title: "Cập nhật tài khoản"
   },
   de: {
     // General & Navigation
@@ -180,7 +172,34 @@ export const translations = {
     update: "Aktualisieren",
     add_new: "Hinzufügen",
     guide: "Anleitung",
-    
+    branding: "Kategorien & Abo",
+
+    // Categories Translation
+    cat_rent: "Miete / Strom",
+    cat_trash: "Müll",
+    cat_salary: "Lohn / Gehalt",
+    cat_ingredients: "Zutaten / Ware",
+    cat_tax: "Steuern",
+    cat_bonus: "Bonus",
+    cat_gutschein: "Gutschein",
+    cat_error: "Fehler / Differenz",
+    cat_debt: "Schulden / Vorschuss",
+    cat_insurance: "Versicherung",
+    cat_other: "Sonstiges",
+
+    // Sources Translation
+    src_shop_cash: "Ladenkasse",
+    src_wallet: "Hauptkasse",
+    src_card: "Karte/Bank",
+    debt_label: "Verbindlichkeit",
+
+    // Login & About
+    login_welcome: "Willkommen zurück",
+    login_sub: "Tokymon Finanzmanagement",
+    dev_by: "Entwickelt von",
+    ver: "Version",
+    enterprise_security: "Enterprise Sicherheit",
+
     // Dashboard & Stats
     overview_tab: "Überbl.",
     daily_tab: "Tag",
@@ -188,114 +207,112 @@ export const translations = {
     wallet_tab: "Kasse",
     liabilities_tab: "Schuld.",
     revenue_month: "Monatsumsatz",
-    tab_monthly: "Monat",
     profit: "Gewinn",
-    total_out: "Gesamtausgaben",
     margin: "Marge",
-    top_expense: "Top Ausgaben",
-    assets: "Cashflow & Vermögen",
-    cash_wallet: "Bargeld (Hauptkasse)",
-    bank_card: "Bankkonto (Karte)",
-    assets_available: "Verfügbares Vermögen",
-    daily_report: "Tagesbericht",
-    handover_cash: "Bargeld-Übergabe",
-    liabilities: "Verbindlichkeiten",
     debt_total: "Gesamtverbindlichkeiten",
-    vendor_name: "Lieferant / Gläubiger",
+    handover_label: "Übergabe",
     revenue_source: "Einnahmequellen",
     top_categories: "Höchste Kosten",
-    ai_analysis_title: "KI-Finanzanalyse",
-    ai_scanning_text: "Systemdaten werden gescannt...",
-    ai_hint: "Klicken Sie auf Analyse für KI-Beratung",
+    ai_analysis_title: "KI-Analyse",
     ai_btn: "Analyse",
     ranking: "Ranking",
-    
-    // Forms & Inputs
+    daily_revenue_chart: "Tagesumsatz-Diagramm",
+    revenue_comparison: "Umsatzvergleich",
+    liabilities_list: "Verbindlichkeitenliste",
+
+    // Forms
     chot_so: "Tagesabschluss",
-    chi_phi: "Ausgabe erfassen",
+    chi_phi: "Ausgaben",
     kasse_total: "Ladenumsatz",
     card_total: "Kartenzahlung",
     app_total: "App-Umsatz",
     paid: "Bezahlt",
     unpaid: "Offen",
-    shop_cash: "Ladenkasse",
-    master_wallet: "Hauptkasse",
-    card_bank: "Karte/Bank",
-    scan_ai: "AI-Vision Scan...",
+    vendor_name: "Lieferant / Gläubiger",
     save_transaction: "Speichern",
     placeholder_search: "Suchen...",
-    min_amount: "Betrag ab",
-    max_amount: "Bis",
-    reset_filter: "Filter zurücksetzen",
-    debt_label: "Schulden",
-    handover_label: "Übergabe",
-    
-    // Management & Branding
-    branding: "Kategorien & Abo",
-    custom_logo: "Unternehmenslogo",
-    upload_logo: "Logo hochladen",
-    reset_logo: "Zurücksetzen",
-    logo_hint: "Logo wird automatisch angepasst.",
-    dev_info: "System entwickelt von thPhuoc",
-    categories_man: "Kategorien",
-    display_settings: "Anzeige",
-    export_excel: "Excel-Export",
-    cloud_sync: "Cloud-Sync",
-    audit_log: "Audit-Log",
-    add_branch: "Neue Filiale",
-    update_branch: "Filiale ändern",
-    branch_name: "Name",
-    branch_address: "Adresse",
-    initial_cash: "Anfangskapital Bar",
-    initial_card: "Anfangskapital Karte",
-    user_man: "Benutzerverwaltung",
-    assign_branch: "Filialzugriff",
-    recurring_expense: "Regelmäßige Ausgaben",
-    create_monthly: "Diesen Monat erstellen",
-    role: "Rolle",
-    staff: "Mitarbeiter",
-    action: "Aktion",
-
-    // About & Changelog
-    about: "Über uns",
-    whats_new: "Was ist neu",
-    version_history: "Versionsverlauf",
-    system_status: "Status",
-    online: "Online",
-    developer: "Entwickler",
-    support: "Technischer Support",
-    legal: "Datenschutz",
-    security: "Sicherheit",
-    system_core: "Systemkern",
-    active: "Aktiv",
-    
-    // Messages & Modals
-    confirm_logout: "Vom Tokymon-System abmelden?",
-    confirm_delete_branch: "Diese Filiale dauerhaft löschen?",
-    confirm_delete_cat: "Kategorie löschen?",
-    confirm_reset_data: "WARNUNG: Alle Daten werden GELÖSCHT. Fortfahren?",
-    no_data: "Keine Daten gefunden",
-    error_login: "Falscher Benutzername oder Passwort!",
-    system_info: "Tokymon Finanzmanagementsystem",
-    version: "Version",
-    developed_by: "Entwickelt von",
-    reset_success: "Filialdaten wurden zurückgesetzt",
-    sync_success: "Cloud-Sync erfolgreich",
-    export_empty: "Keine Daten zum Exportieren!",
     from_date: "Von",
     to_date: "Bis",
-    download_now: "Bericht herunterladen",
-    duplicate_date_error: "Abschluss cho dieses Datum bereits vorhanden!",
-    choose_branch_hint: "Filiale zum Eingeben wählen",
-    select_branch_btn: "Filiale wählen",
+    reset_filter: "Zurücksetzen",
+    choose_branch_hint: "Filiale wählen",
+    select_branch_btn: "Filiale chọn",
     edit_title: "Bearbeiten",
-    save_changes_btn: "Jetzt aktualisieren",
-    update_now_btn: "Jetzt entdecken"
+    save_changes_btn: "Aktualisieren",
+    update_now_btn: "Entdecken",
+    whats_new: "Was ist neu",
+    about: "Über uns",
+    active: "Aktiv",
+    confirm_logout: "Abmelden?",
+    error_login: "Falscher Benutzername oder Passwort!",
+    export_empty: "Keine Daten!",
+    download_now: "Download",
+    
+    // Management & Labels
+    ai_scanning_text: "KI analysiert Daten...",
+    ai_hint: "Klicken Sie auf Analyse starten",
+    assets_available: "Verfügbares Vermögen",
+    cash_wallet: "Bargeld / Kasse",
+    bank_card: "Karte / Bank",
+    no_data: "Keine Daten",
+    categories_man: "Kategorien verwalten",
+    recurring_expense: "Regelmäßige Ausgaben",
+    create_monthly: "Monatliche erstellen",
+    update_branch: "Filiale aktualisieren",
+    add_branch: "Filiale hinzufügen",
+    branch_name: "Filialname",
+    branch_address: "Adresse",
+    initial_cash: "Anfangsbestand Bar",
+    initial_card: "Anfangsbestand Karte",
+    confirm_delete_branch: "Möchten Sie diese Filiale wirklich löschen?",
+    confirm_reset_data: "Möchten Sie WIRKLICH alle Transaktionen dieser Filiale löschen?",
+    role: "Rolle",
+    assign_branch: "Filiale zuweisen",
+    export_excel: "Excel-Export",
+    support: "Technischer Support",
+    branch_config_sub: "Filialkonfiguration",
+    brand_color: "Markenfarbe",
+    personnel_list: "Personalliste",
+    system_permission: "Systemberechtigungen",
+    user_add_title: "Neuer Benutzer",
+    user_edit_title: "Benutzer aktualisieren"
   }
 };
 
+const categoryMap: Record<string, keyof typeof translations['vi']> = {
+  "Tiền nhà / Điện": "cat_rent",
+  "Rác": "cat_trash",
+  "Lương công nhân": "cat_salary",
+  "Nguyên liệu": "cat_ingredients",
+  "Thuế": "cat_tax",
+  "Bonus": "cat_bonus",
+  "Gutschein": "cat_gutschein",
+  "Sai": "cat_error",
+  "Nợ / Tiền ứng": "cat_debt",
+  "Bảo hiểm": "cat_insurance",
+  "Chi phí khác": "cat_other"
+};
+
+const sourceMap: Record<ExpenseSource, keyof typeof translations['vi']> = {
+  [ExpenseSource.SHOP_CASH]: "src_shop_cash",
+  [ExpenseSource.WALLET]: "src_wallet",
+  [ExpenseSource.CARD]: "src_card"
+};
+
 export const useTranslation = (lang: Language) => {
-  return (key: keyof typeof translations['vi']) => {
+  const t = (key: keyof typeof translations['vi']) => {
     return translations[lang][key] || key;
   };
+
+  const translateCategory = (cat: string) => {
+    const key = categoryMap[cat];
+    return key ? t(key) : cat;
+  };
+
+  const translateSource = (src?: ExpenseSource) => {
+    if (!src) return t("debt_label");
+    const key = sourceMap[src];
+    return key ? t(key) : src;
+  };
+
+  return { t, translateCategory, translateSource };
 };

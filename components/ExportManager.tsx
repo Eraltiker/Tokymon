@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
 import { Transaction, TransactionType, Branch, EXPENSE_SOURCE_LABELS, Language } from '../types';
@@ -12,7 +11,8 @@ interface ExportManagerProps {
 }
 
 const ExportManager: React.FC<ExportManagerProps> = ({ transactions, branches, lang }) => {
-  const t = useTranslation(lang);
+  // Fix: Correctly destructure t from the useTranslation hook object
+  const { t } = useTranslation(lang);
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];

@@ -1,9 +1,9 @@
-
 import React, { useState } from 'react';
 import { Transaction, TransactionType, UserRole, Language } from '../types';
 import TransactionForm from './TransactionForm';
 import TransactionList from './TransactionList';
 import EditTransactionModal from './EditTransactionModal';
+import { useTranslation } from '../i18n';
 
 interface ExpenseManagerProps {
   transactions: Transaction[];
@@ -28,10 +28,13 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
   initialBalances, 
   userRole,
   branchName,
-  lang = 'vi'
+  // Fix: Explicitly cast default value to Language to prevent type widening to string
+  lang = 'vi' as Language
 }) => {
+  const { t } = useTranslation(lang);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
-  const expenseTransactions = transactions.filter(t => t.type === TransactionType.EXPENSE && t.branchId === branchId && !t.deletedAt);
+  // Fix: Renamed filter parameter 't' to 'tx' to avoid shadowing the 't' translation function
+  const expenseTransactions = transactions.filter(tx => tx.type === TransactionType.EXPENSE && tx.branchId === branchId && !tx.deletedAt);
   const isViewer = userRole === UserRole.VIEWER;
 
   return (
@@ -55,7 +58,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
           transactions={expenseTransactions} 
           onDelete={onDeleteTransaction}
           onEdit={(tx) => setEditingTx(tx)}
-          title={`Chi Phí - ${branchName}`} 
+          title={`${t('expense')} - ${branchName}`} 
           userRole={userRole}
           lang={lang}
         />
@@ -70,6 +73,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({
             onEditTransaction(updated);
             setEditingTx(null);
           }}
+          lang={lang}
         />
       )}
     </div>

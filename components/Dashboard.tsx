@@ -1,21 +1,20 @@
-
 import React, { useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { 
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
-  Tooltip as RechartsTooltip, Cell, AreaChart, Area, CartesianGrid, PieChart as RechartPie, Pie
+  Tooltip as RechartsTooltip, Cell, AreaChart, Area, CartesianGrid
 } from 'recharts';
-import { Transaction, TransactionType, formatCurrency, Language, Branch, UserRole, ReportSettings, ExpenseSource, ALL_BRANCHES_ID, EXPENSE_SOURCE_LABELS } from '../types';
+import { Transaction, TransactionType, formatCurrency, Language, Branch, UserRole, ReportSettings, ExpenseSource, ALL_BRANCHES_ID } from '../types';
 import { useTranslation } from '../i18n';
 import { analyzeFinances } from '../services/geminiService';
 import { 
-  AlertCircle, TrendingUp, Layers, ChevronLeft, ChevronRight, 
-  Wallet, Banknote, CreditCard, Activity, 
-  BarChart3, Zap, RefreshCcw,
-  Smartphone, Receipt, PieChart, Target,
-  FileSpreadsheet, Loader2, ArrowUpRight, ArrowDownRight,
-  Calendar, Check, Info, ArrowRight, Sparkles, BrainCircuit,
-  Building2, ArrowRightLeft, LayoutGrid, Award
+  AlertCircle, Layers, ChevronLeft, ChevronRight, 
+  Wallet, Activity, 
+  BarChart3, Zap, 
+  Target,
+  FileSpreadsheet, Loader2,
+  Sparkles, BrainCircuit,
+  Building2, LayoutGrid, Award
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -35,11 +34,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   lang, 
   currentBranchId, 
   allowedBranches, 
-  userRole, 
   reportSettings,
-  onToggleGlobal
 }) => {
-  const t = useTranslation(lang);
+  // Fix: Added translateCategory to destructuring to resolve "Cannot find name 'translateCategory'"
+  const { t, translateCategory } = useTranslation(lang);
   const [currentMonth, setCurrentMonth] = useState<string>(() => {
     const now = new Date();
     return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
@@ -264,7 +262,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="bg-white/95 dark:bg-slate-900/90 rounded-[2.5rem] p-8 border border-white dark:border-slate-800 shadow-ios">
              <div className="flex justify-between items-center mb-8">
                 <h3 className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 tracking-widest flex items-center gap-3">
-                   <BarChart3 className="w-5 h-5" style={{ color: currentBranchColor }} /> Biểu đồ doanh thu ngày
+                   <BarChart3 className="w-5 h-5" style={{ color: currentBranchColor }} /> {t('daily_revenue_chart')}
                 </h3>
              </div>
              <div className="h-[200px] w-full">
@@ -426,7 +424,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="space-y-6 animate-ios">
            <div className="bg-white/95 dark:bg-slate-900/90 rounded-[2.5rem] p-8 border border-white dark:border-slate-800 shadow-ios">
               <h3 className="text-xs font-black uppercase dark:text-white mb-8 flex items-center gap-3 tracking-widest">
-                 <BarChart3 className="w-5 h-5 text-indigo-500" /> So sánh doanh thu
+                 <BarChart3 className="w-5 h-5 text-indigo-500" /> {t('revenue_comparison')}
               </h3>
               <div className="h-[250px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
@@ -509,18 +507,19 @@ const Dashboard: React.FC<DashboardProps> = ({
               <AlertCircle className="w-24 h-24 absolute -bottom-8 -left-8 opacity-10" />
            </div>
            <div className="space-y-4 pt-2">
-              <h3 className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-widest px-4">Danh sách công nợ</h3>
+              <h3 className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-widest px-4">{t('liabilities_list')}</h3>
               {monthTransactions.filter(tx => tx.type === TransactionType.EXPENSE && tx.isPaid === false).map(t_tx => (
                 <div key={t_tx.id} className="bg-white/95 dark:bg-slate-900/90 px-7 py-5 rounded-[1.8rem] border border-white dark:border-slate-800 flex items-center justify-between shadow-soft hover:shadow-md transition-shadow group">
                    <div className="min-w-0 pr-4">
-                      <p className="text-sm font-black uppercase dark:text-white truncate group-hover:text-rose-500 transition-colors">{t_tx.debtorName || t_tx.category}</p>
+                      {/* Fix: translateCategory is now available in scope */}
+                      <p className="text-sm font-black uppercase dark:text-white truncate group-hover:text-rose-500 transition-colors">{t_tx.debtorName || translateCategory(t_tx.category)}</p>
                       <div className="flex items-center gap-4 mt-2">
                          {isSystemView && (
                            <span className="text-[8px] font-black px-2 py-1 text-white rounded-lg uppercase tracking-tight" style={{ backgroundColor: allowedBranches.find(b => b.id === t_tx.branchId)?.color || '#4f46e5' }}>
                              {allowedBranches.find(b => b.id === t_tx.branchId)?.name}
                            </span>
                          )}
-                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Calendar className="w-3 h-3" /> {t_tx.date}</span>
+                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Activity className="w-3 h-3" /> {t_tx.date}</span>
                       </div>
                    </div>
                    <p className="text-base font-black text-rose-600 dark:text-rose-400 shrink-0 tracking-tight">{formatCurrency(t_tx.amount, lang)}</p>

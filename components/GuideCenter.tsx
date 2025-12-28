@@ -1,4 +1,3 @@
-
 import {
   BookOpen,
   ChevronRight,
@@ -22,7 +21,8 @@ interface GuideCenterProps {
 }
 
 const GuideCenter: React.FC<GuideCenterProps> = ({ lang }) => {
-  const t = useTranslation(lang);
+  // Fix: Correctly destructure t from the useTranslation hook object
+  const { t } = useTranslation(lang);
   const [activeSection, setActiveSection] = useState<string | null>('intro');
 
   const guides = [

@@ -25,7 +25,7 @@ const PRESET_COLORS = [
 ];
 
 const BranchManager: React.FC<BranchManagerProps> = ({ branches, setBranches, onAudit, setGlobalConfirm, onResetBranchData, lang }) => {
-  const t = useTranslation(lang);
+  const { t } = useTranslation(lang);
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [initialCash, setInitialCash] = useState('0');
@@ -133,7 +133,7 @@ const BranchManager: React.FC<BranchManagerProps> = ({ branches, setBranches, on
                <h3 className="text-sm font-black uppercase tracking-widest dark:text-white leading-none mb-1">
                  {editingBranchId ? t('update_branch') : t('add_branch')}
                </h3>
-               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cấu hình cơ sở kinh doanh</p>
+               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t('branch_config_sub')}</p>
              </div>
           </div>
           {editingBranchId && (
@@ -155,7 +155,7 @@ const BranchManager: React.FC<BranchManagerProps> = ({ branches, setBranches, on
 
           <div className="space-y-4">
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2 flex items-center gap-2">
-              <Palette className="w-3.5 h-3.5" /> Màu sắc nhận diện
+              <Palette className="w-3.5 h-3.5" /> {t('brand_color')}
             </label>
             <div className="flex flex-wrap gap-3 p-4 bg-slate-50 dark:bg-slate-900 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800">
                {PRESET_COLORS.map(c => (

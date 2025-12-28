@@ -12,7 +12,7 @@ interface CategoryManagerProps {
 }
 
 const CategoryManager: React.FC<CategoryManagerProps> = ({ categories, onUpdate, title, lang }) => {
-  const t = useTranslation(lang);
+  const { t, translateCategory } = useTranslation(lang);
   const [newCategory, setNewCategory] = useState('');
 
   const handleAdd = () => {
@@ -38,7 +38,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ categories, onUpdate,
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {categories.map(cat => (
           <div key={cat} className="flex justify-between items-center bg-slate-50 dark:bg-slate-800 px-4 py-3 rounded-xl border dark:border-slate-700 group hover:border-indigo-500 transition-all">
-            <span className="text-[10px] font-black uppercase truncate mr-2 dark:text-slate-300">{cat}</span>
+            <span className="text-[10px] font-black uppercase truncate mr-2 dark:text-slate-300">{translateCategory(cat)}</span>
             <button onClick={() => onUpdate(categories.filter(c => c !== cat))} className="text-slate-300 hover:text-rose-500 transition-colors"><X className="w-3.5 h-3.5" /></button>
           </div>
         ))}

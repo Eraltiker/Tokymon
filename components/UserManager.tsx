@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { User, UserRole, Branch, Language } from '../types';
 import { useTranslation } from '../i18n';
-// Fix: Added missing AlertTriangle and MapPin icons to the import list
 import { Plus, Trash2, Users, Edit3, X, CheckSquare, Square, ShieldCheck, UserPlus, Save, AlertTriangle, MapPin } from 'lucide-react';
 
 interface UserManagerProps {
@@ -16,7 +15,7 @@ interface UserManagerProps {
 }
 
 const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, onAudit, currentUserId, setGlobalConfirm, lang }) => {
-  const t = useTranslation(lang);
+  const { t } = useTranslation(lang);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>(UserRole.MANAGER);
@@ -55,16 +54,15 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
     const trimmedPass = password.trim();
 
     if (!trimmedUser || !trimmedPass) {
-      setError('Vui lòng nhập đủ tên và mật khẩu');
+      setError(lang === 'vi' ? 'Vui lòng nhập đủ tên và mật khẩu' : 'Benutzername und Passwort erforderlich');
       return;
     }
 
-    // Kiểm tra trùng username (trừ khi đang sửa chính user đó)
     const isDuplicate = activeUsers.some(u => 
       u.username.toLowerCase() === trimmedUser && u.id !== editingUserId
     );
     if (isDuplicate) {
-      setError('Tên người dùng đã tồn tại');
+      setError(lang === 'vi' ? 'Tên người dùng đã tồn tại' : 'Benutzername bereits vergeben');
       return;
     }
 
@@ -94,11 +92,11 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
 
   const handleDelete = (u: User) => {
     if (u.username === 'admin') {
-      alert('Không thể xóa tài khoản hệ thống!');
+      alert(lang === 'vi' ? 'Không thể xóa tài khoản hệ thống!' : 'Systembenutzer kann nicht gelöscht werden!');
       return;
     }
     if (u.id === currentUserId) {
-      alert('Không thể tự xóa tài khoản của chính mình!');
+      alert(lang === 'vi' ? 'Không thể tự xóa tài khoản của chính mình!' : 'Eigener Benutzer kann nicht gelöscht werden!');
       return;
     }
 
@@ -117,7 +115,6 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
 
   return (
     <div className="space-y-8 animate-ios pb-10">
-      {/* User Form */}
       <div className={`bg-white dark:bg-slate-950 p-6 sm:p-10 rounded-[3rem] border-2 shadow-soft transition-all ${editingUserId ? 'border-indigo-500 ring-4 ring-indigo-500/5' : 'dark:border-slate-800 border-slate-100'}`}>
         <div className="flex justify-between items-center mb-8">
            <div className="flex items-center gap-4">
@@ -126,9 +123,9 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
               </div>
               <div>
                 <h3 className="text-sm font-black uppercase tracking-widest dark:text-white leading-none mb-1">
-                   {editingUserId ? 'Cập nhật tài khoản' : 'Thêm tài khoản mới'}
+                   {editingUserId ? t('user_edit_title') : t('user_add_title')}
                 </h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phân quyền hệ thống</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t('system_permission')}</p>
               </div>
            </div>
            {editingUserId && (
@@ -175,7 +172,7 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
                   <span className="font-black text-[10px] truncate uppercase tracking-tight">{b.name}</span>
                 </button>
               ))}
-              {activeBranches.length === 0 && <p className="col-span-full text-center text-[10px] font-bold text-slate-400 py-4 uppercase italic">Chưa có chi nhánh nào khả dụng</p>}
+              {activeBranches.length === 0 && <p className="col-span-full text-center text-[10px] font-bold text-slate-400 py-4 uppercase italic">{t('no_data')}</p>}
             </div>
           </div>
         )}
@@ -185,19 +182,18 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
         </button>
       </div>
 
-      {/* User Table List */}
       <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 dark:border-slate-800 border-slate-50 overflow-hidden shadow-soft">
         <div className="px-8 py-5 border-b dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center gap-3">
            <Users className="w-5 h-5 text-slate-400" />
-           <h4 className="text-[11px] font-black uppercase text-slate-500 tracking-widest">Danh sách nhân sự ({activeUsers.length})</h4>
+           <h4 className="text-[11px] font-black uppercase text-slate-500 tracking-widest">{t('personnel_list')} ({activeUsers.length})</h4>
         </div>
         <div className="overflow-x-auto no-scrollbar">
           <table className="w-full text-left text-xs font-bold">
             <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-400 uppercase tracking-widest border-b dark:border-slate-800">
               <tr>
-                <th className="px-8 py-5">Tài khoản</th>
-                <th className="px-8 py-5">Quyền hạn</th>
-                <th className="px-8 py-5 text-center">Thao tác</th>
+                <th className="px-8 py-5">{t('username')}</th>
+                <th className="px-8 py-5">{t('role')}</th>
+                <th className="px-8 py-5 text-center">{t('all')}</th>
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-slate-800">
@@ -207,7 +203,7 @@ const UserManager: React.FC<UserManagerProps> = ({ users, setUsers, branches, on
                      <div className="flex flex-col">
                         <span className="font-black dark:text-white uppercase tracking-tight flex items-center gap-2">
                            {u.username}
-                           {u.id === currentUserId && <span className="px-1.5 py-0.5 bg-brand-100 dark:bg-brand-900 text-brand-600 text-[8px] rounded-md">BẠN</span>}
+                           {u.id === currentUserId && <span className="px-1.5 py-0.5 bg-brand-100 dark:bg-brand-900 text-brand-600 text-[8px] rounded-md uppercase">YOU</span>}
                         </span>
                         <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Pass: {u.password}</span>
                      </div>
