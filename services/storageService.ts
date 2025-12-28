@@ -23,17 +23,8 @@ const getDB = (): Promise<IDBDatabase> => {
 };
 
 export const StorageService = {
-  /**
-   * CƠ CHẾ GỘP DỮ LIỆU CHỐNG PHỤC HỒI (Anti-Resurrection Merge)
-   * Quy tắc:
-   * 1. Bản ghi mới nhất (updatedAt lớn nhất) thắng.
-   * 2. Nếu updatedAt bằng nhau: Bản ghi nào có deletedAt THẮNG (Ưu tiên xóa).
-   * 3. Nếu một bên đã xóa và bên kia vẫn sống: Chỉ cho phép "sống lại" nếu bản ghi sống có updatedAt MỚI HƠN hẳn bản ghi xóa.
-   */
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
     const combinedMap = new Map<string, T>();
-    
-    // Gộp tất cả IDs từ cả 2 nguồn
     const allIds = new Set([
       ...(local || []).map(i => i.id),
       ...(remote || []).map(i => i.id)
@@ -46,28 +37,12 @@ export const StorageService = {
       if (l && r) {
         const lTime = new Date(l.updatedAt).getTime();
         const rTime = new Date(r.updatedAt).getTime();
-
-        if (lTime > rTime) {
-          // Local mới hơn: Nếu local đã xóa, remote không được hồi sinh nó
-          combinedMap.set(id, l);
-        } else if (rTime > lTime) {
-          // Remote mới hơn: Chấp nhận dữ liệu từ Cloud
-          combinedMap.set(id, r);
-        } else {
-          // Thời gian bằng nhau: Ưu tiên trạng thái đã xóa (Tombstone)
-          if (l.deletedAt || r.deletedAt) {
-            combinedMap.set(id, l.deletedAt ? l : r);
-          } else {
-            combinedMap.set(id, l);
-          }
-        }
-      } else if (l) {
-        combinedMap.set(id, l);
-      } else if (r) {
-        combinedMap.set(id, r);
-      }
+        if (lTime > rTime) combinedMap.set(id, l);
+        else if (rTime > lTime) combinedMap.set(id, r);
+        else combinedMap.set(id, (l.deletedAt || r.deletedAt) ? (l.deletedAt ? l : r) : l);
+      } else if (l) combinedMap.set(id, l);
+      else if (r) combinedMap.set(id, r);
     });
-
     return Array.from(combinedMap.values());
   },
 
@@ -91,49 +66,22 @@ export const StorageService = {
   async syncWithCloud(syncKey: string, localData: AppData, forcePush: boolean = false): Promise<AppData> {
     if (!syncKey || syncKey.trim() === '') return localData;
     const url = `https://kvdb.io/${syncKey}/tokymon_v1`;
-    
     try {
       if (forcePush) {
-        const res = await fetch(url, {
-          method: 'POST',
-          body: JSON.stringify(localData),
-          headers: { 'Content-Type': 'application/json' }
-        });
-        if (res.status === 429) return localData;
+        const res = await fetch(url, { method: 'POST', body: JSON.stringify(localData), headers: { 'Content-Type': 'application/json' } });
         return { ...localData, lastSync: new Date().toISOString() };
       }
-
-      // Lấy dữ liệu từ Cloud
       const response = await fetch(url, { cache: 'no-store' });
-      if (response.status === 429) return localData;
-
       let remoteData: AppData;
       if (response.ok) {
-        const text = await response.text();
-        try {
-          remoteData = JSON.parse(text);
-        } catch (e) {
-          remoteData = StorageService.getEmptyData();
-        }
-      } else {
-        remoteData = StorageService.getEmptyData();
-      }
+        try { remoteData = await response.json(); } 
+        catch (e) { remoteData = StorageService.getEmptyData(true); }
+      } else { remoteData = StorageService.getEmptyData(true); }
 
-      // Gộp dữ liệu
       const merged = StorageService.mergeAppData(localData, remoteData);
-      
-      // Đẩy ngược lại Cloud ngay lập tức bản gộp (để chốt các Tombstones)
-      await fetch(url, {
-        method: 'POST',
-        body: JSON.stringify(merged),
-        headers: { 'Content-Type': 'application/json' }
-      });
-
+      await fetch(url, { method: 'POST', body: JSON.stringify(merged), headers: { 'Content-Type': 'application/json' } });
       return merged;
-    } catch (e) {
-      console.error("Sync Failure:", e);
-      throw e;
-    }
+    } catch (e) { throw e; }
   },
 
   async saveLocal(data: AppData) {
@@ -157,13 +105,14 @@ export const StorageService = {
       });
 
       if (!data) return StorageService.getEmptyData();
-      const empty = StorageService.getEmptyData();
+      
+      const empty = StorageService.getEmptyData(true); // Load structure only, no samples
       return {
         ...empty,
         ...data,
         transactions: data.transactions || [],
-        branches: data.branches || empty.branches,
-        users: data.users || empty.users,
+        branches: (data.branches && data.branches.length > 0) ? data.branches : empty.branches,
+        users: (data.users && data.users.length > 0) ? data.users : empty.users,
         expenseCategories: data.expenseCategories || empty.expenseCategories,
         recurringExpenses: data.recurringExpenses || [],
         auditLogs: data.auditLogs || []
@@ -171,41 +120,23 @@ export const StorageService = {
     } catch (e) { return StorageService.getEmptyData(); }
   },
 
-  getEmptyData: (): AppData => ({
+  /**
+   * getEmptyData
+   * @param minimal Nếu true, trả về mảng rỗng cho chi nhánh/người dùng để tránh re-seeding
+   */
+  getEmptyData: (minimal: boolean = false): AppData => ({
     version: SCHEMA_VERSION,
     lastSync: '',
     transactions: [],
-    branches: [
-      { 
-        id: 'br_default', 
-        name: 'Tokymon Bad Nauheim', 
-        address: 'Bad Nauheim, Germany', 
-        initialCash: 0, 
-        initialCard: 0, 
-        color: '#6366f1', 
-        updatedAt: new Date().toISOString() 
-      }
+    branches: minimal ? [] : [
+      { id: 'br_default', name: 'Tokymon Bad Nauheim', address: 'Bad Nauheim, Germany', initialCash: 0, initialCard: 0, color: '#6366f1', updatedAt: new Date().toISOString() }
     ],
-    users: [
-      { 
-        id: 'admin_root', 
-        username: 'admin', 
-        password: 'admin123', 
-        role: UserRole.SUPER_ADMIN, 
-        assignedBranchIds: [], 
-        updatedAt: new Date().toISOString() 
-      }
+    users: minimal ? [] : [
+      { id: 'admin_root', username: 'admin', password: 'admin123', role: UserRole.SUPER_ADMIN, assignedBranchIds: [], preferences: { theme: 'dark', language: 'vi' }, updatedAt: new Date().toISOString() }
     ],
     expenseCategories: EXPENSE_CATEGORIES,
     recurringExpenses: [],
     auditLogs: [],
-    reportSettings: {
-      showSystemTotal: true,
-      showShopRevenue: true,
-      showAppRevenue: true,
-      showCardRevenue: true,
-      showActualCash: true,
-      showProfit: true
-    }
+    reportSettings: { showSystemTotal: true, showShopRevenue: true, showAppRevenue: true, showCardRevenue: true, showActualCash: true, showProfit: true }
   })
 };

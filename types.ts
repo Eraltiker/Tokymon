@@ -29,6 +29,11 @@ export enum UserRole {
 
 export type Language = 'vi' | 'de';
 
+export interface UserPreferences {
+  theme: 'light' | 'dark';
+  language: Language;
+}
+
 export interface Branch {
   id: string;
   name: string;
@@ -46,6 +51,7 @@ export interface User {
   password: string;
   role: UserRole;
   assignedBranchIds: string[];
+  preferences?: UserPreferences;
   updatedAt: string;
   deletedAt?: string;
 }
