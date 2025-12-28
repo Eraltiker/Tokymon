@@ -25,10 +25,8 @@ const getDB = (): Promise<IDBDatabase> => {
 export const StorageService = {
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
     const map = new Map<string, T>();
-    // Ưu tiên dữ liệu local trước
     (local || []).forEach(item => { if (item?.id) map.set(item.id, item); });
     
-    // So sánh với remote để lấy bản mới nhất
     (remote || []).forEach(remoteItem => {
       if (!remoteItem?.id) return;
       const localItem = map.get(remoteItem.id);
@@ -36,7 +34,6 @@ export const StorageService = {
       const rTime = new Date(remoteItem.updatedAt || 0).getTime() || 0;
       const lTime = localItem ? (new Date(localItem.updatedAt || 0).getTime() || 0) : -1;
 
-      // Remote thắng nếu nó mới hơn local hoặc local chưa có bản ghi này
       if (!localItem || rTime > lTime) {
         map.set(remoteItem.id, remoteItem);
       }
@@ -67,7 +64,6 @@ export const StorageService = {
     
     try {
       if (forcePush) {
-        // Chế độ cưỡng bức: Ghi đè toàn bộ dữ liệu máy này lên Cloud để sửa lỗi đồng bộ
         const res = await fetch(url, {
           method: 'POST',
           body: JSON.stringify(localData),
@@ -77,10 +73,14 @@ export const StorageService = {
         return { ...localData, lastSync: new Date().toISOString() };
       }
 
-      // 1. Thử lấy dữ liệu từ Cloud
       const response = await fetch(url, { cache: 'no-store' });
-      let remoteData: AppData;
       
+      if (response.status === 429) {
+        console.warn("KVDB Rate limited (429). Skipping this sync cycle.");
+        return localData; 
+      }
+
+      let remoteData: AppData;
       if (response.ok) {
         const text = await response.text();
         try {
@@ -89,37 +89,31 @@ export const StorageService = {
             throw new Error("Invalid structure");
           }
         } catch (parseError) {
-          console.error("Cloud data corrupted, preparing to overwrite with local.");
+          console.error("Cloud data invalid, treating as empty.");
           remoteData = StorageService.getEmptyData();
         }
       } else if (response.status === 404) {
         remoteData = StorageService.getEmptyData();
-      } else if (response.status === 429) {
-        // Rate limited: Im lặng trả về local để thử lại sau
-        return localData;
       } else {
-        throw new Error(`Server status: ${response.status}`);
+        throw new Error(`Cloud Error: ${response.status}`);
       }
 
-      // 2. Hợp nhất (Merge)
       const merged = StorageService.mergeAppData(localData, remoteData);
       
-      // 3. Đẩy lại bản gộp tốt nhất lên Cloud
       const pushRes = await fetch(url, {
         method: 'POST',
         body: JSON.stringify(merged),
         headers: { 'Content-Type': 'application/json' }
       });
       
-      if (pushRes.status === 429) return localData;
+      if (pushRes.status === 429) {
+        console.warn("KVDB Rate limited (429) on push.");
+        return localData;
+      }
 
       return merged;
     } catch (e) {
-      if (e instanceof Error && e.message === "429") {
-        console.warn("KVDB Rate limited (429). Retrying next cycle.");
-        return localData;
-      }
-      console.error("Critical Cloud Sync Error:", e);
+      console.error("Sync Process Error:", e);
       throw e;
     }
   },

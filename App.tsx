@@ -31,7 +31,7 @@ import {
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 phút
 const GLOBAL_SYNC_KEY = 'NZQkBLdrxvnEEMUw928weK';
-const SYNC_DEBOUNCE_MS = 20000; // Tăng lên 20 giây để tránh lỗi 429
+const SYNC_DEBOUNCE_MS = 25000; // Tăng lên 25 giây để giảm tần suất gọi API, tránh lỗi 429
 
 const App = () => {
   const [activeTab, setActiveTab] = useState<'income' | 'expense' | 'stats' | 'settings'>(() => {
@@ -47,7 +47,7 @@ const App = () => {
   const [data, setData] = useState<AppData>(StorageService.getEmptyData());
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const isSyncInProgressRef = useRef(false); // Ref để kiểm soát đồng bộ chồng chéo
+  const isSyncInProgressRef = useRef(false);
   const [syncStatus, setSyncStatus] = useState<'IDLE' | 'SUCCESS' | 'ERROR'>('IDLE');
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{show: boolean, title: string, message: string, onConfirm: () => void} | null>(null);
@@ -65,6 +65,9 @@ const App = () => {
   const inactivityTimerRef = useRef<number | null>(null);
   const dataRef = useRef(data);
   const syncDebounceRef = useRef<number | null>(null);
+
+  const isAdmin = currentUser?.role === UserRole.SUPER_ADMIN || currentUser?.role === UserRole.ADMIN;
+  const isSuperAdmin = currentUser?.role === UserRole.SUPER_ADMIN;
 
   useEffect(() => {
     localStorage.setItem('tokymon_last_tab', activeTab);
@@ -109,7 +112,6 @@ const App = () => {
       return;
     }
     
-    // Ngăn chặn đồng bộ đồng thời
     if (isSyncInProgressRef.current) return;
     isSyncInProgressRef.current = true;
     
@@ -192,7 +194,6 @@ const App = () => {
   }, [data.transactions, activeBranches]);
 
   const activeUsers = useMemo(() => data.users.filter(u => !u.deletedAt), [data.users]);
-  const isAdmin = currentUser?.role === UserRole.SUPER_ADMIN || currentUser?.role === UserRole.ADMIN;
 
   const allowedBranches = useMemo(() => {
     if (!currentUser) return [];
@@ -421,36 +422,41 @@ const App = () => {
                     { id: 'users', label: t('users'), icon: Users }, 
                     { id: 'audit', label: 'Log', icon: HistoryIcon }, 
                     { id: 'about', label: t('about'), icon: Info }
-                  ].map(sub => (
-                    <button 
-                      key={sub.id} 
-                      onClick={() => setSettingsSubTab(sub.id as any)} 
-                      style={{ 
-                        display: (sub.id === 'branches' || sub.id === 'users') && !isAdmin ? 'none' : 'flex',
-                        backgroundColor: settingsSubTab === sub.id ? activeBranchColor : ''
-                      }} 
-                      className={`px-4 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 shrink-0 active-scale ${settingsSubTab === sub.id ? 'bg-slate-900 border-transparent text-white shadow-vivid' : 'bg-white/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-500'}`}
-                    >
-                      <sub.icon className="w-3.5 h-3.5" /> {sub.label}
-                    </button>
-                  ))}
+                  ].map(sub => {
+                    // PHÂN QUYỀN TRUY CẬP TRONG SETTINGS
+                    const isVisible = (sub.id === 'branches' || sub.id === 'users') ? isAdmin : (sub.id === 'sync' ? isSuperAdmin : true);
+                    if (!isVisible) return null;
+
+                    return (
+                      <button 
+                        key={sub.id} 
+                        onClick={() => setSettingsSubTab(sub.id as any)} 
+                        style={{ 
+                          backgroundColor: settingsSubTab === sub.id ? activeBranchColor : ''
+                        }} 
+                        className={`px-4 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 shrink-0 active-scale ${settingsSubTab === sub.id ? 'bg-slate-900 border-transparent text-white shadow-vivid' : 'bg-white/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-500'}`}
+                      >
+                        <sub.icon className="w-3.5 h-3.5" /> {sub.label}
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-[2.5rem] p-5 border border-white/20 dark:border-slate-800 shadow-ios min-h-[450px]">
                     {settingsSubTab === 'guide' && <GuideCenter lang={lang} />}
-                    {settingsSubTab === 'sync' && (
+                    {settingsSubTab === 'sync' && isSuperAdmin && (
                       <div className="space-y-8 max-w-md mx-auto pt-6 animate-ios">
                         <div className="text-center space-y-3">
                            <div className="w-20 h-20 bg-brand-50/50 dark:bg-brand-900/10 text-brand-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-inner border border-brand-100 dark:border-brand-900/20" style={{ color: activeBranchColor }}><Database className="w-10 h-10" /></div>
                            <h3 className="text-xl font-black uppercase dark:text-white tracking-tight">Enterprise Cloud Vault</h3>
                            <div className="flex items-center justify-center gap-2">
-                             <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                             <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-50'}`} />
                              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{isOnline ? 'Cloud Active' : 'Offline Mode'}</p>
                            </div>
                         </div>
 
                         <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-[2rem] border-2 border-slate-200 dark:border-slate-800 space-y-4">
                            <div className="flex items-center justify-between">
-                             <span className="text-[9px] font-black uppercase text-slate-400">Cloud Bucket ID</span>
+                             <span className="text-[9px] font-black uppercase text-slate-400">Cloud Bucket ID (Permanent)</span>
                              <button onClick={() => { navigator.clipboard.writeText(GLOBAL_SYNC_KEY); alert('Bucket ID copied!'); }} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors">
                                <Copy className="w-3.5 h-3.5 text-brand-600" />
                              </button>
@@ -458,7 +464,6 @@ const App = () => {
                            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800 font-mono text-[11px] font-bold dark:text-brand-400 break-all">
                               {GLOBAL_SYNC_KEY}
                            </div>
-                           <p className="text-[8px] font-bold text-slate-400 uppercase text-center">{lang === 'vi' ? 'Dùng chung mã này cho tất cả thiết bị' : 'Use this ID for all devices'}</p>
                         </div>
 
                         <div className="p-6 bg-emerald-50/50 dark:bg-emerald-900/10 border-2 border-emerald-200 dark:border-emerald-800 rounded-[2rem] space-y-3">
@@ -500,20 +505,11 @@ const App = () => {
                             </button>
                           )}
                         </div>
-                        
-                        <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-2xl">
-                          <Info className="w-5 h-5 text-amber-600 shrink-0" />
-                          <p className="text-[9px] font-bold text-amber-700 dark:text-amber-400 leading-relaxed">
-                            {lang === 'vi' 
-                              ? 'Nếu 2 máy không giống nhau: Hãy bấm "Đồng bộ lại ngay" trên cả 2 máy. Nếu vẫn lỗi, dùng "Sửa lỗi Cloud" trên máy có dữ liệu ĐÚNG nhất.' 
-                              : 'If devices mismatch: Press "Sync Now" on both. If persists, use "Force Repair" on the device with CORRECT data.'}
-                          </p>
-                        </div>
                       </div>
                     )}
                     {settingsSubTab === 'export' && <ExportManager transactions={activeTransactions} branches={activeBranches} lang={lang} />}
-                    {settingsSubTab === 'branches' && <BranchManager branches={data.branches} setBranches={(update: any) => setData(p => ({...p, branches: update(p.branches)}))} onAudit={addAuditLog} setGlobalConfirm={setConfirmModal} onResetBranchData={handleResetBranchData} lang={lang} />}
-                    {settingsSubTab === 'users' && <UserManager users={data.users} setUsers={val => setData(p => ({...p, users: typeof val === 'function' ? val(p.users) : val}))} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={setConfirmModal} lang={lang} />}
+                    {settingsSubTab === 'branches' && isAdmin && <BranchManager branches={data.branches} setBranches={(update: any) => setData(p => ({...p, branches: update(p.branches)}))} onAudit={addAuditLog} setGlobalConfirm={setConfirmModal} onResetBranchData={handleResetBranchData} lang={lang} />}
+                    {settingsSubTab === 'users' && isAdmin && <UserManager users={data.users} setUsers={val => setData(p => ({...p, users: typeof val === 'function' ? val(p.users) : val}))} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={setConfirmModal} lang={lang} />}
                     {settingsSubTab === 'general' && ( <div className="space-y-10"><CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => setData(prev => ({...prev, expenseCategories: cats}))} lang={lang} /><RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={data.expenseCategories} onUpdate={(recs) => setData(prev => ({...prev, recurringExpenses: recs}))} onGenerateTransactions={txs => setData(prev => ({...prev, transactions: [...txs, ...prev.transactions]}))} branchId={currentBranchId === ALL_BRANCHES_ID ? allowedBranches[0]?.id : currentBranchId} lang={lang} /></div> )}
                     {settingsSubTab === 'audit' && (
                       <div className="space-y-4 max-h-[600px] overflow-y-auto no-scrollbar pr-2">
