@@ -25,19 +25,35 @@ const getDB = (): Promise<IDBDatabase> => {
 export const StorageService = {
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
     const map = new Map<string, T>();
+    
+    // Nạp toàn bộ dữ liệu local trước
     (local || []).forEach(item => { if (item?.id) map.set(item.id, item); });
     
+    // So sánh và gộp với remote
     (remote || []).forEach(remoteItem => {
       if (!remoteItem?.id) return;
       const localItem = map.get(remoteItem.id);
       
-      const rTime = new Date(remoteItem.updatedAt || 0).getTime() || 0;
-      const lTime = localItem ? (new Date(localItem.updatedAt || 0).getTime() || 0) : -1;
+      if (!localItem) {
+        map.set(remoteItem.id, remoteItem);
+        return;
+      }
+      
+      const rTime = new Date(remoteItem.updatedAt || 0).getTime();
+      const lTime = new Date(localItem.updatedAt || 0).getTime();
 
-      if (!localItem || rTime > lTime) {
+      // Trường hợp 1: Remote mới hơn hoàn toàn
+      if (rTime > lTime) {
+        map.set(remoteItem.id, remoteItem);
+      } 
+      // Trường hợp 2: Cùng thời điểm hoặc Remote cũ hơn, nhưng Remote đã được đánh dấu Xóa
+      // (Bảo vệ Tombstone: Đã xóa thì ưu tiên giữ trạng thái xóa)
+      else if (rTime === lTime && remoteItem.deletedAt && !localItem.deletedAt) {
         map.set(remoteItem.id, remoteItem);
       }
+      // Ngược lại giữ nguyên bản Local (vì Local đang mới hơn hoặc bằng và Remote không có gì đặc biệt)
     });
+    
     return Array.from(map.values());
   },
 
