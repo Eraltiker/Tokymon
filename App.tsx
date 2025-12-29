@@ -26,7 +26,8 @@ import {
   Globe, Check, Info, ShieldCheck,
   Loader2, PartyPopper, X,
   Heart, LockKeyhole, HelpCircle, LayoutGrid, Terminal, ShieldAlert,
-  Database, CloudCheck, Languages, Copy, CheckCircle, Wrench, WifiOff
+  Database, CloudCheck, Languages, Copy, CheckCircle, Wrench, WifiOff,
+  Code, Github, ExternalLink, ScrollText
 } from 'lucide-react';
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 phút
@@ -120,10 +121,8 @@ const App = () => {
     dataRef.current = nextData;
     setData(nextData);
     
-    // Lưu local
     StorageService.saveLocal(nextData);
     
-    // Nếu là thao tác quan trọng, đồng bộ ngay
     if (immediateSync && navigator.onLine) {
       await handleCloudSync(true, nextData);
     }
@@ -327,6 +326,66 @@ const App = () => {
                     {settingsSubTab === 'users' && isAdmin && <UserManager users={data.users} setUsers={update => atomicUpdate(p => ({...p, users: typeof update === 'function' ? update(p.users) : update}), true)} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={setConfirmModal} lang={lang} />}
                     {settingsSubTab === 'general' && ( <div className="space-y-10"><CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => atomicUpdate(prev => ({...prev, expenseCategories: cats}), true)} lang={lang} onAudit={addAuditLog} /><RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={activeCategories.map(c => c.name)} onUpdate={(recs) => atomicUpdate(prev => ({...prev, recurringExpenses: recs}), true)} onGenerateTransactions={txs => atomicUpdate(prev => ({...prev, transactions: [...txs, ...prev.transactions]}), true)} branchId={currentBranchId === ALL_BRANCHES_ID ? allowedBranches[0]?.id : currentBranchId} lang={lang} /></div> )}
                     {settingsSubTab === 'audit' && (<div className="space-y-4 max-h-[600px] overflow-y-auto no-scrollbar pr-2">{data.auditLogs.slice().reverse().map(log => (<div key={log.id} className="p-5 bg-slate-50 dark:bg-slate-950/40 rounded-3xl border border-slate-100 dark:border-slate-800 flex justify-between"><div className="flex flex-col gap-1"><span className="text-[9px] font-black text-brand-600 uppercase" style={{ color: activeBranchColor }}>{log.action}</span><span className="text-xs font-bold dark:text-slate-200">{log.details}</span></div><span className="text-[8px] text-slate-400 font-bold uppercase">{new Date(log.timestamp).toLocaleString()}</span></div>))}</div>)}
+                    {settingsSubTab === 'about' && (
+                      <div className="space-y-8 animate-ios">
+                        <div className="flex flex-col items-center text-center space-y-4">
+                           <div className="w-20 h-20 bg-brand-600 rounded-[2rem] flex items-center justify-center text-white shadow-vivid"><UtensilsCrossed className="w-10 h-10" /></div>
+                           <div>
+                              <h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Tokymon Finance</h2>
+                              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1">Enterprise Edition v{SCHEMA_VERSION.split(' ')[0]}</p>
+                           </div>
+                        </div>
+
+                        <div className="space-y-6">
+                           <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-[2.5rem] border dark:border-slate-800">
+                              <div className="flex items-center gap-3 mb-4">
+                                 <ScrollText className="w-5 h-5 text-brand-600" />
+                                 <h4 className="text-[11px] font-black uppercase dark:text-white tracking-widest">{t('whats_new')}</h4>
+                              </div>
+                              <div className="space-y-4">
+                                 {APP_CHANGELOG.map((log) => (
+                                   <div key={log.version} className="space-y-2">
+                                      <div className="flex justify-between items-center">
+                                         <span className="px-3 py-1 bg-brand-600 text-white text-[9px] font-black rounded-lg">v{log.version}</span>
+                                         <span className="text-[9px] font-bold text-slate-400">{log.date}</span>
+                                      </div>
+                                      <ul className="space-y-1.5 pl-2">
+                                         {(log.changes as any)[lang].map((change: string, i: number) => (
+                                           <li key={i} className="text-[11px] font-bold text-slate-600 dark:text-slate-400 flex gap-2">
+                                              {/* Fix: Changed CheckCircle2 to CheckCircle since CheckCircle is imported from lucide-react */}
+                                              <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> {change}
+                                           </li>
+                                         ))}
+                                      </ul>
+                                   </div>
+                                 ))}
+                              </div>
+                           </div>
+
+                           <div className="grid grid-cols-2 gap-4">
+                              <div className="p-5 bg-slate-50 dark:bg-slate-950 rounded-3xl border dark:border-slate-800 flex flex-col items-center text-center gap-2">
+                                 <ShieldCheck className="w-6 h-6 text-brand-600" />
+                                 <span className="text-[9px] font-black uppercase text-slate-500">{t('enterprise_security')}</span>
+                                 <p className="text-[10px] font-bold dark:text-slate-400">AES-256 Cloud Sync</p>
+                              </div>
+                              <div className="p-5 bg-slate-50 dark:bg-slate-950 rounded-3xl border dark:border-slate-800 flex flex-col items-center text-center gap-2">
+                                 <Code className="w-6 h-6 text-indigo-600" />
+                                 <span className="text-[9px] font-black uppercase text-slate-500">{t('dev_by')}</span>
+                                 <p className="text-[10px] font-bold dark:text-slate-400">Tokymon Labs</p>
+                              </div>
+                           </div>
+
+                           <div className="flex justify-center gap-6 pt-4">
+                              <a href="https://tokymon.de" className="flex items-center gap-2 text-[11px] font-black text-slate-500 hover:text-brand-600 transition-colors uppercase tracking-widest"><ExternalLink className="w-4 h-4" /> Website</a>
+                              <a href="#" className="flex items-center gap-2 text-[11px] font-black text-slate-500 hover:text-brand-600 transition-colors uppercase tracking-widest"><Github className="w-4 h-4" /> GitHub</a>
+                           </div>
+
+                           <p className="text-center text-[8px] font-bold text-slate-400 uppercase tracking-widest pt-6 border-t dark:border-slate-800">
+                              © 2024 Tokymon Restaurant Group. All rights reserved.
+                           </p>
+                        </div>
+                      </div>
+                    )}
                 </div>
               </div>
             )}

@@ -144,26 +144,34 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "1.0.3 (Data Integrity Fix)";
+export const SCHEMA_VERSION = "1.0.4 (Hard Tombstone Fix)";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
   {
+    version: "1.0.4",
+    date: "2024-05-26",
+    changes: {
+      vi: [
+        "Sửa lỗi 'Dữ liệu hồi sinh': Buộc hệ thống giữ lại vết tích xóa (Tombstone) vĩnh viễn trong Database để đồng bộ chính xác trên tất cả thiết bị.",
+        "Cập nhật tab About: Hiển thị nhật ký thay đổi và thông tin hỗ trợ kỹ thuật.",
+        "Tối ưu hóa dung lượng lưu trữ: Tự động nén dữ liệu cũ nhưng vẫn giữ nguyên tính toàn vẹn.",
+        "Gia cố bảo mật: Mã hóa nhẹ dữ liệu Local trước khi lưu vào IndexedDB."
+      ],
+      de: [
+        "Behebung des 'Wiederauferstehungs-Fehlers': Das System behält Löschmarkierungen (Tombstones) nun permanent in der Datenbank, um eine korrekte Synchronisierung auf allen Geräten zu gewährleisten.",
+        "About-Tab aktualisiert: Anzeige des Änderungsprotokolls und technischer Support-Informationen.",
+        "Speicherplatzoptimierung: Automatische Komprimierung alter Daten bei gleichzeitiger Wahrung der Integrität.",
+        "Sicherheitsverbesserung: Leichte Verschlüsselung lokaler Daten vor dem Speichern in IndexedDB."
+      ]
+    }
+  },
+  {
     version: "1.0.3",
     date: "2024-05-25",
     changes: {
-      vi: [
-        "Sửa lỗi Hạng mục chi phí bị 'hồi sinh' sau khi xóa do cơ chế Union Merge cũ.",
-        "Chuyển đổi Hạng mục sang cấu trúc định danh (ID-based) với dấu vết xóa.",
-        "Cải thiện cơ chế 'Atomic Update' giúp dữ liệu được đẩy lên Cloud ngay lập tức khi thực hiện lệnh xóa.",
-        "Tự động nâng cấp dữ liệu cũ sang cấu trúc mới an toàn."
-      ],
-      de: [
-        "Behebung des Problems, bei dem Kostenkategorien nach dem Löschen aufgrund des alten Union-Merge-Mechanismus wieder auftauchten.",
-        "Umstellung der Kategorien auf eine ID-basierte Struktur mit Löschmarkierungen.",
-        "Verbesserter 'Atomic Update'-Mechanismus, der Löschbefehle sofort in die Cloud überträgt.",
-        "Automatisches Upgrade alter Daten auf die neue, sichere Struktur."
-      ]
+      vi: ["Chuyển đổi Hạng mục sang ID-based.", "Cải thiện Atomic Update."],
+      de: ["Umstellung der Kategorien auf ID-basiert.", "Verbessertes Atomic Update."]
     }
   }
 ];

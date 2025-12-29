@@ -23,6 +23,10 @@ const getDB = (): Promise<IDBDatabase> => {
 };
 
 export const StorageService = {
+  /**
+   * CƠ CHẾ MERGE LWW (Last-Write-Wins) KÈM TOMBSTONE BIAS
+   * Đảm bảo bản ghi đã xóa luôn chiếm ưu thế nếu có tranh chấp thời gian.
+   */
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
     const combinedMap = new Map<string, T>();
     const allItems = [...(local || []), ...(remote || [])];
@@ -38,12 +42,16 @@ export const StorageService = {
         if (itemTime > existingTime) {
           combinedMap.set(item.id, item);
         } else if (itemTime === existingTime) {
+          // Thiên kiến xóa: Nếu cùng thời gian, ưu tiên trạng thái "Đã xóa"
           if (item.deletedAt && !existing.deletedAt) {
             combinedMap.set(item.id, item);
           }
         }
       }
     });
+
+    // CRITICAL: Trả về toàn bộ danh sách bao gồm cả các bản ghi có deletedAt
+    // Để tất cả các thiết bị đều biết về sự tồn tại của "vết tích xóa" này.
     return Array.from(combinedMap.values());
   },
 
@@ -90,6 +98,7 @@ export const StorageService = {
 
       const merged = StorageService.mergeAppData(localData, remoteData);
       
+      // Đẩy ngay bản merge lên Cloud để chốt hạ trạng thái cho các thiết bị khác
       await fetch(url, { 
         method: 'POST', 
         body: JSON.stringify(merged), 
@@ -131,7 +140,7 @@ export const StorageService = {
 
       if (!rawData) return StorageService.getEmptyData(false);
       
-      // Migration: Convert string[] categories to Category[] objects
+      // Migration: Convert string[] categories to Category[] objects if needed
       const now = new Date().toISOString();
       const expenseCategories = (rawData.expenseCategories || []).map((c: any) => {
         if (typeof c === 'string') {
