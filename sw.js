@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'tokymon-finance-v1.3.1'; // Version mới cưỡng bức
+const CACHE_NAME = 'tokymon-finance-v1.3.2'; // Version mới cưỡng bức cập nhật
 const ASSETS_TO_CACHE = [
   './',
   './index.html'

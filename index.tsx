@@ -20,7 +20,7 @@ async function manageServiceWorker() {
       });
 
       const currentVersion = localStorage.getItem('tokymon_sw_version');
-      const TARGET_VERSION = '1.3.1'; // Tăng version để cưỡng bức cập nhật
+      const TARGET_VERSION = '1.3.2'; // Tăng version để cưỡng bức cập nhật lên Security Patch
 
       if (currentVersion !== TARGET_VERSION) {
         // Xóa tất cả Service Worker cũ
@@ -44,7 +44,7 @@ async function manageServiceWorker() {
               installingWorker.onstatechange = () => {
                 if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
                   // Có bản cập nhật mới
-                  if (window.confirm('Hệ thống có bản cập nhật bảo mật mới. Cập nhật ngay?')) {
+                  if (window.confirm('Hệ thống có bản cập nhật bảo mật mới (v1.0.2). Cập nhật ngay?')) {
                     window.location.reload();
                   }
                 }

@@ -4,7 +4,14 @@ export enum TransactionType {
   EXPENSE = 'EXPENSE'
 }
 
-export const EXPENSE_CATEGORIES = [
+export interface Category {
+  id: string;
+  name: string;
+  updatedAt: string;
+  deletedAt?: string;
+}
+
+export const INITIAL_EXPENSE_CATEGORIES: string[] = [
   'Tiền nhà / Điện', 'Rác', 'Lương công nhân', 'Nguyên liệu', 'Thuế', 'Bonus', 'Gutschein', 'Sai', 'Nợ / Tiền ứng', 'Chi phí khác', 'Bảo hiểm'
 ];
 
@@ -110,7 +117,7 @@ export interface AuditLogEntry {
   userId: string;
   username: string;
   action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN';
-  entityType: 'TRANSACTION' | 'USER' | 'BRANCH';
+  entityType: 'TRANSACTION' | 'USER' | 'BRANCH' | 'CATEGORY';
   entityId: string;
   details: string;
 }
@@ -130,32 +137,32 @@ export interface AppData {
   transactions: Transaction[];
   branches: Branch[];
   users: User[];
-  expenseCategories: string[];
+  expenseCategories: Category[];
   recurringExpenses: RecurringTransaction[];
   auditLogs: AuditLogEntry[];
   reportSettings?: ReportSettings;
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "1.0.1 (Enterprise Security)";
+export const SCHEMA_VERSION = "1.0.3 (Data Integrity Fix)";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
   {
-    version: "1.0.1",
-    date: "2024-08-20",
+    version: "1.0.3",
+    date: "2024-05-25",
     changes: {
       vi: [
-        "Hệ thống tự động cập nhật: Tự động phát hiện và cài đặt bản vá mới nhất ngay khi mở app.",
-        "Bảo mật nâng cao: Tự động đăng xuất sau 30 phút không hoạt động.",
-        "Tối ưu hóa bộ nhớ: Dọn dẹp cache cũ để tăng tốc độ khởi động.",
-        "Gia cố lớp bảo vệ dữ liệu: Ngăn chặn truy cập trái phép khi phiên làm việc hết hạn."
+        "Sửa lỗi Hạng mục chi phí bị 'hồi sinh' sau khi xóa do cơ chế Union Merge cũ.",
+        "Chuyển đổi Hạng mục sang cấu trúc định danh (ID-based) với dấu vết xóa.",
+        "Cải thiện cơ chế 'Atomic Update' giúp dữ liệu được đẩy lên Cloud ngay lập tức khi thực hiện lệnh xóa.",
+        "Tự động nâng cấp dữ liệu cũ sang cấu trúc mới an toàn."
       ],
       de: [
-        "Auto-Update-System: Erkennt und installiert die neuesten Patches automatisch beim Öffnen.",
-        "Erweiterte Sicherheit: Automatischer Logout nach 30 Minuten Inaktivität.",
-        "Speicheroptimierung: Bereinigung alter Caches für schnelleren Start.",
-        "Daten-Schutzschild: Verhindert unbefugten Zugriff nach Ablauf der Sitzung."
+        "Behebung des Problems, bei dem Kostenkategorien nach dem Löschen aufgrund des alten Union-Merge-Mechanismus wieder auftauchten.",
+        "Umstellung der Kategorien auf eine ID-basierte Struktur mit Löschmarkierungen.",
+        "Verbesserter 'Atomic Update'-Mechanismus, der Löschbefehle sofort in die Cloud überträgt.",
+        "Automatisches Upgrade alter Daten auf die neue, sichere Struktur."
       ]
     }
   }

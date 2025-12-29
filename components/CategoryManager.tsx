@@ -2,25 +2,44 @@
 import React, { useState } from 'react';
 import { Tag, Plus, X } from 'lucide-react';
 import { useTranslation } from '../i18n';
-import { Language } from '../types';
+import { Language, Category } from '../types';
 
 interface CategoryManagerProps {
-  categories: string[];
-  onUpdate: (newCategories: string[]) => void;
+  categories: Category[];
+  onUpdate: (newCategories: Category[]) => void;
   title: string;
   lang: Language;
+  onAudit: (action: any, type: any, id: string, details: string) => void;
 }
 
-const CategoryManager: React.FC<CategoryManagerProps> = ({ categories, onUpdate, title, lang }) => {
+const CategoryManager: React.FC<CategoryManagerProps> = ({ categories, onUpdate, title, lang, onAudit }) => {
   const { t, translateCategory } = useTranslation(lang);
-  const [newCategory, setNewCategory] = useState('');
+  const [newCategoryName, setNewCategoryName] = useState('');
+
+  const activeCategories = categories.filter(c => !c.deletedAt);
 
   const handleAdd = () => {
-    const trimmed = newCategory.trim();
-    if (trimmed && !categories.includes(trimmed)) {
-      onUpdate([...categories, trimmed]);
-      setNewCategory('');
+    const trimmed = newCategoryName.trim();
+    if (trimmed && !activeCategories.some(c => c.name === trimmed)) {
+      const now = new Date().toISOString();
+      const newCat: Category = {
+        id: trimmed, // Dùng tên làm ID cho các hạng mục mặc định hoặc Date.now() cho cái mới
+        name: trimmed,
+        updatedAt: now
+      };
+      onUpdate([...categories, newCat]);
+      setNewCategoryName('');
+      onAudit('CREATE', 'CATEGORY', newCat.id, `Thêm hạng mục chi phí: ${trimmed}`);
     }
+  };
+
+  const handleDelete = (id: string) => {
+    const now = new Date().toISOString();
+    const target = categories.find(c => c.id === id);
+    if (!target) return;
+
+    onUpdate(categories.map(c => c.id === id ? { ...c, deletedAt: now, updatedAt: now } : c));
+    onAudit('DELETE', 'CATEGORY', id, `Xóa hạng mục chi phí: ${target.name}`);
   };
 
   return (
@@ -31,15 +50,24 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ categories, onUpdate,
       </div>
       
       <div className="flex gap-2 mb-8">
-        <input type="text" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder={t('add_new')} className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 border-2 dark:border-slate-700 rounded-xl font-bold text-sm outline-none focus:border-indigo-500 transition-all dark:text-white" onKeyDown={(e) => e.key === 'Enter' && handleAdd()} />
+        <input 
+          type="text" 
+          value={newCategoryName} 
+          onChange={(e) => setNewCategoryName(e.target.value)} 
+          placeholder={t('add_new')} 
+          className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 border-2 dark:border-slate-700 rounded-xl font-bold text-sm outline-none focus:border-indigo-500 transition-all dark:text-white" 
+          onKeyDown={(e) => e.key === 'Enter' && handleAdd()} 
+        />
         <button onClick={handleAdd} className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg active:scale-95 transition-all"><Plus className="w-5 h-5" /></button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {categories.map(cat => (
-          <div key={cat} className="flex justify-between items-center bg-slate-50 dark:bg-slate-800 px-4 py-3 rounded-xl border dark:border-slate-700 group hover:border-indigo-500 transition-all">
-            <span className="text-[10px] font-black uppercase truncate mr-2 dark:text-slate-300">{translateCategory(cat)}</span>
-            <button onClick={() => onUpdate(categories.filter(c => c !== cat))} className="text-slate-300 hover:text-rose-500 transition-colors"><X className="w-3.5 h-3.5" /></button>
+        {activeCategories.map(cat => (
+          <div key={cat.id} className="flex justify-between items-center bg-slate-50 dark:bg-slate-800 px-4 py-3 rounded-xl border dark:border-slate-700 group hover:border-indigo-500 transition-all shadow-sm">
+            <span className="text-[10px] font-black uppercase truncate mr-2 dark:text-slate-300">{translateCategory(cat.name)}</span>
+            <button onClick={() => handleDelete(cat.id)} className="text-slate-300 hover:text-rose-500 transition-colors active-scale">
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         ))}
       </div>

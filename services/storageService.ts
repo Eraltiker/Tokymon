@@ -1,5 +1,5 @@
 
-import { AppData, SCHEMA_VERSION, EXPENSE_CATEGORIES, Transaction, Branch, User, RecurringTransaction, ReportSettings, UserRole } from '../types';
+import { AppData, SCHEMA_VERSION, INITIAL_EXPENSE_CATEGORIES, Category, Transaction, Branch, User, RecurringTransaction, ReportSettings, UserRole } from '../types';
 
 const DB_NAME = 'TokymonDB';
 const DB_VERSION = 1;
@@ -23,36 +23,25 @@ const getDB = (): Promise<IDBDatabase> => {
 };
 
 export const StorageService = {
-  /**
-   * CƠ CHẾ GỘP DỮ LIỆU CHỐNG PHỤC HỒI (Anti-Resurrection Merge)
-   */
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
     const combinedMap = new Map<string, T>();
-    const allIds = new Set([
-      ...(local || []).map(i => i.id),
-      ...(remote || []).map(i => i.id)
-    ]);
+    const allItems = [...(local || []), ...(remote || [])];
 
-    allIds.forEach(id => {
-      const l = (local || []).find(i => i.id === id);
-      const r = (remote || []).find(i => i.id === id);
+    allItems.forEach(item => {
+      const existing = combinedMap.get(item.id);
+      if (!existing) {
+        combinedMap.set(item.id, item);
+      } else {
+        const existingTime = new Date(existing.updatedAt).getTime();
+        const itemTime = new Date(item.updatedAt).getTime();
 
-      if (l && r) {
-        const lTime = new Date(l.updatedAt).getTime();
-        const rTime = new Date(r.updatedAt).getTime();
-        
-        if (lTime > rTime) {
-          combinedMap.set(id, l);
-        } else if (rTime > lTime) {
-          combinedMap.set(id, r);
-        } else {
-          // Nếu thời gian bằng nhau, ưu tiên bản ghi đã bị đánh dấu xóa (Tombstone)
-          combinedMap.set(id, (l.deletedAt || r.deletedAt) ? (l.deletedAt ? l : r) : l);
+        if (itemTime > existingTime) {
+          combinedMap.set(item.id, item);
+        } else if (itemTime === existingTime) {
+          if (item.deletedAt && !existing.deletedAt) {
+            combinedMap.set(item.id, item);
+          }
         }
-      } else if (l) {
-        combinedMap.set(id, l);
-      } else if (r) {
-        combinedMap.set(id, r);
       }
     });
     return Array.from(combinedMap.values());
@@ -65,11 +54,11 @@ export const StorageService = {
       transactions: StorageService.mergeArrays(local.transactions || [], remote.transactions || []),
       branches: StorageService.mergeArrays(local.branches || [], remote.branches || []),
       users: StorageService.mergeArrays(local.users || [], remote.users || []),
-      expenseCategories: Array.from(new Set([...(local.expenseCategories || []), ...(remote.expenseCategories || [])])),
+      expenseCategories: StorageService.mergeArrays(local.expenseCategories || [], remote.expenseCategories || []),
       recurringExpenses: StorageService.mergeArrays(local.recurringExpenses || [], remote.recurringExpenses || []),
       auditLogs: [...(local.auditLogs || []), ...(remote.auditLogs || [])]
         .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)
-        .slice(-500),
+        .slice(-1000),
       reportSettings: remote.reportSettings || local.reportSettings,
       logoUrl: remote.logoUrl || local.logoUrl
     };
@@ -80,7 +69,12 @@ export const StorageService = {
     const url = `https://kvdb.io/${syncKey}/tokymon_v1`;
     try {
       if (forcePush) {
-        await fetch(url, { method: 'POST', body: JSON.stringify(localData), headers: { 'Content-Type': 'application/json' } });
+        const pushResponse = await fetch(url, { 
+          method: 'POST', 
+          body: JSON.stringify(localData), 
+          headers: { 'Content-Type': 'application/json' } 
+        });
+        if (!pushResponse.ok) throw new Error("Cloud Push Failed");
         return { ...localData, lastSync: new Date().toISOString() };
       }
       
@@ -88,23 +82,25 @@ export const StorageService = {
       let remoteData: AppData;
       
       if (response.ok) {
-        try { 
-          const text = await response.text();
-          remoteData = text ? JSON.parse(text) : StorageService.getEmptyData(true);
-        } catch (e) { 
-          remoteData = StorageService.getEmptyData(true); 
-        }
+        const text = await response.text();
+        remoteData = text ? JSON.parse(text) : StorageService.getEmptyData(true);
       } else { 
         remoteData = StorageService.getEmptyData(true); 
       }
 
       const merged = StorageService.mergeAppData(localData, remoteData);
       
-      // Đẩy bản gộp lên Cloud để "chốt" các Tombstones
-      await fetch(url, { method: 'POST', body: JSON.stringify(merged), headers: { 'Content-Type': 'application/json' } });
+      await fetch(url, { 
+        method: 'POST', 
+        body: JSON.stringify(merged), 
+        headers: { 'Content-Type': 'application/json' } 
+      });
       
       return merged;
-    } catch (e) { throw e; }
+    } catch (e) { 
+      console.error("Sync Error:", e);
+      throw e; 
+    }
   },
 
   async saveLocal(data: AppData) {
@@ -112,14 +108,20 @@ export const StorageService = {
       const db = await getDB();
       const transaction = db.transaction(STORE_NAME, 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
-      store.put(data, DATA_KEY);
-    } catch (e) { console.error("IDB Error", e); }
+      const request = store.put(data, DATA_KEY);
+      return new Promise((resolve, reject) => {
+        request.onsuccess = () => resolve(true);
+        request.onerror = () => reject(request.error);
+      });
+    } catch (e) { 
+      console.error("IDB Save Error", e); 
+    }
   },
 
   async loadLocal(): Promise<AppData> {
     try {
       const db = await getDB();
-      const data = await new Promise<any>((resolve) => {
+      const rawData = await new Promise<any>((resolve) => {
         const transaction = db.transaction(STORE_NAME, 'readonly');
         const store = transaction.objectStore(STORE_NAME);
         const request = store.get(DATA_KEY);
@@ -127,66 +129,57 @@ export const StorageService = {
         request.onerror = () => resolve(null);
       });
 
-      // Quan trọng: Nếu IDB trống (lần đầu chạy), trả về minimal=true để không tự tạo chi nhánh mẫu
-      if (!data) return StorageService.getEmptyData(true);
+      if (!rawData) return StorageService.getEmptyData(false);
       
-      const empty = StorageService.getEmptyData(true);
+      // Migration: Convert string[] categories to Category[] objects
+      const now = new Date().toISOString();
+      const expenseCategories = (rawData.expenseCategories || []).map((c: any) => {
+        if (typeof c === 'string') {
+          return { id: c, name: c, updatedAt: now };
+        }
+        return c;
+      });
+
       return {
-        ...empty,
-        ...data,
-        transactions: data.transactions || [],
-        branches: data.branches || [],
-        users: data.users || [],
-        expenseCategories: data.expenseCategories || empty.expenseCategories,
-        recurringExpenses: data.recurringExpenses || [],
-        auditLogs: data.auditLogs || []
+        ...StorageService.getEmptyData(true),
+        ...rawData,
+        expenseCategories,
+        version: SCHEMA_VERSION
       };
     } catch (e) { 
-      return StorageService.getEmptyData(true); 
+      return StorageService.getEmptyData(false); 
     }
   },
 
-  /**
-   * getEmptyData: Trả về cấu trúc dữ liệu trắng.
-   * @param minimal Nếu true, không bao gồm dữ liệu mẫu. 
-   * Mặc định hiện tại là TRUE để tránh lỗi phục hồi chi nhánh cũ.
-   */
-  getEmptyData: (minimal: boolean = true): AppData => ({
-    version: SCHEMA_VERSION,
-    lastSync: '',
-    transactions: [],
-    branches: minimal ? [] : [
-      { 
-        id: 'br_default', 
-        name: 'Tokymon Bad Nauheim', 
-        address: 'Bad Nauheim, Germany', 
-        initialCash: 0, 
-        initialCard: 0, 
-        color: '#6366f1', 
-        updatedAt: new Date().toISOString() 
+  getEmptyData: (minimal: boolean = true): AppData => {
+    const now = new Date().toISOString();
+    return {
+      version: SCHEMA_VERSION,
+      lastSync: '',
+      transactions: [],
+      branches: [],
+      users: minimal ? [] : [
+        { 
+          id: 'admin_root', 
+          username: 'admin', 
+          password: 'admin123', 
+          role: UserRole.SUPER_ADMIN, 
+          assignedBranchIds: [], 
+          preferences: { theme: 'dark', language: 'vi' }, 
+          updatedAt: now 
+        }
+      ],
+      expenseCategories: INITIAL_EXPENSE_CATEGORIES.map(c => ({ id: c, name: c, updatedAt: now })),
+      recurringExpenses: [],
+      auditLogs: [],
+      reportSettings: { 
+        showSystemTotal: true, 
+        showShopRevenue: true, 
+        showAppRevenue: true, 
+        showCardRevenue: true, 
+        showActualCash: true, 
+        showProfit: true 
       }
-    ],
-    users: minimal ? [] : [
-      { 
-        id: 'admin_root', 
-        username: 'admin', 
-        password: 'admin123', 
-        role: UserRole.SUPER_ADMIN, 
-        assignedBranchIds: [], 
-        preferences: { theme: 'dark', language: 'vi' }, 
-        updatedAt: new Date().toISOString() 
-      }
-    ],
-    expenseCategories: EXPENSE_CATEGORIES,
-    recurringExpenses: [],
-    auditLogs: [],
-    reportSettings: { 
-      showSystemTotal: true, 
-      showShopRevenue: true, 
-      showAppRevenue: true, 
-      showCardRevenue: true, 
-      showActualCash: true, 
-      showProfit: true 
-    }
-  })
+    };
+  }
 };
