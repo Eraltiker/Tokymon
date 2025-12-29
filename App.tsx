@@ -29,12 +29,38 @@ import {
   Database, CloudCheck, Languages, Copy, CheckCircle, Wrench, WifiOff
 } from 'lucide-react';
 
-const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
+const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 phút
 const GLOBAL_SYNC_KEY = 'NZQkBLdrxvnEEMUw928weK';
-const SYNC_DEBOUNCE_MS = 8000; // Tăng tốc độ đồng bộ (từ 25s xuống 8s)
+const SYNC_DEBOUNCE_MS = 8000;
 
 const App = () => {
+  // Kiểm tra phiên làm việc ngay khi khởi tạo State
+  const validateSessionOnStartup = () => {
+    try {
+      const savedUser = localStorage.getItem('tokymon_user');
+      const lastActivity = localStorage.getItem('tokymon_last_activity');
+      
+      if (!savedUser) return null;
+      
+      if (lastActivity) {
+        const timeSinceLastActivity = Date.now() - parseInt(lastActivity, 10);
+        if (timeSinceLastActivity > INACTIVITY_TIMEOUT) {
+          // Hết hạn phiên làm việc
+          localStorage.removeItem('tokymon_user');
+          localStorage.removeItem('tokymon_last_activity');
+          localStorage.removeItem('tokymon_last_tab');
+          return null;
+        }
+      }
+      return JSON.parse(savedUser);
+    } catch (e) {
+      return null;
+    }
+  };
+
   const [activeTab, setActiveTab] = useState<'income' | 'expense' | 'stats' | 'settings'>(() => {
+    // Nếu không có user, không load tab cũ
+    if (!localStorage.getItem('tokymon_user')) return 'stats';
     return (localStorage.getItem('tokymon_last_tab') as any) || 'stats';
   });
   
@@ -52,12 +78,7 @@ const App = () => {
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{show: boolean, title: string, message: string, onConfirm: () => void} | null>(null);
   
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    try {
-      const saved = localStorage.getItem('tokymon_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch (e) { return null; }
-  });
+  const [currentUser, setCurrentUser] = useState<User | null>(validateSessionOnStartup);
   
   const [currentBranchId, setCurrentBranchId] = useState<string>(() => localStorage.getItem('tokymon_current_branch') || '');
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
@@ -68,6 +89,23 @@ const App = () => {
 
   const isAdmin = currentUser?.role === UserRole.SUPER_ADMIN || currentUser?.role === UserRole.ADMIN;
   const isSuperAdmin = currentUser?.role === UserRole.SUPER_ADMIN;
+
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('tokymon_user');
+    localStorage.removeItem('tokymon_last_activity');
+    setCurrentUser(null);
+    if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
+  }, []);
+
+  const resetInactivityTimer = useCallback(() => {
+    if (!currentUser) return;
+    
+    // Cập nhật timestamp vào localStorage để check khi "Cold Start"
+    localStorage.setItem('tokymon_last_activity', Date.now().toString());
+    
+    if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
+    inactivityTimerRef.current = window.setTimeout(() => handleLogout(), INACTIVITY_TIMEOUT);
+  }, [currentUser, handleLogout]);
 
   const updateUserPreferences = useCallback((prefs: Partial<UserPreferences>) => {
     if (!currentUser) return;
@@ -80,7 +118,8 @@ const App = () => {
     const updatedUser = { ...currentUser, preferences: newPrefs };
     setCurrentUser(updatedUser);
     localStorage.setItem('tokymon_user', JSON.stringify(updatedUser));
-  }, [currentUser, isDark, lang]);
+    resetInactivityTimer(); // Update activity when settings change
+  }, [currentUser, isDark, lang, resetInactivityTimer]);
 
   useEffect(() => {
     if (currentUser?.preferences) {
@@ -90,8 +129,10 @@ const App = () => {
   }, [currentUser?.id]);
 
   useEffect(() => {
-    localStorage.setItem('tokymon_last_tab', activeTab);
-  }, [activeTab]);
+    if (currentUser) {
+      localStorage.setItem('tokymon_last_tab', activeTab);
+    }
+  }, [activeTab, currentUser]);
 
   useEffect(() => {
     if (currentBranchId) {
@@ -99,25 +140,14 @@ const App = () => {
     }
   }, [currentBranchId]);
 
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem('tokymon_user');
-    setCurrentUser(null);
-    if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
-  }, []);
-
-  const resetInactivityTimer = useCallback(() => {
-    if (!currentUser) return;
-    if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
-    inactivityTimerRef.current = window.setTimeout(() => handleLogout(), INACTIVITY_TIMEOUT);
-  }, [currentUser, handleLogout]);
-
   useEffect(() => {
     if (currentUser) {
-      const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
-      events.forEach(event => window.addEventListener(event, resetInactivityTimer));
+      const events = ['mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+      const handler = () => resetInactivityTimer();
+      events.forEach(event => window.addEventListener(event, handler));
       resetInactivityTimer();
       return () => {
-        events.forEach(event => window.removeEventListener(event, resetInactivityTimer));
+        events.forEach(event => window.removeEventListener(event, handler));
         if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
       };
     }
@@ -259,6 +289,7 @@ const App = () => {
       return newData;
     });
     addAuditLog('DELETE', 'TRANSACTION', id, `Xóa giao dịch vĩnh viễn`);
+    resetInactivityTimer();
   };
 
   const handleResetBranchData = (branchId: string) => {
@@ -272,6 +303,7 @@ const App = () => {
       return newData;
     });
     addAuditLog('DELETE', 'BRANCH', branchId, `Reset toàn bộ dữ liệu chi nhánh`);
+    resetInactivityTimer();
   };
 
   const currentBranchName = currentBranchId === ALL_BRANCHES_ID ? t('all_branches') : activeBranches.find(b => b.id === currentBranchId)?.name || '---';
@@ -290,6 +322,7 @@ const App = () => {
       }
       setCurrentUser(user); 
       localStorage.setItem('tokymon_user', JSON.stringify(user)); 
+      localStorage.setItem('tokymon_last_activity', Date.now().toString());
       addAuditLog('LOGIN', 'USER', user.id, `Đăng nhập thành công`); 
     } else { 
       setLoginError(t('error_login')); 
@@ -377,8 +410,8 @@ const App = () => {
           <div className="flex flex-col items-center justify-center py-40"><Loader2 className="w-10 h-10 text-brand-600 animate-spin mb-4" /><p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Tokymon Engine Warming Up...</p></div>
         ) : (
           <div className="animate-ios">
-            {activeTab === 'income' && (currentBranchId === ALL_BRANCHES_ID ? (<div className="flex flex-col items-center justify-center py-24 bg-white/60 dark:bg-slate-900/50 rounded-[3rem] border border-dashed border-slate-200 dark:border-slate-800"><LayoutPanelTop className="w-12 h-12 text-slate-300 mb-6" /><p className="text-xs font-black text-slate-500 uppercase tracking-widest">{t('choose_branch_hint')}</p><button onClick={() => setShowBranchDropdown(true)} className="mt-8 px-8 py-4 bg-brand-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest" style={{ backgroundColor: activeBranchColor }}>{t('select_branch_btn')}</button></div>) : (<IncomeManager transactions={activeTransactions} onAddTransaction={tx => setData(p => ({...p, transactions: [tx, ...p.transactions]}))} onDeleteTransaction={handleDeleteTransaction} onEditTransaction={u => setData(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}))} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />))}
-            {activeTab === 'expense' && (currentBranchId === ALL_BRANCHES_ID ? (<div className="flex flex-col items-center justify-center py-24 bg-white/60 dark:bg-slate-900/50 rounded-[3rem] border border-dashed border-slate-200 dark:border-slate-800"><ArrowDownCircle className="w-12 h-12 text-slate-300 mb-6" /><p className="text-xs font-black text-slate-500 uppercase tracking-widest">{t('choose_branch_hint')}</p><button onClick={() => setShowBranchDropdown(true)} className="mt-8 px-8 py-4 bg-brand-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest" style={{ backgroundColor: activeBranchColor }}>{t('select_branch_btn')}</button></div>) : (<ExpenseManager transactions={activeTransactions} onAddTransaction={tx => setData(p => ({...p, transactions: [tx, ...p.transactions]}))} onDeleteTransaction={handleDeleteTransaction} onEditTransaction={u => setData(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}))} expenseCategories={data.expenseCategories} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />))}
+            {activeTab === 'income' && (currentBranchId === ALL_BRANCHES_ID ? (<div className="flex flex-col items-center justify-center py-24 bg-white/60 dark:bg-slate-900/50 rounded-[3rem] border border-dashed border-slate-200 dark:border-slate-800"><LayoutPanelTop className="w-12 h-12 text-slate-300 mb-6" /><p className="text-xs font-black text-slate-500 uppercase tracking-widest">{t('choose_branch_hint')}</p><button onClick={() => setShowBranchDropdown(true)} className="mt-8 px-8 py-4 bg-brand-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest" style={{ backgroundColor: activeBranchColor }}>{t('select_branch_btn')}</button></div>) : (<IncomeManager transactions={activeTransactions} onAddTransaction={tx => { setData(p => ({...p, transactions: [tx, ...p.transactions]})); resetInactivityTimer(); }} onDeleteTransaction={handleDeleteTransaction} onEditTransaction={u => { setData(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)})); resetInactivityTimer(); }} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />))}
+            {activeTab === 'expense' && (currentBranchId === ALL_BRANCHES_ID ? (<div className="flex flex-col items-center justify-center py-24 bg-white/60 dark:bg-slate-900/50 rounded-[3rem] border border-dashed border-slate-200 dark:border-slate-800"><ArrowDownCircle className="w-12 h-12 text-slate-300 mb-6" /><p className="text-xs font-black text-slate-500 uppercase tracking-widest">{t('choose_branch_hint')}</p><button onClick={() => setShowBranchDropdown(true)} className="mt-8 px-8 py-4 bg-brand-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest" style={{ backgroundColor: activeBranchColor }}>{t('select_branch_btn')}</button></div>) : (<ExpenseManager transactions={activeTransactions} onAddTransaction={tx => { setData(p => ({...p, transactions: [tx, ...p.transactions]})); resetInactivityTimer(); }} onDeleteTransaction={handleDeleteTransaction} onEditTransaction={u => { setData(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)})); resetInactivityTimer(); }} expenseCategories={data.expenseCategories} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />))}
             {activeTab === 'stats' && <Dashboard transactions={activeTransactions} initialBalances={{cash: 0, card: 0}} lang={lang} currentBranchId={currentBranchId} allowedBranches={allowedBranches} userRole={currentUser.role} reportSettings={data.reportSettings || StorageService.getEmptyData().reportSettings!} />}
             {activeTab === 'settings' && (
               <div className="space-y-6">
@@ -396,7 +429,7 @@ const App = () => {
                     {settingsSubTab === 'export' && <ExportManager transactions={activeTransactions} branches={activeBranches} lang={lang} />}
                     {settingsSubTab === 'branches' && isAdmin && <BranchManager branches={data.branches} setBranches={(update: any) => setData(p => ({...p, branches: update(p.branches)}))} onAudit={addAuditLog} setGlobalConfirm={setConfirmModal} onResetBranchData={handleResetBranchData} lang={lang} />}
                     {settingsSubTab === 'users' && isAdmin && <UserManager users={data.users} setUsers={val => setData(p => ({...p, users: typeof val === 'function' ? val(p.users) : val}))} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={setConfirmModal} lang={lang} />}
-                    {settingsSubTab === 'general' && ( <div className="space-y-10"><CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => setData(prev => ({...prev, expenseCategories: cats}))} lang={lang} /><RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={data.expenseCategories} onUpdate={(recs) => setData(prev => ({...prev, recurringExpenses: recs}))} onGenerateTransactions={txs => setData(prev => ({...prev, transactions: [...txs, ...prev.transactions]}))} branchId={currentBranchId === ALL_BRANCHES_ID ? allowedBranches[0]?.id : currentBranchId} lang={lang} /></div> )}
+                    {settingsSubTab === 'general' && ( <div className="space-y-10"><CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => { setData(prev => ({...prev, expenseCategories: cats})); resetInactivityTimer(); }} lang={lang} /><RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={data.expenseCategories} onUpdate={(recs) => { setData(prev => ({...prev, recurringExpenses: recs})); resetInactivityTimer(); }} onGenerateTransactions={txs => { setData(prev => ({...prev, transactions: [...txs, ...prev.transactions]})); resetInactivityTimer(); }} branchId={currentBranchId === ALL_BRANCHES_ID ? allowedBranches[0]?.id : currentBranchId} lang={lang} /></div> )}
                     {settingsSubTab === 'audit' && (<div className="space-y-4 max-h-[600px] overflow-y-auto no-scrollbar pr-2">{data.auditLogs.slice().reverse().map(log => (<div key={log.id} className="p-5 bg-slate-50 dark:bg-slate-950/40 rounded-3xl border border-slate-100 dark:border-slate-800"><div className="flex justify-between items-start mb-2"><span className="text-[9px] font-black px-2 py-1 bg-brand-600 text-white rounded-lg uppercase" style={{ backgroundColor: activeBranchColor }}>{log.action}</span><span className="text-[9px] text-slate-400 font-bold uppercase">{new Date(log.timestamp).toLocaleString()}</span></div><div className="text-xs font-bold dark:text-slate-200 uppercase tracking-tight">{log.details}</div></div>))}</div>)}
                     {settingsSubTab === 'about' && (<div className="space-y-6 animate-ios max-w-xl mx-auto py-2"><div className="text-center space-y-4"><div className="relative inline-block"><div className="w-14 h-14 bg-brand-600 rounded-[1.4rem] mx-auto flex items-center justify-center shadow-vivid" style={{ backgroundColor: activeBranchColor }}><UtensilsCrossed className="w-7 h-7 text-white" /></div><div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white text-[8px] font-black px-1 py-0.5 rounded-full border border-white dark:border-slate-900 uppercase leading-none">{t('active')}</div></div><div><h2 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none mb-1">Tokymon Official</h2><p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{t('ver')} {SCHEMA_VERSION}</p></div></div><div className="p-5 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800 flex items-center gap-4"><ShieldCheck className="w-8 h-8 text-blue-600 shrink-0" /><div className="min-w-0"><p className="text-[10px] font-black uppercase text-blue-600 mb-1">{t('enterprise_security')}</p><p className="text-[11px] font-bold dark:text-blue-300">Bảo mật bằng mã hóa đồng bộ đa lớp.</p></div></div><div className="pt-6 border-t dark:border-slate-800 border-slate-100 text-center"><p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Developed with <Heart className="w-3 h-3 text-rose-500 inline mx-1 fill-rose-500" /> by <span className="text-brand-600 font-extrabold" style={{ color: activeBranchColor }}>thPhuoc</span></p></div></div>)}
                 </div>

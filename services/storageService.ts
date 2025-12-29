@@ -23,6 +23,9 @@ const getDB = (): Promise<IDBDatabase> => {
 };
 
 export const StorageService = {
+  /**
+   * CƠ CHẾ GỘP DỮ LIỆU CHỐNG PHỤC HỒI (Anti-Resurrection Merge)
+   */
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
     const combinedMap = new Map<string, T>();
     const allIds = new Set([
@@ -37,11 +40,20 @@ export const StorageService = {
       if (l && r) {
         const lTime = new Date(l.updatedAt).getTime();
         const rTime = new Date(r.updatedAt).getTime();
-        if (lTime > rTime) combinedMap.set(id, l);
-        else if (rTime > lTime) combinedMap.set(id, r);
-        else combinedMap.set(id, (l.deletedAt || r.deletedAt) ? (l.deletedAt ? l : r) : l);
-      } else if (l) combinedMap.set(id, l);
-      else if (r) combinedMap.set(id, r);
+        
+        if (lTime > rTime) {
+          combinedMap.set(id, l);
+        } else if (rTime > lTime) {
+          combinedMap.set(id, r);
+        } else {
+          // Nếu thời gian bằng nhau, ưu tiên bản ghi đã bị đánh dấu xóa (Tombstone)
+          combinedMap.set(id, (l.deletedAt || r.deletedAt) ? (l.deletedAt ? l : r) : l);
+        }
+      } else if (l) {
+        combinedMap.set(id, l);
+      } else if (r) {
+        combinedMap.set(id, r);
+      }
     });
     return Array.from(combinedMap.values());
   },
@@ -68,18 +80,29 @@ export const StorageService = {
     const url = `https://kvdb.io/${syncKey}/tokymon_v1`;
     try {
       if (forcePush) {
-        const res = await fetch(url, { method: 'POST', body: JSON.stringify(localData), headers: { 'Content-Type': 'application/json' } });
+        await fetch(url, { method: 'POST', body: JSON.stringify(localData), headers: { 'Content-Type': 'application/json' } });
         return { ...localData, lastSync: new Date().toISOString() };
       }
+      
       const response = await fetch(url, { cache: 'no-store' });
       let remoteData: AppData;
+      
       if (response.ok) {
-        try { remoteData = await response.json(); } 
-        catch (e) { remoteData = StorageService.getEmptyData(true); }
-      } else { remoteData = StorageService.getEmptyData(true); }
+        try { 
+          const text = await response.text();
+          remoteData = text ? JSON.parse(text) : StorageService.getEmptyData(true);
+        } catch (e) { 
+          remoteData = StorageService.getEmptyData(true); 
+        }
+      } else { 
+        remoteData = StorageService.getEmptyData(true); 
+      }
 
       const merged = StorageService.mergeAppData(localData, remoteData);
+      
+      // Đẩy bản gộp lên Cloud để "chốt" các Tombstones
       await fetch(url, { method: 'POST', body: JSON.stringify(merged), headers: { 'Content-Type': 'application/json' } });
+      
       return merged;
     } catch (e) { throw e; }
   },
@@ -104,39 +127,66 @@ export const StorageService = {
         request.onerror = () => resolve(null);
       });
 
-      if (!data) return StorageService.getEmptyData();
+      // Quan trọng: Nếu IDB trống (lần đầu chạy), trả về minimal=true để không tự tạo chi nhánh mẫu
+      if (!data) return StorageService.getEmptyData(true);
       
-      const empty = StorageService.getEmptyData(true); // Load structure only, no samples
+      const empty = StorageService.getEmptyData(true);
       return {
         ...empty,
         ...data,
         transactions: data.transactions || [],
-        branches: (data.branches && data.branches.length > 0) ? data.branches : empty.branches,
-        users: (data.users && data.users.length > 0) ? data.users : empty.users,
+        branches: data.branches || [],
+        users: data.users || [],
         expenseCategories: data.expenseCategories || empty.expenseCategories,
         recurringExpenses: data.recurringExpenses || [],
         auditLogs: data.auditLogs || []
       };
-    } catch (e) { return StorageService.getEmptyData(); }
+    } catch (e) { 
+      return StorageService.getEmptyData(true); 
+    }
   },
 
   /**
-   * getEmptyData
-   * @param minimal Nếu true, trả về mảng rỗng cho chi nhánh/người dùng để tránh re-seeding
+   * getEmptyData: Trả về cấu trúc dữ liệu trắng.
+   * @param minimal Nếu true, không bao gồm dữ liệu mẫu. 
+   * Mặc định hiện tại là TRUE để tránh lỗi phục hồi chi nhánh cũ.
    */
-  getEmptyData: (minimal: boolean = false): AppData => ({
+  getEmptyData: (minimal: boolean = true): AppData => ({
     version: SCHEMA_VERSION,
     lastSync: '',
     transactions: [],
     branches: minimal ? [] : [
-      { id: 'br_default', name: 'Tokymon Bad Nauheim', address: 'Bad Nauheim, Germany', initialCash: 0, initialCard: 0, color: '#6366f1', updatedAt: new Date().toISOString() }
+      { 
+        id: 'br_default', 
+        name: 'Tokymon Bad Nauheim', 
+        address: 'Bad Nauheim, Germany', 
+        initialCash: 0, 
+        initialCard: 0, 
+        color: '#6366f1', 
+        updatedAt: new Date().toISOString() 
+      }
     ],
     users: minimal ? [] : [
-      { id: 'admin_root', username: 'admin', password: 'admin123', role: UserRole.SUPER_ADMIN, assignedBranchIds: [], preferences: { theme: 'dark', language: 'vi' }, updatedAt: new Date().toISOString() }
+      { 
+        id: 'admin_root', 
+        username: 'admin', 
+        password: 'admin123', 
+        role: UserRole.SUPER_ADMIN, 
+        assignedBranchIds: [], 
+        preferences: { theme: 'dark', language: 'vi' }, 
+        updatedAt: new Date().toISOString() 
+      }
     ],
     expenseCategories: EXPENSE_CATEGORIES,
     recurringExpenses: [],
     auditLogs: [],
-    reportSettings: { showSystemTotal: true, showShopRevenue: true, showAppRevenue: true, showCardRevenue: true, showActualCash: true, showProfit: true }
+    reportSettings: { 
+      showSystemTotal: true, 
+      showShopRevenue: true, 
+      showAppRevenue: true, 
+      showCardRevenue: true, 
+      showActualCash: true, 
+      showProfit: true 
+    }
   })
 };
