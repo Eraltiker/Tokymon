@@ -1,4 +1,3 @@
-
 import { AppData, SCHEMA_VERSION, INITIAL_EXPENSE_CATEGORIES, Category, Transaction, Branch, User, RecurringTransaction, ReportSettings, UserRole } from '../types';
 
 const DB_NAME = 'TokymonDB';
@@ -144,7 +143,8 @@ export const StorageService = {
       const now = new Date().toISOString();
       const expenseCategories = (rawData.expenseCategories || []).map((c: any) => {
         if (typeof c === 'string') {
-          return { id: c, name: c, updatedAt: now };
+          // Fix: Added missing branchId property to satisfy Category interface
+          return { id: c, name: c, branchId: '', updatedAt: now };
         }
         return c;
       });
@@ -178,7 +178,8 @@ export const StorageService = {
           updatedAt: now 
         }
       ],
-      expenseCategories: INITIAL_EXPENSE_CATEGORIES.map(c => ({ id: c, name: c, updatedAt: now })),
+      // Fix: Added missing branchId property to satisfy Category interface
+      expenseCategories: INITIAL_EXPENSE_CATEGORIES.map(c => ({ id: c, name: c, branchId: '', updatedAt: now })),
       recurringExpenses: [],
       auditLogs: [],
       reportSettings: { 

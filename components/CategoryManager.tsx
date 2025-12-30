@@ -9,25 +9,32 @@ interface CategoryManagerProps {
   onUpdate: (newCategories: Category[]) => void;
   title: string;
   lang: Language;
+  branchId: string;
   onAudit: (action: any, type: any, id: string, details: string) => void;
 }
 
-const CategoryManager: React.FC<CategoryManagerProps> = ({ categories, onUpdate, title, lang, onAudit }) => {
+const CategoryManager: React.FC<CategoryManagerProps> = ({ categories, onUpdate, title, lang, branchId, onAudit }) => {
   const { t, translateCategory } = useTranslation(lang);
   const [newCategoryName, setNewCategoryName] = useState('');
 
+  // Ở đây 'categories' đã được lọc từ component cha nên chỉ cần lọc deletedAt
   const activeCategories = categories.filter(c => !c.deletedAt);
 
   const handleAdd = () => {
     const trimmed = newCategoryName.trim();
     if (trimmed && !activeCategories.some(c => c.name === trimmed)) {
       const now = new Date().toISOString();
+      const newCatId = `cat_${branchId}_${Date.now()}`;
       const newCat: Category = {
-        id: trimmed, // Dùng tên làm ID cho các hạng mục mặc định hoặc Date.now() cho cái mới
+        id: newCatId,
         name: trimmed,
+        branchId: branchId, // Gán branchId hiện tại
         updatedAt: now
       };
-      onUpdate([...categories, newCat]);
+      
+      // Chúng ta phải gửi toàn bộ danh sách (cả những cái không thuộc branch này) để cập nhật DB tổng
+      // Nhưng onUpdate này sẽ được xử lý ở App.tsx
+      onUpdate([newCat]);
       setNewCategoryName('');
       onAudit('CREATE', 'CATEGORY', newCat.id, `Thêm hạng mục chi phí: ${trimmed}`);
     }
@@ -35,15 +42,15 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ categories, onUpdate,
 
   const handleDelete = (id: string) => {
     const now = new Date().toISOString();
-    const target = categories.find(c => c.id === id);
+    const target = activeCategories.find(c => c.id === id);
     if (!target) return;
 
-    onUpdate(categories.map(c => c.id === id ? { ...c, deletedAt: now, updatedAt: now } : c));
+    onUpdate([{ ...target, deletedAt: now, updatedAt: now }]);
     onAudit('DELETE', 'CATEGORY', id, `Xóa hạng mục chi phí: ${target.name}`);
   };
 
   return (
-    <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] shadow-sm border dark:border-slate-800">
+    <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] shadow-sm border dark:border-slate-800 animate-ios">
       <div className="flex items-center gap-3 mb-6">
         <div className="p-2.5 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl"><Tag className="w-5 h-5 text-indigo-600" /></div>
         <h3 className="text-lg font-black uppercase tracking-tight dark:text-white">{title}</h3>

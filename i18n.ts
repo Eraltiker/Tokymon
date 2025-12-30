@@ -6,7 +6,7 @@ export const translations = {
     // General & Navigation
     income: "Doanh Thu",
     expense: "Chi Phí",
-    stats: "Báo Cáo",
+    stats: "Báo Báo",
     settings: "Cài Đặt",
     branch: "Chi nhánh",
     branches: "Cơ sở",
@@ -36,6 +36,8 @@ export const translations = {
     add_new: "Thêm mới",
     guide: "Hướng dẫn",
     branding: "Danh mục & Định kỳ",
+    choose_branch_to_config: "Vui lòng chọn chi nhánh",
+    choose_branch_to_config_sub: "Bạn cần chọn một chi nhánh cụ thể để quản lý danh mục và chi phí định kỳ.",
     
     // Categories Translation
     cat_rent: "Tiền nhà / Điện",
@@ -173,6 +175,8 @@ export const translations = {
     add_new: "Hinzufügen",
     guide: "Anleitung",
     branding: "Kategorien & Abo",
+    choose_branch_to_config: "Filiale auswählen",
+    choose_branch_to_config_sub: "Bitte wählen Sie eine Filiale aus, um Kategorien und Abos zu verwalten.",
 
     // Categories Translation
     cat_rent: "Miete / Strom",
@@ -235,7 +239,7 @@ export const translations = {
     to_date: "Bis",
     reset_filter: "Zurücksetzen",
     choose_branch_hint: "Filiale wählen",
-    select_branch_btn: "Filiale chọn",
+    select_branch_btn: "Filiale wählen",
     edit_title: "Bearbeiten",
     save_changes_btn: "Aktualisieren",
     update_now_btn: "Entdecken",

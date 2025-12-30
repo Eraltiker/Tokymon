@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { 
   Transaction, Branch, User, Category, UserRole, Language, UserPreferences,
   AuditLogEntry, AppData, SCHEMA_VERSION, TransactionType, ReportSettings, ALL_BRANCHES_ID,
-  APP_CHANGELOG
+  APP_CHANGELOG, INITIAL_EXPENSE_CATEGORIES, DEFAULT_RECURRING_TEMPLATE, RecurringTransaction, ExpenseSource
 } from './types';
 import { StorageService } from './services/storageService';
 import Dashboard from './components/Dashboard';
@@ -192,7 +192,15 @@ const App = () => {
     return data.transactions.filter(tx => !tx.deletedAt && activeBranchIds.has(tx.branchId));
   }, [data.transactions, activeBranches]);
 
-  const activeCategories = useMemo(() => data.expenseCategories.filter(c => !c.deletedAt), [data.expenseCategories]);
+  const branchCategories = useMemo(() => {
+    if (currentBranchId === ALL_BRANCHES_ID) return [];
+    return data.expenseCategories.filter(c => c.branchId === currentBranchId);
+  }, [data.expenseCategories, currentBranchId]);
+
+  const branchRecurringExpenses = useMemo(() => {
+    if (currentBranchId === ALL_BRANCHES_ID) return [];
+    return data.recurringExpenses.filter(r => r.branchId === currentBranchId);
+  }, [data.recurringExpenses, currentBranchId]);
 
   const allowedBranches = useMemo(() => {
     if (!currentUser) return [];
@@ -382,7 +390,7 @@ const App = () => {
         ) : (
           <div className="animate-ios">
             {activeTab === 'income' && <IncomeManager transactions={activeTransactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={handleDeleteTransaction} onEditTransaction={u => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}), true)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />}
-            {activeTab === 'expense' && <ExpenseManager transactions={activeTransactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={handleDeleteTransaction} onEditTransaction={u => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}), true)} expenseCategories={activeCategories.map(c => c.name)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />}
+            {activeTab === 'expense' && <ExpenseManager transactions={activeTransactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={handleDeleteTransaction} onEditTransaction={u => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}), true)} expenseCategories={branchCategories.map(c => c.name)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />}
             {activeTab === 'stats' && <Dashboard transactions={activeTransactions} initialBalances={{cash: 0, card: 0}} lang={lang} currentBranchId={currentBranchId} allowedBranches={allowedBranches} userRole={currentUser.role} reportSettings={data.reportSettings || StorageService.getEmptyData().reportSettings!} />}
             {activeTab === 'settings' && (
               <div className="space-y-6">
@@ -397,9 +405,107 @@ const App = () => {
                       </div>
                     )}
                     {settingsSubTab === 'export' && <ExportManager transactions={activeTransactions} branches={activeBranches} lang={lang} />}
-                    {settingsSubTab === 'branches' && isAdmin && <BranchManager branches={data.branches} setBranches={update => atomicUpdate(p => ({...p, branches: update(p.branches)}), true)} onAudit={addAuditLog} setGlobalConfirm={setConfirmModal} onResetBranchData={handleResetBranchData} lang={lang} />}
+                    {settingsSubTab === 'branches' && isAdmin && (
+                      <BranchManager 
+                        branches={data.branches} 
+                        setBranches={update => atomicUpdate(prev => {
+                          const oldBranchIds = new Set(prev.branches.map(b => b.id));
+                          const newBranches = typeof update === 'function' ? update(prev.branches) : update;
+                          
+                          // Tìm các chi nhánh mới được thêm vào
+                          const addedBranches = newBranches.filter(b => !oldBranchIds.has(b.id) && !b.deletedAt);
+                          
+                          let nextCategories = [...prev.expenseCategories];
+                          let nextRecurring = [...prev.recurringExpenses];
+                          
+                          // Thực hiện gieo mầm dữ liệu cho chi nhánh mới
+                          addedBranches.forEach(branch => {
+                            const now = new Date().toISOString();
+                            // 1. Thêm danh mục mặc định
+                            const defaultCats: Category[] = INITIAL_EXPENSE_CATEGORIES.map(name => ({
+                              id: `cat_${branch.id}_${Math.random().toString(36).substr(2, 9)}`,
+                              name,
+                              branchId: branch.id,
+                              updatedAt: now
+                            }));
+                            nextCategories = [...nextCategories, ...defaultCats];
+                            
+                            // 2. Thêm chi phí định kỳ mặc định
+                            const defaultRecs: RecurringTransaction[] = DEFAULT_RECURRING_TEMPLATE.map(t => ({
+                              id: `rec_${branch.id}_${Math.random().toString(36).substr(2, 9)}`,
+                              branchId: branch.id,
+                              amount: t.amount,
+                              category: t.category,
+                              dayOfMonth: t.day,
+                              note: t.note,
+                              expenseSource: ExpenseSource.WALLET,
+                              updatedAt: now
+                            }));
+                            nextRecurring = [...nextRecurring, ...defaultRecs];
+                          });
+                          
+                          return {
+                            ...prev,
+                            branches: newBranches,
+                            expenseCategories: nextCategories,
+                            recurringExpenses: nextRecurring
+                          };
+                        }, true)} 
+                        onAudit={addAuditLog} 
+                        setGlobalConfirm={setConfirmModal} 
+                        onResetBranchData={handleResetBranchData} 
+                        lang={lang} 
+                      />
+                    )}
                     {settingsSubTab === 'users' && isAdmin && <UserManager users={data.users} setUsers={update => atomicUpdate(p => ({...p, users: typeof update === 'function' ? update(p.users) : update}), true)} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={setConfirmModal} lang={lang} />}
-                    {settingsSubTab === 'general' && ( <div className="space-y-10"><CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => atomicUpdate(prev => ({...prev, expenseCategories: cats}), true)} lang={lang} onAudit={addAuditLog} /><RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={activeCategories.map(c => c.name)} onUpdate={(recs) => atomicUpdate(prev => ({...prev, recurringExpenses: recs}), true)} onGenerateTransactions={txs => atomicUpdate(prev => ({...prev, transactions: [...txs, ...prev.transactions]}), true)} branchId={currentBranchId === ALL_BRANCHES_ID ? (allowedBranches[0]?.id || '') : currentBranchId} lang={lang} /></div> )}
+                    {settingsSubTab === 'general' && (
+                      <div className="space-y-10">
+                        {currentBranchId === ALL_BRANCHES_ID ? (
+                          <div className="p-10 flex flex-col items-center justify-center text-center space-y-6 animate-ios">
+                             <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-[2.2rem] flex items-center justify-center text-slate-400">
+                                <LayoutGrid className="w-10 h-10" />
+                             </div>
+                             <div className="space-y-2">
+                               <h3 className="text-lg font-black uppercase dark:text-white">{t('choose_branch_to_config')}</h3>
+                               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t('choose_branch_to_config_sub')}</p>
+                             </div>
+                             <button onClick={() => setShowBranchDropdown(true)} className="px-8 py-4 bg-brand-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-vivid active-scale">
+                               {t('select_branch_btn')}
+                             </button>
+                          </div>
+                        ) : (
+                          <>
+                            <CategoryManager 
+                              title={t('categories_man')} 
+                              categories={branchCategories} 
+                              branchId={currentBranchId}
+                              onUpdate={(updates) => {
+                                atomicUpdate(prev => {
+                                  const existingMap = new Map(prev.expenseCategories.map(c => [c.id, c]));
+                                  updates.forEach(u => existingMap.set(u.id, u));
+                                  return { ...prev, expenseCategories: Array.from(existingMap.values()) };
+                                }, true);
+                              }} 
+                              lang={lang} 
+                              onAudit={addAuditLog} 
+                            />
+                            <RecurringManager 
+                              recurringExpenses={branchRecurringExpenses} 
+                              categories={branchCategories.map(c => c.name)} 
+                              onUpdate={(updates) => {
+                                atomicUpdate(prev => {
+                                  const otherBranchExpenses = prev.recurringExpenses.filter(r => r.branchId !== currentBranchId);
+                                  return { ...prev, recurringExpenses: [...otherBranchExpenses, ...updates] };
+                                }, true);
+                              }} 
+                              onGenerateTransactions={txs => atomicUpdate(prev => ({...prev, transactions: [...txs, ...prev.transactions]}), true)} 
+                              branchId={currentBranchId} 
+                              lang={lang} 
+                            />
+                          </>
+                        )}
+                      </div>
+                    )}
                     {settingsSubTab === 'audit' && (<div className="space-y-4 max-h-[600px] overflow-y-auto no-scrollbar pr-2">{data.auditLogs.slice().reverse().map(log => (<div key={log.id} className="p-5 bg-slate-50 dark:bg-slate-950/40 rounded-3xl border border-slate-100 dark:border-slate-800 flex justify-between"><div className="flex flex-col gap-1"><span className="text-[9px] font-black text-brand-600 uppercase" style={{ color: activeBranchColor }}>{log.action}</span><span className="text-xs font-bold dark:text-slate-200">{log.details}</span></div><span className="text-[8px] text-slate-400 font-bold uppercase">{new Date(log.timestamp).toLocaleString()}</span></div>))}</div>)}
                     {settingsSubTab === 'about' && (
                       <div className="space-y-8 animate-ios">

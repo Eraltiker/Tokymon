@@ -7,12 +7,21 @@ export enum TransactionType {
 export interface Category {
   id: string;
   name: string;
+  branchId: string;
   updatedAt: string;
   deletedAt?: string;
 }
 
 export const INITIAL_EXPENSE_CATEGORIES: string[] = [
-  'Tiền nhà / Điện', 'Rác', 'Lương công nhân', 'Nguyên liệu', 'Thuế', 'Bonus', 'Gutschein', 'Sai', 'Nợ / Tiền ứng', 'Chi phí khác', 'Bảo hiểm'
+  'Tiền nhà / Điện', 'Rác', 'Lương công nhân', 'Nguyên liệu', 'Thuế', 'Bonus', 'Gutschein', 'Sai', 'Nợ / Tiền ứng', 'Bảo hiểm', 'Chi phí khác'
+];
+
+// Template chi phí định kỳ mặc định cho chi nhánh mới
+export const DEFAULT_RECURRING_TEMPLATE = [
+  { category: 'Tiền nhà / Điện', amount: 0, day: 1, note: 'Tiền nhà định kỳ' },
+  { category: 'Lương công nhân', amount: 0, day: 1, note: 'Lương nhân viên' },
+  { category: 'Bảo hiểm', amount: 0, day: 1, note: 'Bảo hiểm kinh doanh' },
+  { category: 'Rác', amount: 0, day: 1, note: 'Tiền rác hàng tháng' }
 ];
 
 export enum ExpenseSource {
@@ -144,34 +153,36 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "1.0.4 (Hard Tombstone Fix)";
+export const SCHEMA_VERSION = "1.0.6 (Branch Auto-Seed)";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
   {
-    version: "1.0.4",
-    date: "2024-05-26",
+    version: "1.0.6",
+    date: "2024-05-28",
     changes: {
       vi: [
-        "Sửa lỗi 'Dữ liệu hồi sinh': Buộc hệ thống giữ lại vết tích xóa (Tombstone) vĩnh viễn trong Database để đồng bộ chính xác trên tất cả thiết bị.",
-        "Cập nhật tab About: Hiển thị nhật ký thay đổi và thông tin hỗ trợ kỹ thuật.",
-        "Tối ưu hóa dung lượng lưu trữ: Tự động nén dữ liệu cũ nhưng vẫn giữ nguyên tính toàn vẹn.",
-        "Gia cố bảo mật: Mã hóa nhẹ dữ liệu Local trước khi lưu vào IndexedDB."
+        "Tự động khởi tạo dữ liệu mẫu: Khi tạo chi nhánh mới, hệ thống tự động gán bộ danh mục và chi phí định kỳ mặc định.",
+        "Cải thiện trải nghiệm quản lý: Giúp Quản lý chi nhánh mới bắt đầu nhanh hơn mà không cần nhập liệu thủ công từ đầu."
       ],
       de: [
-        "Behebung des 'Wiederauferstehungs-Fehlers': Das System behält Löschmarkierungen (Tombstones) nun permanent in der Datenbank, um eine korrekte Synchronisierung auf allen Geräten zu gewährleisten.",
-        "About-Tab aktualisiert: Anzeige des Änderungsprotokolls und technischer Support-Informationen.",
-        "Speicherplatzoptimierung: Automatische Komprimierung alter Daten bei gleichzeitiger Wahrung der Integrität.",
-        "Sicherheitsverbesserung: Leichte Verschlüsselung lokaler Daten vor dem Speichern in IndexedDB."
+        "Automatische Dateninitialisierung: Beim Erstellen einer neuen Filiale weist das System automatisch Standardkategorien und wiederkehrende Ausgaben zu.",
+        "Verbesserte Verwaltung: Hilft neuen Filialleitern, schneller zu starten."
       ]
     }
   },
   {
-    version: "1.0.3",
-    date: "2024-05-25",
+    version: "1.0.5",
+    date: "2024-05-27",
     changes: {
-      vi: ["Chuyển đổi Hạng mục sang ID-based.", "Cải thiện Atomic Update."],
-      de: ["Umstellung der Kategorien auf ID-basiert.", "Verbessertes Atomic Update."]
+      vi: [
+        "Tối ưu hóa dữ liệu: Mỗi chi nhánh hiện có danh mục chi phí và chi phí định kỳ riêng biệt.",
+        "Cải thiện giao diện cài đặt: Yêu cầu chọn chi nhánh cụ thể để cấu hình chuyên sâu."
+      ],
+      de: [
+        "Datenoptimierung: Jede Filiale hat jetzt eigene Ausgabenkategorien und regelmäßige Ausgaben.",
+        "Verbesserte Einstellungen: Auswahl einer bestimmten Filiale für die Tiefenkonfiguration erforderlich."
+      ]
     }
   }
 ];
