@@ -177,8 +177,13 @@ const App = () => {
   }, [data, isDataLoaded, isOnline, handleCloudSync]);
 
   useEffect(() => {
-    if (isDark) document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('tokymon_theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('tokymon_theme', 'light');
+    }
   }, [isDark]);
 
   const activeBranches = useMemo(() => data.branches.filter(b => !b.deletedAt), [data.branches]);
@@ -262,11 +267,17 @@ const App = () => {
     }
   };
 
+  const toggleTheme = () => setIsDark(!isDark);
+  const toggleLanguage = () => {
+    const nextLang = lang === 'vi' ? 'de' : 'vi';
+    setLang(nextLang);
+    localStorage.setItem('tokymon_lang', nextLang);
+  };
+
   if (!currentUser) {
     return (
       <div className="min-h-screen relative flex items-center justify-center p-6 bg-slate-50 dark:bg-slate-950 overflow-hidden">
         <div className="login-mesh" />
-        {/* Subtle decorative circles */}
         <div className="absolute top-[-10%] right-[-10%] w-[400px] h-[400px] bg-brand-500/10 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[300px] h-[300px] bg-rose-500/5 rounded-full blur-[80px] pointer-events-none" />
 
@@ -293,26 +304,12 @@ const App = () => {
               <form onSubmit={handleLoginSubmit} className="space-y-5">
                 <div className="relative group">
                   <UserIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
-                  <input 
-                    type="text" 
-                    value={loginForm.username} 
-                    onChange={e => setLoginForm({...loginForm, username: e.target.value})} 
-                    className="w-full p-4.5 pl-14 bg-slate-50/50 dark:bg-black/20 rounded-2xl font-bold border border-slate-200 dark:border-white/5 outline-none dark:text-white text-slate-950 transition-all focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50" 
-                    placeholder={t('username')} 
-                    required 
-                  />
+                  <input type="text" value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value})} className="w-full p-4.5 pl-14 bg-slate-50/50 dark:bg-black/20 rounded-2xl font-bold border border-slate-200 dark:border-white/5 outline-none dark:text-white text-slate-950 transition-all focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50" placeholder={t('username')} required />
                 </div>
                 
                 <div className="relative group">
                   <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
-                  <input 
-                    type="password" 
-                    value={loginForm.password} 
-                    onChange={e => setLoginForm({...loginForm, password: e.target.value})} 
-                    className="w-full p-4.5 pl-14 bg-slate-50/50 dark:bg-black/20 rounded-2xl font-bold border border-slate-200 dark:border-white/5 outline-none dark:text-white text-slate-950 transition-all focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50" 
-                    placeholder={t('password')} 
-                    required 
-                  />
+                  <input type="password" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} className="w-full p-4.5 pl-14 bg-slate-50/50 dark:bg-black/20 rounded-2xl font-bold border border-slate-200 dark:border-white/5 outline-none dark:text-white text-slate-950 transition-all focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50" placeholder={t('password')} required />
                 </div>
 
                 {loginError && (
@@ -321,10 +318,7 @@ const App = () => {
                   </div>
                 )}
 
-                <button 
-                  type="submit" 
-                  className="w-full h-15 bg-brand-600 hover:bg-brand-500 text-white rounded-[1.8rem] font-black uppercase shadow-vivid flex items-center justify-center gap-3 active-scale transition-all group overflow-hidden relative"
-                >
+                <button type="submit" className="w-full h-15 bg-brand-600 hover:bg-brand-500 text-white rounded-[1.8rem] font-black uppercase shadow-vivid flex items-center justify-center gap-3 active-scale transition-all group overflow-hidden relative">
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                   <span className="relative z-10">{t('login')}</span>
                   <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
@@ -333,7 +327,6 @@ const App = () => {
             </div>
           </div>
 
-          {/* New Impressive Footer for Login Screen */}
           <div className="text-center space-y-4 pt-4">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-200/50 dark:bg-slate-800/50 rounded-full border border-slate-300 dark:border-slate-700 backdrop-blur-sm opacity-80">
               <Code className="w-3.5 h-3.5 text-brand-600" />
@@ -341,7 +334,6 @@ const App = () => {
                 {t('dev_by')} <span className="text-brand-600 dark:text-brand-400">thPhuoc</span>
               </p>
             </div>
-            
             <div className="flex items-center justify-center gap-3 opacity-40">
               <div className="h-px w-8 bg-slate-400" />
               <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-500 dark:text-slate-400">
@@ -368,12 +360,17 @@ const App = () => {
               <p className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">{currentUser?.role}</p>
            </button>
         </div>
-        <div className="flex items-center gap-2">
-           <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${isOnline ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' : 'bg-rose-500/10 border-rose-500/20 text-rose-500'}`}>
+        <div className="flex items-center gap-1 sm:gap-2">
+           <button onClick={toggleTheme} className="w-9 h-9 sm:w-10 sm:h-10 text-slate-500 dark:text-slate-400 rounded-xl bg-white/50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center active-scale transition-all">
+             {isDark ? <Sun className="w-4 h-4 sm:w-4.5 sm:h-4.5" /> : <Moon className="w-4 h-4 sm:w-4.5 sm:h-4.5" />}
+           </button>
+           <button onClick={toggleLanguage} className="w-9 h-9 sm:w-10 sm:h-10 text-slate-500 dark:text-slate-400 rounded-xl bg-white/50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center active-scale transition-all text-[9px] font-black uppercase">
+             {lang === 'vi' ? 'DE' : 'VI'}
+           </button>
+           <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full border transition-all ${isOnline ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' : 'bg-rose-500/10 border-rose-500/20 text-rose-500'}`}>
               {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <CloudCheck className="w-3 h-3" />}
-              <span className="text-[8px] font-black uppercase tracking-widest">{!isOnline ? 'Offline' : (isSyncing ? 'Syncing' : 'Synced')}</span>
            </div>
-           <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: handleLogout })} className="w-10 h-10 text-rose-500 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center active-scale transition-all"><LogOut className="w-4 h-4" /></button>
+           <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: handleLogout })} className="w-9 h-9 sm:w-10 sm:h-10 text-rose-500 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center active-scale transition-all"><LogOut className="w-4 h-4" /></button>
         </div>
         {showBranchDropdown && (
           <><div className="fixed inset-0 z-[1001]" onClick={() => setShowBranchDropdown(false)} /><div className="absolute top-full left-4 mt-2 w-64 bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800 z-[1002] overflow-hidden animate-in slide-in-from-top-2">{isAdmin && (<button onClick={() => { setCurrentBranchId(ALL_BRANCHES_ID); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-4.5 transition-all flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`}><div className="flex items-center gap-3"><Globe className="w-4.5 h-4.5" /><span className="text-[11px] font-black uppercase">{t('all_branches')}</span></div>{currentBranchId === ALL_BRANCHES_ID && <Check className="w-3.5 h-3.5" />}</button>)}<div className="max-h-[60vh] overflow-y-auto no-scrollbar">{allowedBranches.map(b => (<button key={b.id} onClick={() => { setCurrentBranchId(b.id); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-4.5 transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-slate-50 dark:bg-slate-800/50 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`} style={{ color: currentBranchId === b.id ? b.color : 'inherit' }}><div className="flex items-center gap-3"><div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: b.color }} /><span className="text-[11px] font-black uppercase">{b.name}</span></div>{currentBranchId === b.id && <Check className="w-3.5 h-3.5" />}</button>))}</div></div></>
@@ -413,7 +410,6 @@ const App = () => {
                               <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1">Enterprise Edition v{SCHEMA_VERSION.split(' ')[0]}</p>
                            </div>
                         </div>
-
                         <div className="space-y-6">
                            <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-[2.5rem] border dark:border-slate-800">
                               <div className="flex items-center gap-3 mb-4">
@@ -439,28 +435,6 @@ const App = () => {
                                  ))}
                               </div>
                            </div>
-
-                           <div className="grid grid-cols-2 gap-4">
-                              <div className="p-5 bg-slate-50 dark:bg-slate-950 rounded-3xl border dark:border-slate-800 flex flex-col items-center text-center gap-2">
-                                 <ShieldCheck className="w-6 h-6 text-brand-600" />
-                                 <span className="text-[9px] font-black uppercase text-slate-500">{t('enterprise_security')}</span>
-                                 <p className="text-[10px] font-bold dark:text-slate-400">AES-256 Cloud Sync</p>
-                              </div>
-                              <div className="p-5 bg-slate-50 dark:bg-slate-950 rounded-3xl border dark:border-slate-800 flex flex-col items-center text-center gap-2">
-                                 <Code className="w-6 h-6 text-indigo-600" />
-                                 <span className="text-[9px] font-black uppercase text-slate-500">{t('dev_by')}</span>
-                                 <p className="text-[10px] font-bold dark:text-slate-400">Tokymon Labs</p>
-                              </div>
-                           </div>
-
-                           <div className="flex justify-center gap-6 pt-4">
-                              <a href="https://tokymon.de" target="_blank" className="flex items-center gap-2 text-[11px] font-black text-slate-500 hover:text-brand-600 transition-colors uppercase tracking-widest"><ExternalLink className="w-4 h-4" /> Website</a>
-                              <a href="#" className="flex items-center gap-2 text-[11px] font-black text-slate-500 hover:text-brand-600 transition-colors uppercase tracking-widest"><Github className="w-4 h-4" /> GitHub</a>
-                           </div>
-
-                           <p className="text-center text-[8px] font-bold text-slate-400 uppercase tracking-widest pt-6 border-t dark:border-slate-800">
-                              © 2024 Tokymon Restaurant Group. All rights reserved.
-                           </p>
                         </div>
                       </div>
                     )}
