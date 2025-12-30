@@ -27,7 +27,8 @@ import {
   Loader2, PartyPopper, X,
   Heart, LockKeyhole, HelpCircle, LayoutGrid, Terminal, ShieldAlert,
   Database, CloudCheck, Languages, Copy, CheckCircle, Wrench, WifiOff,
-  Code, Github, ExternalLink, ScrollText
+  Code, Github, ExternalLink, ScrollText, CheckCircle2,
+  User as UserIcon, Lock
 } from 'lucide-react';
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 phút
@@ -60,7 +61,10 @@ const App = () => {
   
   const [settingsSubTab, setSettingsSubTab] = useState<'general' | 'export' | 'branches' | 'users' | 'sync' | 'audit' | 'about' | 'guide'>('general');
   const [isDark, setIsDark] = useState(() => localStorage.getItem('tokymon_theme') === 'dark');
-  const [lang, setLang] = useState<Language>(() => (localStorage.getItem('tokymon_lang') as Language) || 'vi');
+  const [lang, setLang] = useState<Language>(() => {
+    const saved = localStorage.getItem('tokymon_lang');
+    return (saved === 'vi' || saved === 'de') ? saved : 'vi';
+  });
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   
   const { t } = useTranslation(lang);
@@ -177,14 +181,6 @@ const App = () => {
     else document.documentElement.classList.remove('dark');
   }, [isDark]);
 
-  const toggleLanguage = () => {
-    const next = lang === 'vi' ? 'de' : 'vi';
-    setLang(next);
-    localStorage.setItem('tokymon_lang', next);
-  };
-
-  const toggleTheme = () => setIsDark(!isDark);
-
   const activeBranches = useMemo(() => data.branches.filter(b => !b.deletedAt), [data.branches]);
   const activeTransactions = useMemo(() => {
     const activeBranchIds = new Set(activeBranches.map(b => b.id));
@@ -196,15 +192,25 @@ const App = () => {
   const allowedBranches = useMemo(() => {
     if (!currentUser) return [];
     if (isAdmin) return activeBranches;
-    return activeBranches.filter(b => currentUser.assignedBranchIds.includes(b.id));
+    const assignedIds = currentUser.assignedBranchIds || [];
+    return activeBranches.filter(b => assignedIds.includes(b.id));
   }, [activeBranches, currentUser, isAdmin]);
 
   useEffect(() => {
-    if (currentUser && allowedBranches.length > 0) {
+    if (currentUser) {
       const isValid = allowedBranches.some(b => b.id === currentBranchId) || currentBranchId === ALL_BRANCHES_ID;
       if (!currentBranchId || !isValid) {
-        const first = isAdmin ? ALL_BRANCHES_ID : allowedBranches[0].id;
-        setCurrentBranchId(first);
+        let targetId = '';
+        if (isAdmin) {
+          targetId = ALL_BRANCHES_ID;
+        } else if (allowedBranches.length > 0) {
+          targetId = allowedBranches[0].id;
+        }
+        
+        if (targetId) {
+          setCurrentBranchId(targetId);
+          localStorage.setItem('tokymon_current_branch', targetId);
+        }
       }
     }
   }, [allowedBranches, currentBranchId, currentUser, isAdmin]);
@@ -258,20 +264,92 @@ const App = () => {
 
   if (!currentUser) {
     return (
-      <div className="min-h-screen relative flex items-center justify-center p-6 bg-slate-50 dark:bg-slate-950">
-        <div className="w-full max-w-[360px] z-10 space-y-8 animate-ios">
-          <div className="text-center space-y-4">
-            <div className="w-20 h-20 bg-white dark:bg-slate-900 rounded-[2.2rem] shadow-vivid flex items-center justify-center mx-auto border border-white dark:border-slate-800">
-              <UtensilsCrossed className="w-10 h-10 text-brand-600 dark:text-brand-400" />
+      <div className="min-h-screen relative flex items-center justify-center p-6 bg-slate-50 dark:bg-slate-950 overflow-hidden">
+        <div className="login-mesh" />
+        {/* Subtle decorative circles */}
+        <div className="absolute top-[-10%] right-[-10%] w-[400px] h-[400px] bg-brand-500/10 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[300px] h-[300px] bg-rose-500/5 rounded-full blur-[80px] pointer-events-none" />
+
+        <div className="w-full max-w-[380px] z-10 space-y-8 animate-ios">
+          <div className="text-center space-y-6">
+            <div className="relative inline-block">
+              <div className="w-24 h-24 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-vivid flex items-center justify-center mx-auto border border-white dark:border-slate-800 animate-float relative z-10">
+                <UtensilsCrossed className="w-12 h-12 text-brand-600 dark:text-brand-400" />
+              </div>
+              <div className="absolute inset-0 bg-brand-500/20 blur-2xl rounded-full animate-pulse" />
             </div>
-            <h1 className="text-3xl font-black text-slate-950 dark:text-white tracking-tighter uppercase leading-none">TOKYMON</h1>
+            <div className="space-y-1">
+              <h1 className="text-4xl font-black text-slate-950 dark:text-white tracking-tighter uppercase leading-none">TOKYMON</h1>
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500 dark:text-slate-400 opacity-60">Finance Manager</p>
+            </div>
           </div>
-          <form onSubmit={handleLoginSubmit} className="glass p-8 rounded-[2.5rem] shadow-2xl space-y-6">
-            <input type="text" value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-black/30 rounded-2xl font-bold border dark:border-white/5 outline-none dark:text-white text-slate-950 pl-6" placeholder={t('username')} required />
-            <input type="password" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} className="w-full p-4 bg-slate-50 dark:bg-black/30 rounded-2xl font-bold border dark:border-white/5 outline-none dark:text-white text-slate-950 pl-6" placeholder={t('password')} required />
-            {loginError && <p className="text-rose-500 text-[10px] font-black uppercase text-center">{loginError}</p>}
-            <button type="submit" className="w-full h-14 bg-brand-600 text-white rounded-2xl font-black uppercase shadow-vivid flex items-center justify-center gap-2"> {t('login')} <ArrowRight className="w-4 h-4" /></button>
-          </form>
+
+          <div className="glass p-1 rounded-[3rem] shadow-2xl relative">
+            <div className="bg-white/40 dark:bg-slate-900/40 p-8 rounded-[2.8rem] space-y-6">
+              <div className="text-center">
+                 <h2 className="text-lg font-black uppercase text-slate-800 dark:text-slate-100 tracking-tight">{t('login_welcome')}</h2>
+              </div>
+
+              <form onSubmit={handleLoginSubmit} className="space-y-5">
+                <div className="relative group">
+                  <UserIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                  <input 
+                    type="text" 
+                    value={loginForm.username} 
+                    onChange={e => setLoginForm({...loginForm, username: e.target.value})} 
+                    className="w-full p-4.5 pl-14 bg-slate-50/50 dark:bg-black/20 rounded-2xl font-bold border border-slate-200 dark:border-white/5 outline-none dark:text-white text-slate-950 transition-all focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50" 
+                    placeholder={t('username')} 
+                    required 
+                  />
+                </div>
+                
+                <div className="relative group">
+                  <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                  <input 
+                    type="password" 
+                    value={loginForm.password} 
+                    onChange={e => setLoginForm({...loginForm, password: e.target.value})} 
+                    className="w-full p-4.5 pl-14 bg-slate-50/50 dark:bg-black/20 rounded-2xl font-bold border border-slate-200 dark:border-white/5 outline-none dark:text-white text-slate-950 transition-all focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50" 
+                    placeholder={t('password')} 
+                    required 
+                  />
+                </div>
+
+                {loginError && (
+                  <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl animate-shake">
+                    <p className="text-rose-500 text-[10px] font-black uppercase text-center">{loginError}</p>
+                  </div>
+                )}
+
+                <button 
+                  type="submit" 
+                  className="w-full h-15 bg-brand-600 hover:bg-brand-500 text-white rounded-[1.8rem] font-black uppercase shadow-vivid flex items-center justify-center gap-3 active-scale transition-all group overflow-hidden relative"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                  <span className="relative z-10">{t('login')}</span>
+                  <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* New Impressive Footer for Login Screen */}
+          <div className="text-center space-y-4 pt-4">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-200/50 dark:bg-slate-800/50 rounded-full border border-slate-300 dark:border-slate-700 backdrop-blur-sm opacity-80">
+              <Code className="w-3.5 h-3.5 text-brand-600" />
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
+                {t('dev_by')} <span className="text-brand-600 dark:text-brand-400">thPhuoc</span>
+              </p>
+            </div>
+            
+            <div className="flex items-center justify-center gap-3 opacity-40">
+              <div className="h-px w-8 bg-slate-400" />
+              <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-500 dark:text-slate-400">
+                {t('ver')} {SCHEMA_VERSION.split(' ')[0]}
+              </p>
+              <div className="h-px w-8 bg-slate-400" />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -285,17 +363,17 @@ const App = () => {
       <header className="px-4 py-3 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800/60 shadow-sm safe-pt">
         <div className="flex items-center gap-3 min-w-0 max-w-[50%]">
            <div className="relative w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shrink-0" style={{ backgroundColor: activeBranchColor }}><UtensilsCrossed className="w-5 h-5" /></div>
-           <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex flex-col items-start min-w-0 text-left">
+           <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex flex-col items-start min-w-0 text-left active-scale transition-all">
               <div className="flex items-center gap-1.5 w-full"><span className="text-[13px] font-black uppercase dark:text-white truncate tracking-tighter leading-none">{currentBranchName}</span><ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showBranchDropdown ? 'rotate-180' : ''}`} /></div>
               <p className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">{currentUser?.role}</p>
            </button>
         </div>
         <div className="flex items-center gap-2">
-           <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${isOnline ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' : 'bg-rose-500/10 border-rose-500/20 text-rose-500'}`}>
+           <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${isOnline ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' : 'bg-rose-500/10 border-rose-500/20 text-rose-500'}`}>
               {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <CloudCheck className="w-3 h-3" />}
               <span className="text-[8px] font-black uppercase tracking-widest">{!isOnline ? 'Offline' : (isSyncing ? 'Syncing' : 'Synced')}</span>
            </div>
-           <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: handleLogout })} className="w-10 h-10 text-rose-500 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center"><LogOut className="w-4 h-4" /></button>
+           <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: handleLogout })} className="w-10 h-10 text-rose-500 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center active-scale transition-all"><LogOut className="w-4 h-4" /></button>
         </div>
         {showBranchDropdown && (
           <><div className="fixed inset-0 z-[1001]" onClick={() => setShowBranchDropdown(false)} /><div className="absolute top-full left-4 mt-2 w-64 bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800 z-[1002] overflow-hidden animate-in slide-in-from-top-2">{isAdmin && (<button onClick={() => { setCurrentBranchId(ALL_BRANCHES_ID); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-4.5 transition-all flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`}><div className="flex items-center gap-3"><Globe className="w-4.5 h-4.5" /><span className="text-[11px] font-black uppercase">{t('all_branches')}</span></div>{currentBranchId === ALL_BRANCHES_ID && <Check className="w-3.5 h-3.5" />}</button>)}<div className="max-h-[60vh] overflow-y-auto no-scrollbar">{allowedBranches.map(b => (<button key={b.id} onClick={() => { setCurrentBranchId(b.id); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-4.5 transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-slate-50 dark:bg-slate-800/50 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`} style={{ color: currentBranchId === b.id ? b.color : 'inherit' }}><div className="flex items-center gap-3"><div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: b.color }} /><span className="text-[11px] font-black uppercase">{b.name}</span></div>{currentBranchId === b.id && <Check className="w-3.5 h-3.5" />}</button>))}</div></div></>
@@ -324,12 +402,12 @@ const App = () => {
                     {settingsSubTab === 'export' && <ExportManager transactions={activeTransactions} branches={activeBranches} lang={lang} />}
                     {settingsSubTab === 'branches' && isAdmin && <BranchManager branches={data.branches} setBranches={update => atomicUpdate(p => ({...p, branches: update(p.branches)}), true)} onAudit={addAuditLog} setGlobalConfirm={setConfirmModal} onResetBranchData={handleResetBranchData} lang={lang} />}
                     {settingsSubTab === 'users' && isAdmin && <UserManager users={data.users} setUsers={update => atomicUpdate(p => ({...p, users: typeof update === 'function' ? update(p.users) : update}), true)} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={setConfirmModal} lang={lang} />}
-                    {settingsSubTab === 'general' && ( <div className="space-y-10"><CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => atomicUpdate(prev => ({...prev, expenseCategories: cats}), true)} lang={lang} onAudit={addAuditLog} /><RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={activeCategories.map(c => c.name)} onUpdate={(recs) => atomicUpdate(prev => ({...prev, recurringExpenses: recs}), true)} onGenerateTransactions={txs => atomicUpdate(prev => ({...prev, transactions: [...txs, ...prev.transactions]}), true)} branchId={currentBranchId === ALL_BRANCHES_ID ? allowedBranches[0]?.id : currentBranchId} lang={lang} /></div> )}
+                    {settingsSubTab === 'general' && ( <div className="space-y-10"><CategoryManager title={t('categories_man')} categories={data.expenseCategories} onUpdate={(cats) => atomicUpdate(prev => ({...prev, expenseCategories: cats}), true)} lang={lang} onAudit={addAuditLog} /><RecurringManager recurringExpenses={data.recurringExpenses.filter(r => !r.deletedAt)} categories={activeCategories.map(c => c.name)} onUpdate={(recs) => atomicUpdate(prev => ({...prev, recurringExpenses: recs}), true)} onGenerateTransactions={txs => atomicUpdate(prev => ({...prev, transactions: [...txs, ...prev.transactions]}), true)} branchId={currentBranchId === ALL_BRANCHES_ID ? (allowedBranches[0]?.id || '') : currentBranchId} lang={lang} /></div> )}
                     {settingsSubTab === 'audit' && (<div className="space-y-4 max-h-[600px] overflow-y-auto no-scrollbar pr-2">{data.auditLogs.slice().reverse().map(log => (<div key={log.id} className="p-5 bg-slate-50 dark:bg-slate-950/40 rounded-3xl border border-slate-100 dark:border-slate-800 flex justify-between"><div className="flex flex-col gap-1"><span className="text-[9px] font-black text-brand-600 uppercase" style={{ color: activeBranchColor }}>{log.action}</span><span className="text-xs font-bold dark:text-slate-200">{log.details}</span></div><span className="text-[8px] text-slate-400 font-bold uppercase">{new Date(log.timestamp).toLocaleString()}</span></div>))}</div>)}
                     {settingsSubTab === 'about' && (
                       <div className="space-y-8 animate-ios">
                         <div className="flex flex-col items-center text-center space-y-4">
-                           <div className="w-20 h-20 bg-brand-600 rounded-[2rem] flex items-center justify-center text-white shadow-vivid"><UtensilsCrossed className="w-10 h-10" /></div>
+                           <div className="w-20 h-20 bg-brand-600 rounded-[2rem] flex items-center justify-center text-white shadow-vivid animate-float"><UtensilsCrossed className="w-10 h-10" /></div>
                            <div>
                               <h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Tokymon Finance</h2>
                               <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1">Enterprise Edition v{SCHEMA_VERSION.split(' ')[0]}</p>
@@ -342,18 +420,18 @@ const App = () => {
                                  <ScrollText className="w-5 h-5 text-brand-600" />
                                  <h4 className="text-[11px] font-black uppercase dark:text-white tracking-widest">{t('whats_new')}</h4>
                               </div>
-                              <div className="space-y-4">
+                              <div className="space-y-6">
                                  {APP_CHANGELOG.map((log) => (
-                                   <div key={log.version} className="space-y-2">
+                                   <div key={log.version} className="space-y-3">
                                       <div className="flex justify-between items-center">
                                          <span className="px-3 py-1 bg-brand-600 text-white text-[9px] font-black rounded-lg">v{log.version}</span>
                                          <span className="text-[9px] font-bold text-slate-400">{log.date}</span>
                                       </div>
-                                      <ul className="space-y-1.5 pl-2">
-                                         {(log.changes as any)[lang].map((change: string, i: number) => (
+                                      <ul className="space-y-2 pl-2">
+                                         {(log.changes[lang] || log.changes['vi'] || []).map((change: string, i: number) => (
                                            <li key={i} className="text-[11px] font-bold text-slate-600 dark:text-slate-400 flex gap-2">
-                                              {/* Fix: Changed CheckCircle2 to CheckCircle since CheckCircle is imported from lucide-react */}
-                                              <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> {change}
+                                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> 
+                                              <span>{change}</span>
                                            </li>
                                          ))}
                                       </ul>
@@ -376,7 +454,7 @@ const App = () => {
                            </div>
 
                            <div className="flex justify-center gap-6 pt-4">
-                              <a href="https://tokymon.de" className="flex items-center gap-2 text-[11px] font-black text-slate-500 hover:text-brand-600 transition-colors uppercase tracking-widest"><ExternalLink className="w-4 h-4" /> Website</a>
+                              <a href="https://tokymon.de" target="_blank" className="flex items-center gap-2 text-[11px] font-black text-slate-500 hover:text-brand-600 transition-colors uppercase tracking-widest"><ExternalLink className="w-4 h-4" /> Website</a>
                               <a href="#" className="flex items-center gap-2 text-[11px] font-black text-slate-500 hover:text-brand-600 transition-colors uppercase tracking-widest"><Github className="w-4 h-4" /> GitHub</a>
                            </div>
 
