@@ -20,14 +20,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script>
-      // Force Clear Browser Cache for old Tokymon versions on startup
-      if (localStorage.getItem('tokymon_force_refresh') !== '1.0.1') {
-        caches.keys().then(names => {
-          for (let name of names) caches.delete(name);
-        });
-        localStorage.setItem('tokymon_force_refresh', '1.0.1');
-      }
-
+      // Dữ liệu Tokymon hiện tại được bảo vệ trong IndexedDB. 
+      // Không thực hiện xóa cache thủ công để bảo vệ tính toàn vẹn của dữ liệu offline.
       tailwind.config = {
         darkMode: 'class',
         theme: {

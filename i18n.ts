@@ -6,7 +6,7 @@ export const translations = {
     // General & Navigation
     income: "Doanh Thu",
     expense: "Chi Phí",
-    stats: "Báo Báo",
+    stats: "Báo Cáo",
     settings: "Cài Đặt",
     branch: "Chi nhánh",
     branches: "Cơ sở",
@@ -139,7 +139,9 @@ export const translations = {
     personnel_list: "Danh sách nhân sự",
     system_permission: "Phân quyền hệ thống",
     user_add_title: "Thêm tài khoản mới",
-    user_edit_title: "Cập nhật tài khoản"
+    user_edit_title: "Cập nhật tài khoản",
+    lang_current: "Tiếng Việt",
+    lang_other: "Deutsch"
   },
   de: {
     // General & Navigation
@@ -278,10 +280,13 @@ export const translations = {
     personnel_list: "Personalliste",
     system_permission: "Systemberechtigungen",
     user_add_title: "Neuer Benutzer",
-    user_edit_title: "Benutzer aktualisieren"
+    user_edit_title: "Benutzer aktualisieren",
+    lang_current: "Deutsch",
+    lang_other: "Tiếng Việt"
   }
 };
 
+// Map này phải khớp 100% với INITIAL_EXPENSE_CATEGORIES trong types.ts
 const categoryMap: Record<string, keyof typeof translations['vi']> = {
   "Tiền nhà / Điện": "cat_rent",
   "Rác": "cat_trash",
@@ -291,6 +296,7 @@ const categoryMap: Record<string, keyof typeof translations['vi']> = {
   "Bonus": "cat_bonus",
   "Gutschein": "cat_gutschein",
   "Sai": "cat_error",
+  "Sai / Nhầm": "cat_error",
   "Nợ / Tiền ứng": "cat_debt",
   "Bảo hiểm": "cat_insurance",
   "Chi phí khác": "cat_other"
@@ -308,7 +314,10 @@ export const useTranslation = (lang: Language) => {
   };
 
   const translateCategory = (cat: string) => {
-    const key = categoryMap[cat];
+    if (!cat) return "";
+    // Làm sạch chuỗi trước khi so sánh
+    const trimmedCat = cat.trim();
+    const key = categoryMap[trimmedCat];
     return key ? t(key) : cat;
   };
 

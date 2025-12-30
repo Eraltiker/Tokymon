@@ -153,10 +153,26 @@ export interface AppData {
   logoUrl?: string; 
 }
 
-export const SCHEMA_VERSION = "1.0.6 (Branch Auto-Seed)";
+export const SCHEMA_VERSION = "1.0.7 (Data Protection Patch)";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const APP_CHANGELOG = [
+  {
+    version: "1.0.7",
+    date: "2024-05-29",
+    changes: {
+      vi: [
+        "Vá lỗi bảo vệ dữ liệu: Loại bỏ tất cả các lệnh xóa bộ nhớ đệm tự động có thể ảnh hưởng đến dữ liệu cục bộ.",
+        "Gia cố Persistence: Đảm bảo dữ liệu IndexedDB luôn được ưu tiên hàng đầu, ngăn chặn việc ghi đè dữ liệu mẫu.",
+        "Khôi phục session an toàn: Cải thiện logic nạp dữ liệu để duy trì trạng thái đăng nhập và cấu hình chi nhánh."
+      ],
+      de: [
+        "Datenschutz-Patch: Alle automatischen Befehle zum Löschen des Caches, die lokale Daten beeinträchtigen könnten, wurden entfernt.",
+        "Persistence-Verstärkung: Stellt sicher, dass IndexedDB-Daten immer Vorrang haben.",
+        "Sichere Session-Wiederherstellung: Verbesserte Datenladelogik zur Aufrechterhaltung des Anmeldestatus."
+      ]
+    }
+  },
   {
     version: "1.0.6",
     date: "2024-05-28",
@@ -168,20 +184,6 @@ export const APP_CHANGELOG = [
       de: [
         "Automatische Dateninitialisierung: Beim Erstellen einer neuen Filiale weist das System automatisch Standardkategorien und wiederkehrende Ausgaben zu.",
         "Verbesserte Verwaltung: Hilft neuen Filialleitern, schneller zu starten."
-      ]
-    }
-  },
-  {
-    version: "1.0.5",
-    date: "2024-05-27",
-    changes: {
-      vi: [
-        "Tối ưu hóa dữ liệu: Mỗi chi nhánh hiện có danh mục chi phí và chi phí định kỳ riêng biệt.",
-        "Cải thiện giao diện cài đặt: Yêu cầu chọn chi nhánh cụ thể để cấu hình chuyên sâu."
-      ],
-      de: [
-        "Datenoptimierung: Jede Filiale hat jetzt eigene Ausgabenkategorien und regelmäßige Ausgaben.",
-        "Verbesserte Einstellungen: Auswahl einer bestimmten Filiale für die Tiefenkonfiguration erforderlich."
       ]
     }
   }

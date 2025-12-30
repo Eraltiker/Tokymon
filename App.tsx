@@ -28,7 +28,7 @@ import {
   Heart, LockKeyhole, HelpCircle, LayoutGrid, Terminal, ShieldAlert,
   Database, CloudCheck, Languages, Copy, CheckCircle, Wrench, WifiOff,
   Code, Github, ExternalLink, ScrollText, CheckCircle2,
-  User as UserIcon, Lock
+  User as UserIcon, Lock, Globe2
 } from 'lucide-react';
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 phút
@@ -372,9 +372,21 @@ const App = () => {
            <button onClick={toggleTheme} className="w-9 h-9 sm:w-10 sm:h-10 text-slate-500 dark:text-slate-400 rounded-xl bg-white/50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center active-scale transition-all">
              {isDark ? <Sun className="w-4 h-4 sm:w-4.5 sm:h-4.5" /> : <Moon className="w-4 h-4 sm:w-4.5 sm:h-4.5" />}
            </button>
-           <button onClick={toggleLanguage} className="w-9 h-9 sm:w-10 sm:h-10 text-slate-500 dark:text-slate-400 rounded-xl bg-white/50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center active-scale transition-all text-[9px] font-black uppercase">
-             {lang === 'vi' ? 'DE' : 'VI'}
+           
+           <button onClick={toggleLanguage} className="group h-9 sm:h-10 pl-2 pr-3 sm:pl-3 sm:pr-4 rounded-xl bg-white/80 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center gap-2 active-scale transition-all overflow-hidden relative shadow-sm">
+             <div className={`w-5 h-5 rounded-full flex items-center justify-center overflow-hidden border border-slate-100 shrink-0`}>
+                {lang === 'vi' ? (
+                  <img src="https://flagcdn.com/w40/vn.png" className="w-full h-full object-cover scale-150" alt="VN" />
+                ) : (
+                  <img src="https://flagcdn.com/w40/de.png" className="w-full h-full object-cover scale-150" alt="DE" />
+                )}
+             </div>
+             <div className="flex flex-col items-start leading-none">
+                <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-brand-500 transition-colors">{t('lang_current')}</span>
+                <span className="text-[7px] font-black uppercase text-brand-600/60 dark:text-brand-400/60 tracking-tighter">Click to switch</span>
+             </div>
            </button>
+
            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full border transition-all ${isOnline ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' : 'bg-rose-500/10 border-rose-500/20 text-rose-500'}`}>
               {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <CloudCheck className="w-3 h-3" />}
            </div>

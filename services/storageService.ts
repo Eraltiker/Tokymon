@@ -1,3 +1,4 @@
+
 import { AppData, SCHEMA_VERSION, INITIAL_EXPENSE_CATEGORIES, Category, Transaction, Branch, User, RecurringTransaction, ReportSettings, UserRole } from '../types';
 
 const DB_NAME = 'TokymonDB';
@@ -22,10 +23,6 @@ const getDB = (): Promise<IDBDatabase> => {
 };
 
 export const StorageService = {
-  /**
-   * CƠ CHẾ MERGE LWW (Last-Write-Wins) KÈM TOMBSTONE BIAS
-   * Đảm bảo bản ghi đã xóa luôn chiếm ưu thế nếu có tranh chấp thời gian.
-   */
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
     const combinedMap = new Map<string, T>();
     const allItems = [...(local || []), ...(remote || [])];
@@ -41,16 +38,12 @@ export const StorageService = {
         if (itemTime > existingTime) {
           combinedMap.set(item.id, item);
         } else if (itemTime === existingTime) {
-          // Thiên kiến xóa: Nếu cùng thời gian, ưu tiên trạng thái "Đã xóa"
           if (item.deletedAt && !existing.deletedAt) {
             combinedMap.set(item.id, item);
           }
         }
       }
     });
-
-    // CRITICAL: Trả về toàn bộ danh sách bao gồm cả các bản ghi có deletedAt
-    // Để tất cả các thiết bị đều biết về sự tồn tại của "vết tích xóa" này.
     return Array.from(combinedMap.values());
   },
 
@@ -97,7 +90,6 @@ export const StorageService = {
 
       const merged = StorageService.mergeAppData(localData, remoteData);
       
-      // Đẩy ngay bản merge lên Cloud để chốt hạ trạng thái cho các thiết bị khác
       await fetch(url, { 
         method: 'POST', 
         body: JSON.stringify(merged), 
@@ -137,49 +129,56 @@ export const StorageService = {
         request.onerror = () => resolve(null);
       });
 
-      if (!rawData) return StorageService.getEmptyData(false);
+      // Nếu hoàn toàn không có dữ liệu (lần đầu khởi chạy), trả về bộ dữ liệu mẫu đầy đủ
+      if (!rawData) {
+        const empty = StorageService.getEmptyData(false);
+        await StorageService.saveLocal(empty);
+        return empty;
+      }
       
-      // Migration: Convert string[] categories to Category[] objects if needed
       const now = new Date().toISOString();
       const expenseCategories = (rawData.expenseCategories || []).map((c: any) => {
         if (typeof c === 'string') {
-          // Fix: Added missing branchId property to satisfy Category interface
           return { id: c, name: c, branchId: '', updatedAt: now };
         }
         return c;
       });
 
+      // Đảm bảo dữ liệu hiện có (rawData) ghi đè lên các giá trị rỗng của bản mẫu
       return {
         ...StorageService.getEmptyData(true),
         ...rawData,
-        expenseCategories,
+        expenseCategories: expenseCategories.length > 0 ? expenseCategories : StorageService.getEmptyData(true).expenseCategories,
         version: SCHEMA_VERSION
       };
     } catch (e) { 
+      console.error("Load Error, falling back to empty state", e);
       return StorageService.getEmptyData(false); 
     }
   },
 
   getEmptyData: (minimal: boolean = true): AppData => {
     const now = new Date().toISOString();
+    // Luôn bao gồm admin mặc định nếu không phải chế độ tối thiểu
+    const defaultUsers: User[] = [
+      { 
+        id: 'admin_root', 
+        username: 'admin', 
+        password: 'admin123', 
+        role: UserRole.SUPER_ADMIN, 
+        assignedBranchIds: [], 
+        preferences: { theme: 'dark', language: 'vi' }, 
+        updatedAt: now 
+      }
+    ];
+
     return {
       version: SCHEMA_VERSION,
       lastSync: '',
       transactions: [],
       branches: [],
-      users: minimal ? [] : [
-        { 
-          id: 'admin_root', 
-          username: 'admin', 
-          password: 'admin123', 
-          role: UserRole.SUPER_ADMIN, 
-          assignedBranchIds: [], 
-          preferences: { theme: 'dark', language: 'vi' }, 
-          updatedAt: now 
-        }
-      ],
-      // Fix: Added missing branchId property to satisfy Category interface
-      expenseCategories: INITIAL_EXPENSE_CATEGORIES.map(c => ({ id: c, name: c, branchId: '', updatedAt: now })),
+      users: minimal ? [] : defaultUsers,
+      expenseCategories: INITIAL_EXPENSE_CATEGORIES.map(c => ({ id: `cat_init_${Math.random().toString(36).substr(2, 5)}`, name: c, branchId: '', updatedAt: now })),
       recurringExpenses: [],
       auditLogs: [],
       reportSettings: { 
