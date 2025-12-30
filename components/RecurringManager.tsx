@@ -14,7 +14,7 @@ interface RecurringManagerProps {
 }
 
 const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringExpenses, onUpdate, categories, onGenerateTransactions, branchId, lang }) => {
-  const { t } = useTranslation(lang);
+  const { t, translateCategory } = useTranslation(lang);
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState(categories[0] || '');
   const [source] = useState<ExpenseSource>(ExpenseSource.WALLET);
@@ -82,7 +82,7 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringExpenses, 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-8 bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border dark:border-slate-700">
            <div className="md:col-span-2"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">{t('date')}</label><input type="number" min="1" max="31" value={day} onChange={e => setDay(e.target.value)} className="w-full p-2.5 bg-white dark:bg-slate-900 rounded-xl outline-none text-sm font-bold border dark:border-slate-700" /></div>
            <div className="md:col-span-3"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">{t('amount')} (€)</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0" className="w-full p-2.5 bg-white dark:bg-slate-900 rounded-xl outline-none text-sm font-bold border dark:border-slate-700" /></div>
-           <div className="md:col-span-3"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">{t('category')}</label><select value={category} onChange={e => setCategory(e.target.value)} className="w-full p-2.5 bg-white dark:bg-slate-900 rounded-xl outline-none text-sm font-bold border dark:border-slate-700">{categories.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+           <div className="md:col-span-3"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">{t('category')}</label><select value={category} onChange={e => setCategory(e.target.value)} className="w-full p-2.5 bg-white dark:bg-slate-900 rounded-xl outline-none text-sm font-bold border dark:border-slate-700">{categories.map(c => <option key={c} value={c}>{translateCategory(c)}</option>)}</select></div>
            <div className="md:col-span-3 flex items-end"><button onClick={handleAdd} className="w-full bg-indigo-600 text-white p-2.5 rounded-xl flex justify-center items-center shadow-lg active-scale"><Plus className="w-6 h-6" /></button></div>
         </div>
 
@@ -100,7 +100,7 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringExpenses, 
               {activeRecurring.map(item => (
                 <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                   <td className="p-4 font-bold text-xs">{t('date')} {item.dayOfMonth}</td>
-                  <td className="p-4 font-bold">{item.category}</td>
+                  <td className="p-4 font-bold">{translateCategory(item.category)}</td>
                   <td className="p-4 font-black text-rose-600">{formatCurrency(item.amount, lang)}</td>
                   <td className="p-4 text-center"><button onClick={() => handleDelete(item.id)} className="p-2 text-slate-300 hover:text-rose-600 active-scale transition-all"><Trash2 className="w-4 h-4" /></button></td>
                 </tr>
