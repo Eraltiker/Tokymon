@@ -35,10 +35,15 @@ export const StorageService = {
         const existingTime = new Date(existing.updatedAt).getTime();
         const itemTime = new Date(item.updatedAt).getTime();
 
-        if (itemTime > existingTime) {
+        // 1. Luôn ưu tiên bản ghi có dấu xóa (deletedAt) mới nhất
+        if (item.deletedAt && !existing.deletedAt) {
           combinedMap.set(item.id, item);
-        } else if (itemTime === existingTime) {
-          if (item.deletedAt && !existing.deletedAt) {
+        } else if (!item.deletedAt && existing.deletedAt) {
+          // Giữ bản ghi đã xóa
+          combinedMap.set(item.id, existing);
+        } else {
+          // 2. Nếu cả hai đều sống hoặc cả hai đều xóa, chọn cái mới hơn theo thời gian
+          if (itemTime > existingTime) {
             combinedMap.set(item.id, item);
           }
         }
@@ -129,7 +134,6 @@ export const StorageService = {
         request.onerror = () => resolve(null);
       });
 
-      // Nếu hoàn toàn không có dữ liệu (lần đầu khởi chạy), trả về bộ dữ liệu mẫu đầy đủ
       if (!rawData) {
         const empty = StorageService.getEmptyData(false);
         await StorageService.saveLocal(empty);
@@ -144,7 +148,6 @@ export const StorageService = {
         return c;
       });
 
-      // Đảm bảo dữ liệu hiện có (rawData) ghi đè lên các giá trị rỗng của bản mẫu
       return {
         ...StorageService.getEmptyData(true),
         ...rawData,
@@ -159,7 +162,6 @@ export const StorageService = {
 
   getEmptyData: (minimal: boolean = true): AppData => {
     const now = new Date().toISOString();
-    // Luôn bao gồm admin mặc định nếu không phải chế độ tối thiểu
     const defaultUsers: User[] = [
       { 
         id: 'admin_root', 

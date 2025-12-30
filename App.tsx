@@ -423,17 +423,12 @@ const App = () => {
                         setBranches={update => atomicUpdate(prev => {
                           const oldBranchIds = new Set(prev.branches.map(b => b.id));
                           const newBranches = typeof update === 'function' ? update(prev.branches) : update;
-                          
-                          // Tìm các chi nhánh mới được thêm vào
                           const addedBranches = newBranches.filter(b => !oldBranchIds.has(b.id) && !b.deletedAt);
                           
                           let nextCategories = [...prev.expenseCategories];
-                          let nextRecurring = [...prev.recurringExpenses];
                           
-                          // Thực hiện gieo mầm dữ liệu cho chi nhánh mới
                           addedBranches.forEach(branch => {
                             const now = new Date().toISOString();
-                            // 1. Thêm danh mục mặc định
                             const defaultCats: Category[] = INITIAL_EXPENSE_CATEGORIES.map(name => ({
                               id: `cat_${branch.id}_${Math.random().toString(36).substr(2, 9)}`,
                               name,
@@ -441,26 +436,13 @@ const App = () => {
                               updatedAt: now
                             }));
                             nextCategories = [...nextCategories, ...defaultCats];
-                            
-                            // 2. Thêm chi phí định kỳ mặc định
-                            const defaultRecs: RecurringTransaction[] = DEFAULT_RECURRING_TEMPLATE.map(t => ({
-                              id: `rec_${branch.id}_${Math.random().toString(36).substr(2, 9)}`,
-                              branchId: branch.id,
-                              amount: t.amount,
-                              category: t.category,
-                              dayOfMonth: t.day,
-                              note: t.note,
-                              expenseSource: ExpenseSource.WALLET,
-                              updatedAt: now
-                            }));
-                            nextRecurring = [...nextRecurring, ...defaultRecs];
+                            // KHÔNG TẠO CHI PHÍ ĐỊNH KỲ MẶC ĐỊNH THEO YÊU CẦU
                           });
                           
                           return {
                             ...prev,
                             branches: newBranches,
-                            expenseCategories: nextCategories,
-                            recurringExpenses: nextRecurring
+                            expenseCategories: nextCategories
                           };
                         }, true)} 
                         onAudit={addAuditLog} 
@@ -506,8 +488,10 @@ const App = () => {
                               categories={branchCategories.map(c => c.name)} 
                               onUpdate={(updates) => {
                                 atomicUpdate(prev => {
-                                  const otherBranchExpenses = prev.recurringExpenses.filter(r => r.branchId !== currentBranchId);
-                                  return { ...prev, recurringExpenses: [...otherBranchExpenses, ...updates] };
+                                  // Hợp nhất thay đổi vào mảng tổng thay vì chỉ gán mới
+                                  const existingMap = new Map(prev.recurringExpenses.map(r => [r.id, r]));
+                                  updates.forEach(u => existingMap.set(u.id, u));
+                                  return { ...prev, recurringExpenses: Array.from(existingMap.values()) };
                                 }, true);
                               }} 
                               onGenerateTransactions={txs => atomicUpdate(prev => ({...prev, transactions: [...txs, ...prev.transactions]}), true)} 
