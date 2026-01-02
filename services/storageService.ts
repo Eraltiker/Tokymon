@@ -23,47 +23,58 @@ const getDB = (): Promise<IDBDatabase> => {
 };
 
 export const StorageService = {
+  /**
+   * Thuật toán Last-Write-Wins (LWW) Element Set
+   * Đảm bảo dữ liệu mới nhất (dựa trên updatedAt) luôn được giữ lại.
+   */
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
     const combinedMap = new Map<string, T>();
+    
+    // Đưa tất cả vào một mảng để xử lý
     const allItems = [...(local || []), ...(remote || [])];
 
-    allItems.forEach(item => {
+    for (const item of allItems) {
+      if (!item || !item.id) continue;
+      
       const existing = combinedMap.get(item.id);
       if (!existing) {
         combinedMap.set(item.id, item);
-      } else {
-        const existingTime = new Date(existing.updatedAt).getTime();
-        const itemTime = new Date(item.updatedAt).getTime();
+        continue;
+      }
 
-        // 1. Luôn ưu tiên bản ghi có dấu xóa (deletedAt) mới nhất
+      const existingTime = new Date(existing.updatedAt).getTime();
+      const itemTime = new Date(item.updatedAt).getTime();
+
+      // Nếu mục này bị xóa (deletedAt), nó chỉ thắng nếu deletedAt mới hơn hoặc updatedAt mới hơn
+      if (itemTime > existingTime) {
+        combinedMap.set(item.id, item);
+      } else if (itemTime === existingTime) {
+        // Nếu cùng timestamp, ưu tiên trạng thái bị xóa để tránh "zombie data"
         if (item.deletedAt && !existing.deletedAt) {
           combinedMap.set(item.id, item);
-        } else if (!item.deletedAt && existing.deletedAt) {
-          // Giữ bản ghi đã xóa
-          combinedMap.set(item.id, existing);
-        } else {
-          // 2. Nếu cả hai đều sống hoặc cả hai đều xóa, chọn cái mới hơn theo thời gian
-          if (itemTime > existingTime) {
-            combinedMap.set(item.id, item);
-          }
         }
       }
-    });
+    }
+    
     return Array.from(combinedMap.values());
   },
 
   mergeAppData: (local: AppData, remote: AppData): AppData => {
+    // Luôn giữ phiên bản schema cao nhất
+    const version = (parseFloat(local.version) > parseFloat(remote.version)) ? local.version : remote.version;
+    
     return {
-      version: SCHEMA_VERSION,
+      version: version || SCHEMA_VERSION,
       lastSync: new Date().toISOString(),
-      transactions: StorageService.mergeArrays(local.transactions || [], remote.transactions || []),
-      branches: StorageService.mergeArrays(local.branches || [], remote.branches || []),
-      users: StorageService.mergeArrays(local.users || [], remote.users || []),
-      expenseCategories: StorageService.mergeArrays(local.expenseCategories || [], remote.expenseCategories || []),
-      recurringExpenses: StorageService.mergeArrays(local.recurringExpenses || [], remote.recurringExpenses || []),
+      transactions: StorageService.mergeArrays(local.transactions, remote.transactions),
+      branches: StorageService.mergeArrays(local.branches, remote.branches),
+      users: StorageService.mergeArrays(local.users, remote.users),
+      expenseCategories: StorageService.mergeArrays(local.expenseCategories, remote.expenseCategories),
+      recurringExpenses: StorageService.mergeArrays(local.recurringExpenses, remote.recurringExpenses),
       auditLogs: [...(local.auditLogs || []), ...(remote.auditLogs || [])]
         .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)
-        .slice(-1000),
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 1000),
       reportSettings: remote.reportSettings || local.reportSettings,
       logoUrl: remote.logoUrl || local.logoUrl
     };
@@ -72,14 +83,14 @@ export const StorageService = {
   async syncWithCloud(syncKey: string, localData: AppData, forcePush: boolean = false): Promise<AppData> {
     if (!syncKey || syncKey.trim() === '') return localData;
     const url = `https://kvdb.io/${syncKey}/tokymon_v1`;
+    
     try {
       if (forcePush) {
-        const pushResponse = await fetch(url, { 
+        await fetch(url, { 
           method: 'POST', 
           body: JSON.stringify(localData), 
           headers: { 'Content-Type': 'application/json' } 
         });
-        if (!pushResponse.ok) throw new Error("Cloud Push Failed");
         return { ...localData, lastSync: new Date().toISOString() };
       }
       
@@ -93,8 +104,10 @@ export const StorageService = {
         remoteData = StorageService.getEmptyData(true); 
       }
 
+      // Thực hiện Merge an toàn
       const merged = StorageService.mergeAppData(localData, remoteData);
       
+      // Đẩy bản đã merge lên lại Cloud ngay lập tức
       await fetch(url, { 
         method: 'POST', 
         body: JSON.stringify(merged), 
@@ -103,23 +116,28 @@ export const StorageService = {
       
       return merged;
     } catch (e) { 
-      console.error("Sync Error:", e);
+      console.error("Sync Error - Network down?", e);
       throw e; 
     }
   },
 
-  async saveLocal(data: AppData) {
+  async saveLocal(data: AppData): Promise<boolean> {
     try {
       const db = await getDB();
-      const transaction = db.transaction(STORE_NAME, 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.put(data, DATA_KEY);
       return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.put(data, DATA_KEY);
+        
         request.onsuccess = () => resolve(true);
         request.onerror = () => reject(request.error);
+        
+        // Đảm bảo transaction hoàn tất
+        transaction.oncomplete = () => resolve(true);
       });
     } catch (e) { 
-      console.error("IDB Save Error", e); 
+      console.error("Critical: IndexedDB Save Failed", e);
+      return false;
     }
   },
 
@@ -140,22 +158,14 @@ export const StorageService = {
         return empty;
       }
       
-      const now = new Date().toISOString();
-      const expenseCategories = (rawData.expenseCategories || []).map((c: any) => {
-        if (typeof c === 'string') {
-          return { id: c, name: c, branchId: '', updatedAt: now };
-        }
-        return c;
-      });
-
+      // Đảm bảo dữ liệu load lên đầy đủ các trường
       return {
         ...StorageService.getEmptyData(true),
         ...rawData,
-        expenseCategories: expenseCategories.length > 0 ? expenseCategories : StorageService.getEmptyData(true).expenseCategories,
-        version: SCHEMA_VERSION
+        version: SCHEMA_VERSION // Cập nhật version local
       };
     } catch (e) { 
-      console.error("Load Error, falling back to empty state", e);
+      console.error("IDB Load Error", e);
       return StorageService.getEmptyData(false); 
     }
   },
@@ -180,7 +190,12 @@ export const StorageService = {
       transactions: [],
       branches: [],
       users: minimal ? [] : defaultUsers,
-      expenseCategories: INITIAL_EXPENSE_CATEGORIES.map(c => ({ id: `cat_init_${Math.random().toString(36).substr(2, 5)}`, name: c, branchId: '', updatedAt: now })),
+      expenseCategories: INITIAL_EXPENSE_CATEGORIES.map(c => ({ 
+        id: `cat_init_${Math.random().toString(36).substr(2, 5)}`, 
+        name: c, 
+        branchId: '', 
+        updatedAt: now 
+      })),
       recurringExpenses: [],
       auditLogs: [],
       reportSettings: { 

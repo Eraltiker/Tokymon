@@ -33,7 +33,7 @@ import {
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 phút
 const GLOBAL_SYNC_KEY = 'NZQkBLdrxvnEEMUw928weK';
-const SYNC_DEBOUNCE_MS = 8000;
+const SYNC_DEBOUNCE_MS = 5000; // Rút ngắn thời gian debounce
 
 const App = () => {
   const validateSessionOnStartup = () => {
@@ -81,24 +81,31 @@ const App = () => {
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const inactivityTimerRef = useRef<number | null>(null);
+  
+  // Ref luôn giữ giá trị dữ liệu mới nhất để tránh stale closure trong sync
   const dataRef = useRef(data);
   const syncDebounceRef = useRef<number | null>(null);
 
   const isAdmin = currentUser?.role === UserRole.SUPER_ADMIN || currentUser?.role === UserRole.ADMIN;
   const isSuperAdmin = currentUser?.role === UserRole.SUPER_ADMIN;
 
-  const handleCloudSync = useCallback(async (silent = false, specificData?: AppData, forcePush: boolean = false) => {
+  const handleCloudSync = useCallback(async (silent = false, forcePush: boolean = false) => {
     if (!navigator.onLine || isSyncInProgressRef.current) return;
     
     isSyncInProgressRef.current = true;
     if (!silent) setIsSyncing(true);
     
     try {
-      const targetData = specificData || dataRef.current;
-      const merged = await StorageService.syncWithCloud(GLOBAL_SYNC_KEY, targetData, forcePush);
+      // Luôn lấy dữ liệu mới nhất từ ref thay vì state
+      const currentLocalData = dataRef.current;
+      const merged = await StorageService.syncWithCloud(GLOBAL_SYNC_KEY, currentLocalData, forcePush);
       
-      setData(prev => {
+      // Chỉ cập nhật nếu có thay đổi thực sự
+      if (JSON.stringify(merged) !== JSON.stringify(currentLocalData)) {
+        setData(merged);
         dataRef.current = merged;
+        await StorageService.saveLocal(merged);
+        
         if (currentUser) {
           const updatedProfile = merged.users.find(u => u.id === currentUser.id);
           if (updatedProfile && JSON.stringify(updatedProfile) !== JSON.stringify(currentUser)) {
@@ -106,9 +113,7 @@ const App = () => {
              localStorage.setItem('tokymon_user', JSON.stringify(updatedProfile));
           }
         }
-        StorageService.saveLocal(merged);
-        return merged;
-      });
+      }
       
       setSyncStatus('SUCCESS');
       if (!silent) setTimeout(() => setSyncStatus('IDLE'), 3000);
@@ -120,15 +125,28 @@ const App = () => {
     }
   }, [currentUser]);
 
+  /**
+   * Cập nhật dữ liệu nguyên tử: Ghi cục bộ xong mới cho phép đồng bộ
+   */
   const atomicUpdate = useCallback(async (updater: (prev: AppData) => AppData, immediateSync = false) => {
+    // 1. Tính toán dữ liệu mới
     const nextData = updater(dataRef.current);
+    
+    // 2. Cập nhật UI & Ref ngay lập tức cho trải nghiệm mượt
     dataRef.current = nextData;
     setData(nextData);
     
-    StorageService.saveLocal(nextData);
+    // 3. Ghi vào IndexedDB (Quan trọng: Phải thành công trước khi làm bước khác)
+    const success = await StorageService.saveLocal(nextData);
     
-    if (immediateSync && navigator.onLine) {
-      await handleCloudSync(true, nextData);
+    if (success) {
+      if (immediateSync && navigator.onLine) {
+        await handleCloudSync(true);
+      } else {
+        // Kích hoạt debounce sync
+        if (syncDebounceRef.current) window.clearTimeout(syncDebounceRef.current);
+        syncDebounceRef.current = window.setTimeout(() => handleCloudSync(true), SYNC_DEBOUNCE_MS);
+      }
     }
   }, [handleCloudSync]);
 
@@ -146,6 +164,7 @@ const App = () => {
     inactivityTimerRef.current = window.setTimeout(() => handleLogout(), INACTIVITY_TIMEOUT);
   }, [currentUser, handleLogout]);
 
+  // Load dữ liệu ban đầu
   useEffect(() => {
     let isMounted = true;
     const initData = async () => {
@@ -154,7 +173,7 @@ const App = () => {
         setData(loadedData);
         dataRef.current = loadedData;
         setIsDataLoaded(true);
-        if (navigator.onLine) handleCloudSync(true, loadedData);
+        if (navigator.onLine) handleCloudSync(true);
       }
     };
     initData();
@@ -167,14 +186,7 @@ const App = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [handleCloudSync]);
-
-  useEffect(() => {
-    if (isDataLoaded && isOnline) {
-      if (syncDebounceRef.current) window.clearTimeout(syncDebounceRef.current);
-      syncDebounceRef.current = window.setTimeout(() => handleCloudSync(true), SYNC_DEBOUNCE_MS);
-    }
-  }, [data, isDataLoaded, isOnline, handleCloudSync]);
+  }, []); // Chỉ chạy 1 lần khi mount
 
   useEffect(() => {
     if (isDark) {
@@ -233,8 +245,14 @@ const App = () => {
     atomicUpdate(prev => ({
       ...prev,
       auditLogs: [{
-        id: Date.now().toString(), timestamp: new Date().toISOString(), userId: currentUser.id,
-        username: currentUser.username, action, entityType, entityId, details
+        id: Date.now().toString(), 
+        timestamp: new Date().toISOString(), 
+        userId: currentUser.id,
+        username: currentUser.username, 
+        action, 
+        entityType, 
+        entityId, 
+        details
       }, ...prev.auditLogs].slice(0, 1000)
     }));
   }, [currentUser, atomicUpdate]);
@@ -286,16 +304,12 @@ const App = () => {
     return (
       <div className="min-h-screen relative flex items-center justify-center p-6 bg-slate-50 dark:bg-slate-950 overflow-hidden">
         <div className="login-mesh" />
-        <div className="absolute top-[-10%] right-[-10%] w-[400px] h-[400px] bg-brand-500/10 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[300px] h-[300px] bg-rose-500/5 rounded-full blur-[80px] pointer-events-none" />
-
         <div className="w-full max-w-[380px] z-10 space-y-8 animate-ios">
           <div className="text-center space-y-6">
             <div className="relative inline-block">
               <div className="w-24 h-24 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-vivid flex items-center justify-center mx-auto border border-white dark:border-slate-800 animate-float relative z-10">
                 <UtensilsCrossed className="w-12 h-12 text-brand-600 dark:text-brand-400" />
               </div>
-              <div className="absolute inset-0 bg-brand-500/20 blur-2xl rounded-full animate-pulse" />
             </div>
             <div className="space-y-1">
               <h1 className="text-4xl font-black text-slate-950 dark:text-white tracking-tighter uppercase leading-none">TOKYMON</h1>
@@ -308,46 +322,21 @@ const App = () => {
               <div className="text-center">
                  <h2 className="text-lg font-black uppercase text-slate-800 dark:text-slate-100 tracking-tight">{t('login_welcome')}</h2>
               </div>
-
               <form onSubmit={handleLoginSubmit} className="space-y-5">
                 <div className="relative group">
                   <UserIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
-                  <input type="text" value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value})} className="w-full p-4.5 pl-14 bg-slate-50/50 dark:bg-black/20 rounded-2xl font-bold border border-slate-200 dark:border-white/5 outline-none dark:text-white text-slate-950 transition-all focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50" placeholder={t('username')} required />
+                  <input type="text" value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value})} className="w-full p-4.5 pl-14 bg-slate-50/50 dark:bg-black/20 rounded-2xl font-bold border border-slate-200 dark:border-white/5 outline-none dark:text-white transition-all focus:ring-2 focus:ring-brand-500/20" placeholder={t('username')} required />
                 </div>
-                
                 <div className="relative group">
                   <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
-                  <input type="password" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} className="w-full p-4.5 pl-14 bg-slate-50/50 dark:bg-black/20 rounded-2xl font-bold border border-slate-200 dark:border-white/5 outline-none dark:text-white text-slate-950 transition-all focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500/50" placeholder={t('password')} required />
+                  <input type="password" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} className="w-full p-4.5 pl-14 bg-slate-50/50 dark:bg-black/20 rounded-2xl font-bold border border-slate-200 dark:border-white/5 outline-none dark:text-white transition-all focus:ring-2 focus:ring-brand-500/20" placeholder={t('password')} required />
                 </div>
-
-                {loginError && (
-                  <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl animate-shake">
-                    <p className="text-rose-500 text-[10px] font-black uppercase text-center">{loginError}</p>
-                  </div>
-                )}
-
-                <button type="submit" className="w-full h-15 bg-brand-600 hover:bg-brand-500 text-white rounded-[1.8rem] font-black uppercase shadow-vivid flex items-center justify-center gap-3 active-scale transition-all group overflow-hidden relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-                  <span className="relative z-10">{t('login')}</span>
-                  <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
+                {loginError && <p className="text-rose-500 text-[10px] font-black uppercase text-center">{loginError}</p>}
+                <button type="submit" className="w-full h-15 bg-brand-600 hover:bg-brand-500 text-white rounded-[1.8rem] font-black uppercase shadow-vivid flex items-center justify-center gap-3 transition-all active-scale">
+                  <span>{t('login')}</span>
+                  <ArrowRight className="w-5 h-5" />
                 </button>
               </form>
-            </div>
-          </div>
-
-          <div className="text-center space-y-4 pt-4">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-200/50 dark:bg-slate-800/50 rounded-full border border-slate-300 dark:border-slate-700 backdrop-blur-sm opacity-80">
-              <Code className="w-3.5 h-3.5 text-brand-600" />
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
-                {t('dev_by')} <span className="text-brand-600 dark:text-brand-400">thPhuoc</span>
-              </p>
-            </div>
-            <div className="flex items-center justify-center gap-3 opacity-40">
-              <div className="h-px w-8 bg-slate-400" />
-              <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-500 dark:text-slate-400">
-                {t('ver')} {SCHEMA_VERSION.split(' ')[0]}
-              </p>
-              <div className="h-px w-8 bg-slate-400" />
             </div>
           </div>
         </div>
@@ -363,7 +352,7 @@ const App = () => {
       <header className="px-4 py-3 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800/60 shadow-sm safe-pt">
         <div className="flex items-center gap-3 min-w-0 max-w-[50%]">
            <div className="relative w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shrink-0" style={{ backgroundColor: activeBranchColor }}><UtensilsCrossed className="w-5 h-5" /></div>
-           <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex flex-col items-start min-w-0 text-left active-scale transition-all">
+           <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex flex-col items-start min-w-0 text-left active-scale">
               <div className="flex items-center gap-1.5 w-full"><span className="text-[13px] font-black uppercase dark:text-white truncate tracking-tighter leading-none">{currentBranchName}</span><ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showBranchDropdown ? 'rotate-180' : ''}`} /></div>
               <p className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">{currentUser?.role}</p>
            </button>
@@ -372,21 +361,11 @@ const App = () => {
            <button onClick={toggleTheme} className="w-9 h-9 sm:w-10 sm:h-10 text-slate-500 dark:text-slate-400 rounded-xl bg-white/50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center active-scale transition-all">
              {isDark ? <Sun className="w-4 h-4 sm:w-4.5 sm:h-4.5" /> : <Moon className="w-4 h-4 sm:w-4.5 sm:h-4.5" />}
            </button>
-           
-           <button onClick={toggleLanguage} className="group h-9 sm:h-10 pl-2 pr-3 sm:pl-3 sm:pr-4 rounded-xl bg-white/80 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center gap-2 active-scale transition-all overflow-hidden relative shadow-sm">
-             <div className={`w-5 h-5 rounded-full flex items-center justify-center overflow-hidden border border-slate-100 shrink-0`}>
-                {lang === 'vi' ? (
-                  <img src="https://flagcdn.com/w40/vn.png" className="w-full h-full object-cover scale-150" alt="VN" />
-                ) : (
-                  <img src="https://flagcdn.com/w40/de.png" className="w-full h-full object-cover scale-150" alt="DE" />
-                )}
-             </div>
-             <div className="flex flex-col items-start leading-none">
-                <span className="text-[9px] font-black uppercase text-slate-400 group-hover:text-brand-500 transition-colors">{t('lang_current')}</span>
-                <span className="text-[7px] font-black uppercase text-brand-600/60 dark:text-brand-400/60 tracking-tighter">Click to switch</span>
+           <button onClick={toggleLanguage} className="group h-9 sm:h-10 pl-2 pr-3 sm:pl-3 sm:pr-4 rounded-xl bg-white/80 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center gap-2 active-scale transition-all">
+             <div className="w-5 h-5 rounded-full overflow-hidden border border-slate-100 shrink-0">
+                {lang === 'vi' ? <img src="https://flagcdn.com/w40/vn.png" className="w-full h-full object-cover scale-150" alt="VN" /> : <img src="https://flagcdn.com/w40/de.png" className="w-full h-full object-cover scale-150" alt="DE" />}
              </div>
            </button>
-
            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full border transition-all ${isOnline ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600' : 'bg-rose-500/10 border-rose-500/20 text-rose-500'}`}>
               {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <CloudCheck className="w-3 h-3" />}
            </div>
@@ -413,7 +392,7 @@ const App = () => {
                       <div className="space-y-8 max-w-md mx-auto pt-6">
                         <div className="text-center space-y-3"><div className="w-20 h-20 bg-brand-50/50 dark:bg-brand-900/10 text-brand-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-inner" style={{ color: activeBranchColor }}><Database className="w-10 h-10" /></div><h3 className="text-xl font-black uppercase dark:text-white">Cloud Vault</h3></div>
                         <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-[2rem] border-2 border-slate-200 dark:border-slate-800 space-y-4"><div className="flex items-center justify-between"><span className="text-[9px] font-black uppercase text-slate-400">Bucket ID</span><button onClick={() => { navigator.clipboard.writeText(GLOBAL_SYNC_KEY); alert('ID Copied'); }} className="p-2"><Copy className="w-3.5 h-3.5" /></button></div><div className="bg-white dark:bg-slate-900 p-4 rounded-xl font-mono text-[10px] break-all">{GLOBAL_SYNC_KEY}</div></div>
-                        <button onClick={() => handleCloudSync()} disabled={isSyncing || !isOnline} className="w-full py-5 bg-brand-600 text-white rounded-2xl font-black uppercase text-[11px] flex items-center justify-center gap-3 active-scale shadow-vivid" style={{ backgroundColor: activeBranchColor }}><RefreshCw className={isSyncing ? 'animate-spin' : ''} /> {isSyncing ? 'Syncing...' : 'Sync Now'}</button>
+                        <button onClick={() => handleCloudSync(false)} disabled={isSyncing || !isOnline} className="w-full py-5 bg-brand-600 text-white rounded-2xl font-black uppercase text-[11px] flex items-center justify-center gap-3 active-scale shadow-vivid" style={{ backgroundColor: activeBranchColor }}><RefreshCw className={isSyncing ? 'animate-spin' : ''} /> {isSyncing ? 'Syncing...' : 'Sync Now'}</button>
                       </div>
                     )}
                     {settingsSubTab === 'export' && <ExportManager transactions={activeTransactions} branches={activeBranches} lang={lang} />}
@@ -426,7 +405,6 @@ const App = () => {
                           const addedBranches = newBranches.filter(b => !oldBranchIds.has(b.id) && !b.deletedAt);
                           
                           let nextCategories = [...prev.expenseCategories];
-                          
                           addedBranches.forEach(branch => {
                             const now = new Date().toISOString();
                             const defaultCats: Category[] = INITIAL_EXPENSE_CATEGORIES.map(name => ({
@@ -436,7 +414,6 @@ const App = () => {
                               updatedAt: now
                             }));
                             nextCategories = [...nextCategories, ...defaultCats];
-                            // KHÔNG TẠO CHI PHÍ ĐỊNH KỲ MẶC ĐỊNH THEO YÊU CẦU
                           });
                           
                           return {
@@ -488,7 +465,6 @@ const App = () => {
                               categories={branchCategories.map(c => c.name)} 
                               onUpdate={(updates) => {
                                 atomicUpdate(prev => {
-                                  // Hợp nhất thay đổi vào mảng tổng thay vì chỉ gán mới
                                   const existingMap = new Map(prev.recurringExpenses.map(r => [r.id, r]));
                                   updates.forEach(u => existingMap.set(u.id, u));
                                   return { ...prev, recurringExpenses: Array.from(existingMap.values()) };
@@ -502,42 +478,30 @@ const App = () => {
                         )}
                       </div>
                     )}
-                    {settingsSubTab === 'audit' && (<div className="space-y-4 max-h-[600px] overflow-y-auto no-scrollbar pr-2">{data.auditLogs.slice().reverse().map(log => (<div key={log.id} className="p-5 bg-slate-50 dark:bg-slate-950/40 rounded-3xl border border-slate-100 dark:border-slate-800 flex justify-between"><div className="flex flex-col gap-1"><span className="text-[9px] font-black text-brand-600 uppercase" style={{ color: activeBranchColor }}>{log.action}</span><span className="text-xs font-bold dark:text-slate-200">{log.details}</span></div><span className="text-[8px] text-slate-400 font-bold uppercase">{new Date(log.timestamp).toLocaleString()}</span></div>))}</div>)}
+                    {settingsSubTab === 'audit' && (<div className="space-y-4 max-h-[600px] overflow-y-auto no-scrollbar pr-2">{data.auditLogs.map(log => (<div key={log.id} className="p-5 bg-slate-50 dark:bg-slate-950/40 rounded-3xl border border-slate-100 dark:border-slate-800 flex justify-between"><div className="flex flex-col gap-1"><span className="text-[9px] font-black text-brand-600 uppercase" style={{ color: activeBranchColor }}>{log.action}</span><span className="text-xs font-bold dark:text-slate-200">{log.details}</span></div><span className="text-[8px] text-slate-400 font-bold uppercase">{new Date(log.timestamp).toLocaleString()}</span></div>))}</div>)}
                     {settingsSubTab === 'about' && (
-                      <div className="space-y-8 animate-ios">
-                        <div className="flex flex-col items-center text-center space-y-4">
-                           <div className="w-20 h-20 bg-brand-600 rounded-[2rem] flex items-center justify-center text-white shadow-vivid animate-float"><UtensilsCrossed className="w-10 h-10" /></div>
-                           <div>
-                              <h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Tokymon Finance</h2>
-                              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1">Enterprise Edition v{SCHEMA_VERSION.split(' ')[0]}</p>
-                           </div>
-                        </div>
-                        <div className="space-y-6">
-                           <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-[2.5rem] border dark:border-slate-800">
-                              <div className="flex items-center gap-3 mb-4">
-                                 <ScrollText className="w-5 h-5 text-brand-600" />
-                                 <h4 className="text-[11px] font-black uppercase dark:text-white tracking-widest">{t('whats_new')}</h4>
-                              </div>
-                              <div className="space-y-6">
-                                 {APP_CHANGELOG.map((log) => (
-                                   <div key={log.version} className="space-y-3">
-                                      <div className="flex justify-between items-center">
-                                         <span className="px-3 py-1 bg-brand-600 text-white text-[9px] font-black rounded-lg">v{log.version}</span>
-                                         <span className="text-[9px] font-bold text-slate-400">{log.date}</span>
-                                      </div>
-                                      <ul className="space-y-2 pl-2">
-                                         {(log.changes[lang] || log.changes['vi'] || []).map((change: string, i: number) => (
-                                           <li key={i} className="text-[11px] font-bold text-slate-600 dark:text-slate-400 flex gap-2">
-                                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> 
-                                              <span>{change}</span>
-                                           </li>
-                                         ))}
-                                      </ul>
-                                   </div>
-                                 ))}
-                              </div>
-                           </div>
-                        </div>
+                      <div className="space-y-8 animate-ios text-center">
+                         <div className="w-20 h-20 bg-brand-600 rounded-[2rem] flex items-center justify-center text-white shadow-vivid animate-float mx-auto"><UtensilsCrossed className="w-10 h-10" /></div>
+                         <h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Tokymon Finance</h2>
+                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1">Enterprise Edition v{SCHEMA_VERSION.split(' ')[0]}</p>
+                         <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-[2.5rem] border dark:border-slate-800 text-left">
+                            <h4 className="text-[11px] font-black uppercase dark:text-white tracking-widest mb-4">{t('whats_new')}</h4>
+                            <div className="space-y-4">
+                               {APP_CHANGELOG.map((log) => (
+                                 <div key={log.version} className="space-y-2">
+                                    <span className="px-2 py-0.5 bg-brand-600 text-white text-[9px] font-black rounded-md">v{log.version}</span>
+                                    <ul className="space-y-1">
+                                       {(log.changes[lang] || log.changes['vi'] || []).map((change: string, i: number) => (
+                                         <li key={i} className="text-[11px] font-bold text-slate-600 dark:text-slate-400 flex gap-2">
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> 
+                                            <span>{change}</span>
+                                         </li>
+                                       ))}
+                                    </ul>
+                                 </div>
+                               ))}
+                            </div>
+                         </div>
                       </div>
                     )}
                 </div>
