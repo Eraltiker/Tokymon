@@ -30,6 +30,9 @@ interface DashboardProps {
   onToggleGlobal?: () => void;
 }
 
+// Định nghĩa Type Alias để đảm bảo tính nhất quán
+type DashboardTab = 'OVERVIEW' | 'DAILY_REPORT' | 'WALLET_STATS' | 'LIABILITIES';
+
 const Dashboard: React.FC<DashboardProps> = ({ 
   transactions, 
   initialBalances, 
@@ -44,8 +47,8 @@ const Dashboard: React.FC<DashboardProps> = ({
     return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
   });
   
-  // Định nghĩa kiểu dữ liệu chính xác cho activeTab để tránh lỗi TS2367
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'DAILY_REPORT' | 'WALLET_STATS' | 'LIABILITIES'>('OVERVIEW');
+  // Sử dụng Type Alias DashboardTab để tránh lỗi TS2367
+  const [activeTab, setActiveTab] = useState<DashboardTab>('OVERVIEW');
   const [isExporting, setIsExporting] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -163,6 +166,14 @@ const Dashboard: React.FC<DashboardProps> = ({
     return allowedBranches.find(b => b.id === currentBranchId)?.color || '#4f46e5';
   }, [currentBranchId, allowedBranches, isSystemView]);
 
+  // Danh sách các tab với kiểu dữ liệu an toàn
+  const tabs: { id: DashboardTab; label: string; icon: any }[] = [
+    { id: 'OVERVIEW', label: t('overview_tab'), icon: Layers },
+    { id: 'DAILY_REPORT', label: t('daily_tab'), icon: Activity },
+    { id: 'WALLET_STATS', label: isSystemView ? t('branch_tab') : t('wallet_tab'), icon: isSystemView ? Building2 : Wallet },
+    { id: 'LIABILITIES', label: t('liabilities_tab'), icon: AlertCircle }
+  ];
+
   return (
     <div className="space-y-6 pb-32 animate-ios max-w-2xl mx-auto px-1">
       <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-[2.5rem] p-4 border border-white dark:border-slate-800 shadow-soft flex items-center justify-between">
@@ -188,13 +199,12 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       <div className="flex gap-2 p-1.5 bg-slate-200/40 dark:bg-slate-950/40 rounded-[1.8rem] border border-white/40 dark:border-slate-800/50 overflow-x-auto no-scrollbar">
-        {[
-          { id: 'OVERVIEW', label: t('overview_tab'), icon: Layers },
-          { id: 'DAILY_REPORT', label: t('daily_tab'), icon: Activity },
-          { id: 'WALLET_STATS', label: isSystemView ? t('branch_tab') : t('wallet_tab'), icon: isSystemView ? Building2 : Wallet },
-          { id: 'LIABILITIES', label: t('liabilities_tab'), icon: AlertCircle }
-        ].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex-1 py-3 px-2 rounded-[1.4rem] text-[11px] font-black uppercase tracking-tight transition-all flex items-center justify-center gap-2 ${activeTab === tab.id ? 'bg-white dark:bg-slate-800 text-brand-600 dark:text-white shadow-sm border border-white dark:border-slate-700' : 'text-slate-500 dark:text-slate-500'}`}>
+        {tabs.map(tab => (
+          <button 
+            key={tab.id} 
+            onClick={() => setActiveTab(tab.id)} 
+            className={`flex-1 py-3 px-2 rounded-[1.4rem] text-[11px] font-black uppercase tracking-tight transition-all flex items-center justify-center gap-2 ${activeTab === tab.id ? 'bg-white dark:bg-slate-800 text-brand-600 dark:text-white shadow-sm border border-white dark:border-slate-700' : 'text-slate-500 dark:text-slate-500'}`}
+          >
             <tab.icon className="w-4 h-4" /> {tab.label}
           </button>
         ))}
