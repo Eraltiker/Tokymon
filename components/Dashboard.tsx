@@ -44,7 +44,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
   });
   
-  // Sửa lỗi TS2367 bằng cách cập nhật union type cho activeTab
+  // Định nghĩa kiểu dữ liệu chính xác cho activeTab để tránh lỗi TS2367
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'DAILY_REPORT' | 'WALLET_STATS' | 'LIABILITIES'>('OVERVIEW');
   const [isExporting, setIsExporting] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
@@ -124,11 +124,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   }, [monthTransactions]);
 
   const balances = useMemo(() => {
-    // 1. Lấy vốn ban đầu của các chi nhánh đang xem
     const startCash = activeBranchesList.reduce((sum, b) => sum + (b.initialCash || 0), 0);
     const startCard = activeBranchesList.reduce((sum, b) => sum + (b.initialCard || 0), 0);
 
-    // 2. Cộng dồn doanh thu và trừ chi phí
     let cumulativeCashIn = 0, cumulativeCardIn = 0, cumulativeCashOut = 0, cumulativeCardOut = 0;
     
     branchTransactions.forEach(tx => {
@@ -140,11 +138,9 @@ const Dashboard: React.FC<DashboardProps> = ({
           cumulativeCashIn += tx.amount || 0;
         }
       } else if (tx.type === TransactionType.EXPENSE) {
-        // Chi phí từ tiền mặt (Shop hoặc Ví)
         if (tx.expenseSource === ExpenseSource.SHOP_CASH || tx.expenseSource === ExpenseSource.WALLET) {
           cumulativeCashOut += tx.amount || 0;
         } 
-        // Chi phí từ thẻ/ngân hàng
         else if (tx.expenseSource === ExpenseSource.CARD) {
           cumulativeCardOut += tx.amount || 0;
         }
