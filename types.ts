@@ -69,7 +69,7 @@ export interface HistoryEntry {
   timestamp: string;
   amount: number;
   category: string;
-  notes: string[]; // Thay đổi từ note sang notes
+  notes: string[];
   editorName?: string;
   incomeBreakdown?: IncomeBreakdown;
   expenseSource?: ExpenseSource;
@@ -83,7 +83,7 @@ export interface Transaction {
   amount: number;
   type: TransactionType;
   category: string;
-  notes: string[]; // Thay đổi từ note sang notes
+  notes: string[];
   authorName?: string;
   lastEditorName?: string;
   incomeBreakdown?: IncomeBreakdown;
@@ -103,7 +103,7 @@ export interface RecurringTransaction {
   category: string;
   expenseSource: ExpenseSource;
   dayOfMonth: number;
-  notes: string[]; // Đồng bộ dữ liệu ghi chú
+  notes: string[];
   updatedAt: string;
   deletedAt?: string;
 }
@@ -143,15 +143,15 @@ export interface AppData {
 
 export const APP_CHANGELOG = [
   {
-    version: '1.1.0',
+    version: '1.1.2',
     changes: {
-      vi: ['Hỗ trợ thêm nhiều khung ghi chú linh hoạt', 'Gợi ý ghi chú thông minh từ dữ liệu cũ', 'Nút ẩn/hiện tiền xu và ghi chú tối ưu diện tích'],
-      de: ['Unterstützung für mehrere flexible Notizfelder', 'Intelligente Notizvorschläge aus alten Daten', 'Optimierte Schaltflächen zum Ein-/Ausblenden von Münzen und Notizen']
+      vi: ['Tối ưu nhập nhiều ghi chú', 'Hiển thị người nhập/sửa trực quan', 'Gợi ý ghi chú thông minh'],
+      de: ['Optimierung mehrerer Notizfelder', 'Anzeige Ersteller/Bearbeiter', 'Intelligente Notizvorschläge']
     }
   }
 ];
 
-export const SCHEMA_VERSION = "1.1.0 (Multi-Note & Smart suggestions)";
+export const SCHEMA_VERSION = "1.1.2 (Multi-Note & User Tracking)";
 export const ALL_BRANCHES_ID = "all_branches_system";
 
 export const formatCurrency = (val: number, lang: Language = 'vi') => 
