@@ -28,7 +28,7 @@ import {
   Heart, LockKeyhole, HelpCircle, LayoutGrid, Terminal, ShieldAlert,
   Database, CloudCheck, Languages, Copy, CheckCircle, Wrench, WifiOff,
   Code, Github, ExternalLink, ScrollText, CheckCircle2,
-  User as UserIcon, Lock, Globe2
+  User as UserIcon, Lock, Globe2, Sparkles, Shield
 } from 'lucide-react';
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 phút
@@ -265,42 +265,114 @@ const App = () => {
 
   if (!currentUser) {
     return (
-      <div className="min-h-screen relative flex items-center justify-center p-6 bg-slate-50 dark:bg-slate-950 overflow-hidden">
+      <div className="min-h-screen relative flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-slate-950 overflow-hidden">
         <div className="login-mesh" />
-        <div className="w-full max-w-[380px] z-10 space-y-8 animate-ios">
-          <div className="text-center space-y-6">
-            <div className="relative inline-block">
-              <div className="w-24 h-24 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-vivid flex items-center justify-center mx-auto border border-white dark:border-slate-800 animate-float relative z-10">
+        
+        {/* Decorative elements */}
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand-500/10 rounded-full blur-[120px] dark:opacity-20 animate-pulse-slow" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/10 rounded-full blur-[120px] dark:opacity-20 animate-pulse-slow" style={{ animationDelay: '2s' }} />
+
+        <div className="w-full max-w-[400px] z-10 flex flex-col items-center gap-8 animate-ios">
+          <div className="text-center space-y-4">
+            <div className="relative inline-block group">
+              <div className="absolute inset-0 bg-brand-500/20 blur-2xl rounded-full scale-150 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+              <div className="w-24 h-24 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-premium flex items-center justify-center mx-auto border border-white/50 dark:border-slate-800 animate-float relative z-10">
                 <UtensilsCrossed className="w-12 h-12 text-brand-600 dark:text-brand-400" />
               </div>
             </div>
             <div className="space-y-1">
               <h1 className="text-4xl font-black text-slate-950 dark:text-white tracking-tighter uppercase leading-none">TOKYMON</h1>
-              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500 dark:text-slate-400 opacity-60">Finance Manager</p>
-            </div>
-          </div>
-          <div className="glass p-1 rounded-[3rem] shadow-2xl relative">
-            <div className="bg-white/40 dark:bg-slate-900/40 p-8 rounded-[2.8rem] space-y-6">
-              <div className="text-center">
-                 <h2 className="text-lg font-black uppercase text-slate-800 dark:text-slate-100 tracking-tight">{t('login_welcome')}</h2>
+              <div className="flex items-center justify-center gap-2">
+                <div className="h-[1px] w-4 bg-slate-300 dark:bg-slate-800" />
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500 dark:text-slate-400 opacity-60">Finance Manager</p>
+                <div className="h-[1px] w-4 bg-slate-300 dark:bg-slate-800" />
               </div>
-              <form onSubmit={handleLoginSubmit} className="space-y-5">
-                <div className="relative group">
-                  <UserIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
-                  <input type="text" value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value})} className="w-full p-4.5 pl-14 bg-slate-50/50 dark:bg-black/20 rounded-2xl font-bold border border-slate-200 dark:border-white/5 outline-none dark:text-white transition-all focus:ring-2 focus:ring-brand-500/20" placeholder={t('username')} required />
-                </div>
-                <div className="relative group">
-                  <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
-                  <input type="password" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} className="w-full p-4.5 pl-14 bg-slate-50/50 dark:bg-black/20 rounded-2xl font-bold border border-slate-200 dark:border-white/5 outline-none dark:text-white transition-all focus:ring-2 focus:ring-brand-500/20" placeholder={t('password')} required />
-                </div>
-                {loginError && <p className="text-rose-500 text-[10px] font-black uppercase text-center">{loginError}</p>}
-                <button type="submit" className="w-full h-15 bg-brand-600 hover:bg-brand-500 text-white rounded-[1.8rem] font-black uppercase shadow-vivid flex items-center justify-center gap-3 transition-all active-scale">
-                  <span>{t('login')}</span>
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-              </form>
             </div>
           </div>
+
+          <div className="w-full relative px-1">
+            <div className="absolute -inset-1 bg-gradient-to-r from-brand-500/10 via-indigo-500/10 to-brand-500/10 blur-xl opacity-50 dark:opacity-30" />
+            <div className="glass p-1 rounded-[3.2rem] shadow-premium relative border border-white/40 dark:border-white/5 overflow-hidden">
+              <div className="bg-white/40 dark:bg-slate-900/60 p-8 sm:p-10 rounded-[3rem] space-y-8 relative">
+                <div className="text-center space-y-2">
+                   <h2 className="text-xl font-black uppercase text-slate-800 dark:text-slate-100 tracking-tight">{t('login_welcome')}</h2>
+                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest opacity-60">{t('login_sub')}</p>
+                </div>
+
+                <form onSubmit={handleLoginSubmit} className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                        <UserIcon className="w-4.5 h-4.5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                      </div>
+                      <input 
+                        type="text" 
+                        value={loginForm.username} 
+                        onChange={e => setLoginForm({...loginForm, username: e.target.value})} 
+                        className="w-full h-15 pl-14 pr-6 bg-white/50 dark:bg-slate-950/40 rounded-2xl font-bold border border-slate-200 dark:border-white/10 outline-none dark:text-white transition-all focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 text-sm placeholder:text-slate-400" 
+                        placeholder={t('username')} 
+                        required 
+                      />
+                    </div>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                        <Lock className="w-4.5 h-4.5 text-slate-400 group-focus-within:text-brand-500 transition-colors" />
+                      </div>
+                      <input 
+                        type="password" 
+                        value={loginForm.password} 
+                        onChange={e => setLoginForm({...loginForm, password: e.target.value})} 
+                        className="w-full h-15 pl-14 pr-6 bg-white/50 dark:bg-slate-950/40 rounded-2xl font-bold border border-slate-200 dark:border-white/10 outline-none dark:text-white transition-all focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 text-sm placeholder:text-slate-400" 
+                        placeholder={t('password')} 
+                        required 
+                      />
+                    </div>
+                  </div>
+
+                  {loginError && (
+                    <div className="flex items-center justify-center gap-2 text-rose-500 animate-shake">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <p className="text-[10px] font-black uppercase text-center">{loginError}</p>
+                    </div>
+                  )}
+
+                  <button 
+                    type="submit" 
+                    className="w-full h-15 bg-brand-600 hover:bg-brand-500 text-white rounded-[1.8rem] font-black uppercase shadow-vivid flex items-center justify-center gap-3 transition-all active-scale btn-shine group"
+                  >
+                    <span>{t('login')}</span>
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </button>
+                </form>
+
+                <div className="pt-4 flex items-center justify-center gap-3">
+                   <Shield className="w-3.5 h-3.5 text-emerald-500" />
+                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('enterprise_security')}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Modern Developer Credit Section */}
+          <footer className="w-full pt-6 flex flex-col items-center gap-4">
+             <div className="flex items-center gap-6">
+                <div className="h-[1px] w-8 bg-slate-300 dark:bg-slate-800" />
+                <div className="flex flex-col items-center">
+                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-1">{t('dev_by')}</p>
+                   <div className="flex items-center gap-2 group cursor-default">
+                      <div className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" />
+                      <span className="text-[11px] font-black uppercase tracking-widest dark:text-slate-200 group-hover:text-brand-500 transition-colors italic">thPhuoc</span>
+                   </div>
+                </div>
+                <div className="h-[1px] w-8 bg-slate-300 dark:bg-slate-800" />
+             </div>
+             
+             <div className="flex items-center gap-3">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">v{SCHEMA_VERSION.split(' ')[0]}</span>
+                <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-800" />
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">2025 © TOKYMON GROUP</span>
+             </div>
+          </footer>
         </div>
       </div>
     );
