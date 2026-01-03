@@ -33,7 +33,8 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringExpenses, 
       category,
       expenseSource: source,
       dayOfMonth: Number(day),
-      note,
+      // Fix: Thay đổi 'note' thành 'notes' (mảng) để khớp với kiểu RecurringTransaction
+      notes: note ? [note] : [],
       updatedAt: new Date().toISOString()
     };
     onUpdate([newItem]); // atomicUpdate trong App sẽ lo việc hạp nhất
@@ -60,7 +61,8 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringExpenses, 
       category: r.category,
       type: TransactionType.EXPENSE,
       expenseSource: r.expenseSource,
-      note: `[${t('recurring_expense')}] ${r.note}`,
+      // Fix: Thay đổi 'note' thành 'notes' (mảng) để khớp với kiểu Transaction, đồng thời truy cập 'notes[0]' từ RecurringTransaction
+      notes: [`[${t('recurring_expense')}] ${r.notes?.[0] || ''}`],
       isRecurring: true,
       updatedAt: new Date().toISOString(),
       history: []

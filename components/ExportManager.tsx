@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
 import { Transaction, TransactionType, Branch, EXPENSE_SOURCE_LABELS, Language } from '../types';
@@ -49,7 +50,8 @@ const ExportManager: React.FC<ExportManagerProps> = ({ transactions, branches, l
             'Tiền mặt (€)': tx.incomeBreakdown?.cash || 0,
             'Thẻ (€)': tx.incomeBreakdown?.card || 0,
             'Delivery (€)': tx.incomeBreakdown?.delivery || 0,
-            'Ghi chú': tx.note || ''
+            // Fix: Transaction sử dụng 'notes' (mảng) thay vì 'note'
+            'Ghi chú': (tx.notes || []).join('; ')
           }));
 
         // 2. Dữ liệu Chi Phí chi tiết
@@ -63,7 +65,8 @@ const ExportManager: React.FC<ExportManagerProps> = ({ transactions, branches, l
             'Nguồn chi': tx.expenseSource ? EXPENSE_SOURCE_LABELS[tx.expenseSource] : 'Khác',
             'Trạng thái': tx.isPaid === false ? 'Công nợ' : 'Đã thanh toán',
             'Đối tác/Chủ nợ': tx.debtorName || '',
-            'Ghi chú': tx.note || ''
+            // Fix: Transaction sử dụng 'notes' (mảng) thay vì 'note'
+            'Ghi chú': (tx.notes || []).join('; ')
           }));
 
         // 3. Thống kê chi phí theo Hạng mục (New Sheet)

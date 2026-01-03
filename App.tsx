@@ -33,7 +33,7 @@ import {
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 phút
 const GLOBAL_SYNC_KEY = 'NZQkBLdrxvnEEMUw928weK';
-const SYNC_DEBOUNCE_MS = 5000; // Rút ngắn thời gian debounce
+const SYNC_DEBOUNCE_MS = 5000; 
 
 const App = () => {
   const validateSessionOnStartup = () => {
@@ -82,7 +82,6 @@ const App = () => {
   const [loginError, setLoginError] = useState('');
   const inactivityTimerRef = useRef<number | null>(null);
   
-  // Ref luôn giữ giá trị dữ liệu mới nhất để tránh stale closure trong sync
   const dataRef = useRef(data);
   const syncDebounceRef = useRef<number | null>(null);
 
@@ -91,21 +90,15 @@ const App = () => {
 
   const handleCloudSync = useCallback(async (silent = false, forcePush: boolean = false) => {
     if (!navigator.onLine || isSyncInProgressRef.current) return;
-    
     isSyncInProgressRef.current = true;
     if (!silent) setIsSyncing(true);
-    
     try {
-      // Luôn lấy dữ liệu mới nhất từ ref thay vì state
       const currentLocalData = dataRef.current;
       const merged = await StorageService.syncWithCloud(GLOBAL_SYNC_KEY, currentLocalData, forcePush);
-      
-      // Chỉ cập nhật nếu có thay đổi thực sự
       if (JSON.stringify(merged) !== JSON.stringify(currentLocalData)) {
         setData(merged);
         dataRef.current = merged;
         await StorageService.saveLocal(merged);
-        
         if (currentUser) {
           const updatedProfile = merged.users.find(u => u.id === currentUser.id);
           if (updatedProfile && JSON.stringify(updatedProfile) !== JSON.stringify(currentUser)) {
@@ -114,36 +107,23 @@ const App = () => {
           }
         }
       }
-      
       setSyncStatus('SUCCESS');
       if (!silent) setTimeout(() => setSyncStatus('IDLE'), 3000);
-    } catch (e: any) { 
-      setSyncStatus('ERROR'); 
-    } finally {
+    } catch (e: any) { setSyncStatus('ERROR'); } 
+    finally {
       if (!silent) setIsSyncing(false);
       isSyncInProgressRef.current = false;
     }
   }, [currentUser]);
 
-  /**
-   * Cập nhật dữ liệu nguyên tử: Ghi cục bộ xong mới cho phép đồng bộ
-   */
   const atomicUpdate = useCallback(async (updater: (prev: AppData) => AppData, immediateSync = false) => {
-    // 1. Tính toán dữ liệu mới
     const nextData = updater(dataRef.current);
-    
-    // 2. Cập nhật UI & Ref ngay lập tức cho trải nghiệm mượt
     dataRef.current = nextData;
     setData(nextData);
-    
-    // 3. Ghi vào IndexedDB (Quan trọng: Phải thành công trước khi làm bước khác)
     const success = await StorageService.saveLocal(nextData);
-    
     if (success) {
-      if (immediateSync && navigator.onLine) {
-        await handleCloudSync(true);
-      } else {
-        // Kích hoạt debounce sync
+      if (immediateSync && navigator.onLine) { await handleCloudSync(true); } 
+      else {
         if (syncDebounceRef.current) window.clearTimeout(syncDebounceRef.current);
         syncDebounceRef.current = window.setTimeout(() => handleCloudSync(true), SYNC_DEBOUNCE_MS);
       }
@@ -164,7 +144,6 @@ const App = () => {
     inactivityTimerRef.current = window.setTimeout(() => handleLogout(), INACTIVITY_TIMEOUT);
   }, [currentUser, handleLogout]);
 
-  // Load dữ liệu ban đầu
   useEffect(() => {
     let isMounted = true;
     const initData = async () => {
@@ -186,16 +165,11 @@ const App = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []); // Chỉ chạy 1 lần khi mount
+  }, []);
 
   useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('tokymon_theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('tokymon_theme', 'light');
-    }
+    if (isDark) { document.documentElement.classList.add('dark'); localStorage.setItem('tokymon_theme', 'dark'); } 
+    else { document.documentElement.classList.remove('dark'); localStorage.setItem('tokymon_theme', 'light'); }
   }, [isDark]);
 
   const activeBranches = useMemo(() => data.branches.filter(b => !b.deletedAt), [data.branches]);
@@ -225,17 +199,8 @@ const App = () => {
     if (currentUser) {
       const isValid = allowedBranches.some(b => b.id === currentBranchId) || currentBranchId === ALL_BRANCHES_ID;
       if (!currentBranchId || !isValid) {
-        let targetId = '';
-        if (isAdmin) {
-          targetId = ALL_BRANCHES_ID;
-        } else if (allowedBranches.length > 0) {
-          targetId = allowedBranches[0].id;
-        }
-        
-        if (targetId) {
-          setCurrentBranchId(targetId);
-          localStorage.setItem('tokymon_current_branch', targetId);
-        }
+        let targetId = isAdmin ? ALL_BRANCHES_ID : (allowedBranches.length > 0 ? allowedBranches[0].id : '');
+        if (targetId) { setCurrentBranchId(targetId); localStorage.setItem('tokymon_current_branch', targetId); }
       }
     }
   }, [allowedBranches, currentBranchId, currentUser, isAdmin]);
@@ -288,9 +253,7 @@ const App = () => {
       localStorage.setItem('tokymon_user', JSON.stringify(user)); 
       localStorage.setItem('tokymon_last_activity', Date.now().toString());
       addAuditLog('LOGIN', 'USER', user.id, `Đăng nhập`); 
-    } else { 
-      setLoginError(t('error_login')); 
-    }
+    } else { setLoginError(t('error_login')); }
   };
 
   const toggleTheme = () => setIsDark(!isDark);
@@ -316,7 +279,6 @@ const App = () => {
               <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500 dark:text-slate-400 opacity-60">Finance Manager</p>
             </div>
           </div>
-
           <div className="glass p-1 rounded-[3rem] shadow-2xl relative">
             <div className="bg-white/40 dark:bg-slate-900/40 p-8 rounded-[2.8rem] space-y-6">
               <div className="text-center">
@@ -380,8 +342,8 @@ const App = () => {
           <div className="flex flex-col items-center justify-center py-40"><Loader2 className="w-10 h-10 text-brand-600 animate-spin mb-4" /><p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Tokymon Loading...</p></div>
         ) : (
           <div className="animate-ios">
-            {activeTab === 'income' && <IncomeManager transactions={activeTransactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={handleDeleteTransaction} onEditTransaction={u => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}), true)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />}
-            {activeTab === 'expense' && <ExpenseManager transactions={activeTransactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={handleDeleteTransaction} onEditTransaction={u => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}), true)} expenseCategories={branchCategories.map(c => c.name)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} />}
+            {activeTab === 'income' && <IncomeManager transactions={activeTransactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={handleDeleteTransaction} onEditTransaction={u => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}), true)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} currentUsername={currentUser.username} />}
+            {activeTab === 'expense' && <ExpenseManager transactions={activeTransactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={handleDeleteTransaction} onEditTransaction={u => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}), true)} expenseCategories={branchCategories.map(c => c.name)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranchName} lang={lang} currentUsername={currentUser.username} />}
             {activeTab === 'stats' && <Dashboard transactions={activeTransactions} initialBalances={{cash: 0, card: 0}} lang={lang} currentBranchId={currentBranchId} allowedBranches={allowedBranches} userRole={currentUser.role} reportSettings={data.reportSettings || StorageService.getEmptyData().reportSettings!} />}
             {activeTab === 'settings' && (
               <div className="space-y-6">
@@ -397,83 +359,35 @@ const App = () => {
                     )}
                     {settingsSubTab === 'export' && <ExportManager transactions={activeTransactions} branches={activeBranches} lang={lang} />}
                     {settingsSubTab === 'branches' && isAdmin && (
-                      <BranchManager 
-                        branches={data.branches} 
-                        setBranches={update => atomicUpdate(prev => {
+                      <BranchManager branches={data.branches} setBranches={update => atomicUpdate(prev => {
                           const oldBranchIds = new Set(prev.branches.map(b => b.id));
                           const newBranches = typeof update === 'function' ? update(prev.branches) : update;
                           const addedBranches = newBranches.filter(b => !oldBranchIds.has(b.id) && !b.deletedAt);
-                          
                           let nextCategories = [...prev.expenseCategories];
                           addedBranches.forEach(branch => {
                             const now = new Date().toISOString();
-                            const defaultCats: Category[] = INITIAL_EXPENSE_CATEGORIES.map(name => ({
-                              id: `cat_${branch.id}_${Math.random().toString(36).substr(2, 9)}`,
-                              name,
-                              branchId: branch.id,
-                              updatedAt: now
-                            }));
+                            const defaultCats: Category[] = INITIAL_EXPENSE_CATEGORIES.map(name => ({ id: `cat_${branch.id}_${Math.random().toString(36).substr(2, 9)}`, name, branchId: branch.id, updatedAt: now }));
                             nextCategories = [...nextCategories, ...defaultCats];
                           });
-                          
-                          return {
-                            ...prev,
-                            branches: newBranches,
-                            expenseCategories: nextCategories
-                          };
-                        }, true)} 
-                        onAudit={addAuditLog} 
-                        setGlobalConfirm={setConfirmModal} 
-                        onResetBranchData={handleResetBranchData} 
-                        lang={lang} 
-                      />
+                          return { ...prev, branches: newBranches, expenseCategories: nextCategories };
+                        }, true)} onAudit={addAuditLog} setGlobalConfirm={setConfirmModal} onResetBranchData={handleResetBranchData} lang={lang} />
                     )}
                     {settingsSubTab === 'users' && isAdmin && <UserManager users={data.users} setUsers={update => atomicUpdate(p => ({...p, users: typeof update === 'function' ? update(p.users) : update}), true)} branches={activeBranches} onAudit={addAuditLog} currentUserId={currentUser.id} setGlobalConfirm={setConfirmModal} lang={lang} />}
                     {settingsSubTab === 'general' && (
                       <div className="space-y-10">
                         {currentBranchId === ALL_BRANCHES_ID ? (
                           <div className="p-10 flex flex-col items-center justify-center text-center space-y-6 animate-ios">
-                             <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-[2.2rem] flex items-center justify-center text-slate-400">
-                                <LayoutGrid className="w-10 h-10" />
-                             </div>
+                             <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-[2.2rem] flex items-center justify-center text-slate-400"><LayoutGrid className="w-10 h-10" /></div>
                              <div className="space-y-2">
                                <h3 className="text-lg font-black uppercase dark:text-white">{t('choose_branch_to_config')}</h3>
                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{t('choose_branch_to_config_sub')}</p>
                              </div>
-                             <button onClick={() => setShowBranchDropdown(true)} className="px-8 py-4 bg-brand-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-vivid active-scale">
-                               {t('select_branch_btn')}
-                             </button>
+                             <button onClick={() => setShowBranchDropdown(true)} className="px-8 py-4 bg-brand-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-vivid active-scale">{t('select_branch_btn')}</button>
                           </div>
                         ) : (
                           <>
-                            <CategoryManager 
-                              title={t('categories_man')} 
-                              categories={branchCategories} 
-                              branchId={currentBranchId}
-                              onUpdate={(updates) => {
-                                atomicUpdate(prev => {
-                                  const existingMap = new Map(prev.expenseCategories.map(c => [c.id, c]));
-                                  updates.forEach(u => existingMap.set(u.id, u));
-                                  return { ...prev, expenseCategories: Array.from(existingMap.values()) };
-                                }, true);
-                              }} 
-                              lang={lang} 
-                              onAudit={addAuditLog} 
-                            />
-                            <RecurringManager 
-                              recurringExpenses={branchRecurringExpenses} 
-                              categories={branchCategories.map(c => c.name)} 
-                              onUpdate={(updates) => {
-                                atomicUpdate(prev => {
-                                  const existingMap = new Map(prev.recurringExpenses.map(r => [r.id, r]));
-                                  updates.forEach(u => existingMap.set(u.id, u));
-                                  return { ...prev, recurringExpenses: Array.from(existingMap.values()) };
-                                }, true);
-                              }} 
-                              onGenerateTransactions={txs => atomicUpdate(prev => ({...prev, transactions: [...txs, ...prev.transactions]}), true)} 
-                              branchId={currentBranchId} 
-                              lang={lang} 
-                            />
+                            <CategoryManager title={t('categories_man')} categories={branchCategories} branchId={currentBranchId} onUpdate={(updates) => { atomicUpdate(prev => { const existingMap = new Map(prev.expenseCategories.map(c => [c.id, c])); updates.forEach(u => existingMap.set(u.id, u)); return { ...prev, expenseCategories: Array.from(existingMap.values()) }; }, true); }} lang={lang} onAudit={addAuditLog} />
+                            <RecurringManager recurringExpenses={branchRecurringExpenses} categories={branchCategories.map(c => c.name)} onUpdate={(updates) => { atomicUpdate(prev => { const existingMap = new Map(prev.recurringExpenses.map(r => [r.id, r])); updates.forEach(u => existingMap.set(u.id, u)); return { ...prev, recurringExpenses: Array.from(existingMap.values()) }; }, true); }} onGenerateTransactions={txs => atomicUpdate(prev => ({...prev, transactions: [...txs, ...prev.transactions]}), true)} branchId={currentBranchId} lang={lang} />
                           </>
                         )}
                       </div>
@@ -492,10 +406,7 @@ const App = () => {
                                     <span className="px-2 py-0.5 bg-brand-600 text-white text-[9px] font-black rounded-md">v{log.version}</span>
                                     <ul className="space-y-1">
                                        {(log.changes[lang] || log.changes['vi'] || []).map((change: string, i: number) => (
-                                         <li key={i} className="text-[11px] font-bold text-slate-600 dark:text-slate-400 flex gap-2">
-                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> 
-                                            <span>{change}</span>
-                                         </li>
+                                         <li key={i} className="text-[11px] font-bold text-slate-600 dark:text-slate-400 flex gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> <span>{change}</span></li>
                                        ))}
                                     </ul>
                                  </div>

@@ -3,7 +3,6 @@ import { Language, ExpenseSource } from './types';
 
 export const translations = {
   vi: {
-    // General & Navigation
     income: "Doanh Thu",
     expense: "Chi Phí",
     stats: "Báo Cáo",
@@ -39,7 +38,16 @@ export const translations = {
     choose_branch_to_config: "Vui lòng chọn chi nhánh",
     choose_branch_to_config_sub: "Bạn cần chọn một chi nhánh cụ thể để quản lý danh mục và chi phí định kỳ.",
     
-    // Categories Translation
+    // New UI Elements
+    add_coins_btn: "Thêm tiền xu",
+    add_note_btn: "Thêm ghi chú",
+    suggestions: "Gợi ý nhanh",
+    entered_by: "Nhập bởi",
+    edited_by: "Sửa bởi",
+    paper_cash: "Tiền giấy",
+    coin_wallet: "Ví tiền xu",
+    cash_total: "Tổng tiền mặt",
+
     cat_rent: "Tiền nhà / Điện",
     cat_trash: "Rác",
     cat_salary: "Lương công nhân",
@@ -52,20 +60,17 @@ export const translations = {
     cat_insurance: "Bảo hiểm",
     cat_other: "Chi phí khác",
 
-    // Sources Translation
     src_shop_cash: "Tiền Quán",
     src_wallet: "Ví Tổng",
     src_card: "Thẻ/Bank",
     debt_label: "Công nợ",
     
-    // Login & About
     login_welcome: "Chào mừng trở lại",
     login_sub: "Hệ thống quản lý tài chính Tokymon",
     dev_by: "Phát triển bởi",
     ver: "Phiên bản",
     enterprise_security: "Bảo mật Doanh nghiệp",
 
-    // Dashboard & Stats
     overview_tab: "T.Quan",
     daily_tab: "Ngày",
     branch_tab: "Cơ sở",
@@ -85,7 +90,6 @@ export const translations = {
     revenue_comparison: "So sánh doanh thu",
     liabilities_list: "Danh sách công nợ",
     
-    // Forms
     chot_so: "Chốt Sổ Ngày",
     chi_phi: "Chi Phí",
     kasse_total: "Tổng Kasse Shop",
@@ -112,7 +116,6 @@ export const translations = {
     export_empty: "Không có dữ liệu để xuất!",
     download_now: "Tải báo cáo ngay",
     
-    // Management & Labels
     ai_scanning_text: "AI đang phân tích dữ liệu...",
     ai_hint: "Nhấn nút để bắt đầu phân tích tài chính",
     assets_available: "Tài sản hiện có",
@@ -144,7 +147,6 @@ export const translations = {
     lang_other: "Deutsch"
   },
   de: {
-    // General & Navigation
     income: "Einnahmen",
     expense: "Ausgaben",
     stats: "Berichte",
@@ -180,7 +182,15 @@ export const translations = {
     choose_branch_to_config: "Filiale auswählen",
     choose_branch_to_config_sub: "Bitte wählen Sie eine Filiale aus, um Kategorien und Abos zu verwalten.",
 
-    // Categories Translation
+    add_coins_btn: "Münzgeld hinzufügen",
+    add_note_btn: "Notiz hinzufügen",
+    suggestions: "Vorschläge",
+    entered_by: "Erstellt von",
+    edited_by: "Bearbeitet von",
+    paper_cash: "Scheine",
+    coin_wallet: "Münzen",
+    cash_total: "Gesamt Bar",
+
     cat_rent: "Miete / Strom",
     cat_trash: "Müll",
     cat_salary: "Lohn / Gehalt",
@@ -193,20 +203,17 @@ export const translations = {
     cat_insurance: "Versicherung",
     cat_other: "Sonstiges",
 
-    // Sources Translation
     src_shop_cash: "Ladenkasse",
     src_wallet: "Hauptkasse",
     src_card: "Karte/Bank",
     debt_label: "Verbindlichkeit",
 
-    // Login & About
     login_welcome: "Willkommen zurück",
     login_sub: "Tokymon Finanzmanagement",
     dev_by: "Entwickelt von",
     ver: "Version",
     enterprise_security: "Enterprise Sicherheit",
 
-    // Dashboard & Stats
     overview_tab: "Überbl.",
     daily_tab: "Tag",
     branch_tab: "Filiale",
@@ -226,7 +233,6 @@ export const translations = {
     revenue_comparison: "Umsatzvergleich",
     liabilities_list: "Verbindlichkeitenliste",
 
-    // Forms
     chot_so: "Tagesabschluss",
     chi_phi: "Ausgaben",
     kasse_total: "Ladenumsatz",
@@ -253,7 +259,6 @@ export const translations = {
     export_empty: "Keine Daten!",
     download_now: "Download",
     
-    // Management & Labels
     ai_scanning_text: "KI analysiert Daten...",
     ai_hint: "Klicken Sie auf Analyse starten",
     assets_available: "Verfügbares Vermögen",
@@ -286,7 +291,6 @@ export const translations = {
   }
 };
 
-// Map này phải khớp 100% với INITIAL_EXPENSE_CATEGORIES trong types.ts
 const categoryMap: Record<string, keyof typeof translations['vi']> = {
   "Tiền nhà / Điện": "cat_rent",
   "Rác": "cat_trash",
@@ -315,7 +319,6 @@ export const useTranslation = (lang: Language) => {
 
   const translateCategory = (cat: string) => {
     if (!cat) return "";
-    // Làm sạch chuỗi trước khi so sánh
     const trimmedCat = cat.trim();
     const key = categoryMap[trimmedCat];
     return key ? t(key) : cat;

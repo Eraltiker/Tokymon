@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Transaction, TransactionType, UserRole, Language } from '../types';
 import TransactionForm from './TransactionForm';
@@ -15,6 +16,7 @@ interface IncomeManagerProps {
   userRole?: UserRole;
   lang?: Language;
   branchName?: string;
+  currentUsername?: string;
 }
 
 const IncomeManager: React.FC<IncomeManagerProps> = ({ 
@@ -26,12 +28,11 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({
   initialBalances, 
   userRole,
   branchName,
-  // Fix: Explicitly cast default value to Language to prevent type widening to string
-  lang = 'vi' as Language
+  lang = 'vi' as Language,
+  currentUsername
 }) => {
   const { t } = useTranslation(lang);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
-  // Fix: Renamed filter parameter 't' to 'tx' to avoid shadowing the 't' translation function
   const incomeTransactions = transactions.filter(tx => tx.type === TransactionType.INCOME && tx.branchId === branchId && !tx.deletedAt);
   const isViewer = userRole === UserRole.VIEWER;
 
@@ -48,6 +49,7 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({
             transactions={transactions}
             branchName={branchName}
             lang={lang}
+            currentUsername={currentUsername}
           />
         </div>
       )}
@@ -72,6 +74,7 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({
             setEditingTx(null);
           }}
           lang={lang}
+          currentUsername={currentUsername}
         />
       )}
     </div>
