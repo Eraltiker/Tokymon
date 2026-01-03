@@ -44,7 +44,8 @@ const Dashboard: React.FC<DashboardProps> = ({
     return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
   });
   
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'DAILY_REPORT' | 'BRANCH_COMPARE' | 'LIABILITIES'>('OVERVIEW');
+  // Sửa lỗi TS2367 bằng cách cập nhật union type cho activeTab
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'DAILY_REPORT' | 'WALLET_STATS' | 'LIABILITIES'>('OVERVIEW');
   const [isExporting, setIsExporting] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
