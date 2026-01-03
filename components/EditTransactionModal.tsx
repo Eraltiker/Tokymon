@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Transaction, TransactionType, HistoryEntry, Language } from '../types';
 import { useTranslation } from '../i18n';
-import { X, Save, ChevronLeft, ChevronRight, Calendar, Coins, Banknote, MessageSquare, Plus, Trash2 } from 'lucide-react';
+import { X, Save, ChevronLeft, ChevronRight, Calendar, Coins, Banknote, MessageSquare, Plus, Trash2, CreditCard } from 'lucide-react';
 
 interface EditTransactionModalProps {
   transaction: Transaction;
@@ -26,16 +26,18 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const [date, setDate] = useState(transaction.date);
   const [category, setCategory] = useState(transaction.category);
 
-  const [coinInput, setCoinInput] = useState(transaction.incomeBreakdown?.coins?.toString() || '0');
-  const [paperInput, setPaperInput] = useState(() => {
+  // LOGIC CHỈNH SỬA
+  const [kasseTotalInput, setKasseTotalInput] = useState(() => {
     if (transaction.type === TransactionType.INCOME && transaction.incomeBreakdown) {
-       return (transaction.incomeBreakdown.cash - (transaction.incomeBreakdown.coins || 0)).toString();
+       // Tổng Kasse = Doanh thu tổng - Doanh thu App
+       return (transaction.amount - (transaction.incomeBreakdown.delivery || 0)).toString();
     }
     return '0';
   });
   
-  const [appInput, setAppInput] = useState(transaction.incomeBreakdown?.delivery?.toString() || '0');
   const [cardTotalInput, setCardTotalInput] = useState(transaction.incomeBreakdown?.card.toString() || '0');
+  const [coinInput, setCoinInput] = useState(transaction.incomeBreakdown?.coins?.toString() || '0');
+  const [appInput, setAppInput] = useState(transaction.incomeBreakdown?.delivery?.toString() || '0');
   const [expenseAmount, setExpenseAmount] = useState(transaction.amount.toString());
 
   const validateAndSetAmount = (val: string, setter: (v: string) => void) => {
@@ -80,14 +82,21 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
     };
 
     if (transaction.type === TransactionType.INCOME) {
-      const paper = parseLocaleNumber(paperInput);
+      const kasseTotal = parseLocaleNumber(kasseTotalInput);
+      const cardTotal = parseLocaleNumber(cardTotalInput);
       const coin = parseLocaleNumber(coinInput);
       const app = parseLocaleNumber(appInput);
-      const cardTotal = parseLocaleNumber(cardTotalInput);
       
-      const totalCash = paper + coin;
-      updated.amount = totalCash + app;
-      updated.incomeBreakdown = { cash: totalCash, card: cardTotal, delivery: app, coins: coin };
+      // CÔNG THỨC CHUẨN: Tiền mặt thực tế = (Kasse + App - Thẻ)
+      const actualCash = (kasseTotal + app - cardTotal);
+      
+      updated.amount = kasseTotal + app;
+      updated.incomeBreakdown = { 
+        cash: actualCash, 
+        card: cardTotal, 
+        delivery: app, 
+        coins: coin 
+      };
     } else {
       updated.amount = parseLocaleNumber(expenseAmount);
     }
@@ -123,14 +132,24 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 
           {transaction.type === TransactionType.INCOME ? (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 px-1"><Banknote className="w-3 h-3 text-emerald-500" /> {t('paper_cash')}</label>
-                  <input type="text" inputMode="decimal" value={paperInput} onChange={e => validateAndSetAmount(e.target.value, setPaperInput)} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-black text-sm text-center" />
+                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 px-1"><Banknote className="w-3 h-3 text-emerald-500" /> {t('kasse_total')}</label>
+                  <input type="text" inputMode="decimal" value={kasseTotalInput} onChange={e => validateAndSetAmount(e.target.value, setKasseTotalInput)} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-black text-sm text-center" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="space-y-1.5">
+                     <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 px-1"><CreditCard className="w-3 h-3 text-indigo-500" /> {t('card_total')}</label>
+                     <input type="text" inputMode="decimal" value={cardTotalInput} onChange={e => validateAndSetAmount(e.target.value, setCardTotalInput)} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-black text-sm text-center" />
+                   </div>
+                   <div className="space-y-1.5">
+                     <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 px-1"><Coins className="w-3 h-3 text-amber-500" /> {t('coin_wallet')}</label>
+                     <input type="text" inputMode="decimal" value={coinInput} onChange={e => validateAndSetAmount(e.target.value, setCoinInput)} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-black text-sm text-center" />
+                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 px-1"><Coins className="w-3 h-3 text-amber-500" /> {t('coin_wallet')}</label>
-                  <input type="text" inputMode="decimal" value={coinInput} onChange={e => validateAndSetAmount(e.target.value, setCoinInput)} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-black text-sm text-center" />
+                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">{t('app_total')}</label>
+                  <input type="text" inputMode="decimal" value={appInput} onChange={e => validateAndSetAmount(e.target.value, setAppInput)} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-black text-sm text-center" />
                 </div>
               </div>
             </div>
@@ -141,6 +160,7 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             </div>
           )}
           
+          {/* ... Notes management UI ... */}
           <div className="space-y-3">
              <div className="flex justify-between items-center px-1">
                 <div className="flex items-center gap-2">

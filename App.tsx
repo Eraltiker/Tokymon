@@ -197,10 +197,26 @@ const App = () => {
 
   useEffect(() => {
     if (currentUser) {
-      const isValid = allowedBranches.some(b => b.id === currentBranchId) || currentBranchId === ALL_BRANCHES_ID;
+      // Logic kiểm tra quyền truy cập chi nhánh
+      const canAccessAll = isAdmin;
+      const isCurrentlyAll = currentBranchId === ALL_BRANCHES_ID;
+      
+      // Nếu là Manager/Viewer nhưng đang ở mode "All Branches" -> Phải kick ra
+      if (!canAccessAll && isCurrentlyAll) {
+        const firstBranchId = allowedBranches.length > 0 ? allowedBranches[0].id : '';
+        setCurrentBranchId(firstBranchId);
+        localStorage.setItem('tokymon_current_branch', firstBranchId);
+        return;
+      }
+
+      // Nếu chi nhánh hiện tại không nằm trong danh sách được phép
+      const isValid = allowedBranches.some(b => b.id === currentBranchId) || (canAccessAll && isCurrentlyAll);
       if (!currentBranchId || !isValid) {
-        let targetId = isAdmin ? ALL_BRANCHES_ID : (allowedBranches.length > 0 ? allowedBranches[0].id : '');
-        if (targetId) { setCurrentBranchId(targetId); localStorage.setItem('tokymon_current_branch', targetId); }
+        let targetId = canAccessAll ? ALL_BRANCHES_ID : (allowedBranches.length > 0 ? allowedBranches[0].id : '');
+        if (targetId) { 
+          setCurrentBranchId(targetId); 
+          localStorage.setItem('tokymon_current_branch', targetId); 
+        }
       }
     }
   }, [allowedBranches, currentBranchId, currentUser, isAdmin]);
@@ -249,6 +265,14 @@ const App = () => {
       u.password.trim() === loginForm.password.trim()
     );
     if (user) { 
+      // Khi login, thiết lập chi nhánh mặc định dựa trên quyền
+      const userIsAdmin = user.role === UserRole.SUPER_ADMIN || user.role === UserRole.ADMIN;
+      const userAllowedBranches = userIsAdmin ? activeBranches : activeBranches.filter(b => user.assignedBranchIds?.includes(b.id));
+      const defaultBranchId = userIsAdmin ? ALL_BRANCHES_ID : (userAllowedBranches.length > 0 ? userAllowedBranches[0].id : '');
+      
+      setCurrentBranchId(defaultBranchId);
+      localStorage.setItem('tokymon_current_branch', defaultBranchId);
+      
       setCurrentUser(user); 
       localStorage.setItem('tokymon_user', JSON.stringify(user)); 
       localStorage.setItem('tokymon_last_activity', Date.now().toString());
@@ -353,7 +377,6 @@ const App = () => {
             </div>
           </div>
 
-          {/* Modern Developer Credit Section */}
           <footer className="w-full pt-6 flex flex-col items-center gap-4">
              <div className="flex items-center gap-6">
                 <div className="h-[1px] w-8 bg-slate-300 dark:bg-slate-800" />
@@ -381,13 +404,23 @@ const App = () => {
   const currentBranchName = currentBranchId === ALL_BRANCHES_ID ? t('all_branches') : activeBranches.find(b => b.id === currentBranchId)?.name || '---';
   const activeBranchColor = currentBranchId === ALL_BRANCHES_ID ? '#4f46e5' : activeBranches.find(b => b.id === currentBranchId)?.color || '#4f46e5';
 
+  // Manager chỉ có thể chuyển đổi nếu có từ 2 chi nhánh trở lên được gán
+  const canSwitchBranch = isAdmin || allowedBranches.length > 1;
+
   return (
     <div className="min-h-screen flex flex-col transition-colors duration-300 font-sans pb-[env(safe-area-inset-bottom)]" style={{ '--brand-dynamic': activeBranchColor } as any}>
       <header className="px-4 py-3 flex items-center justify-between sticky top-0 z-[1000] glass border-b border-white dark:border-slate-800/60 shadow-sm safe-pt">
-        <div className="flex items-center gap-3 min-w-0 max-w-[50%]">
+        <div className="flex items-center gap-3 min-w-0 max-w-[60%]">
            <div className="relative w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shrink-0" style={{ backgroundColor: activeBranchColor }}><UtensilsCrossed className="w-5 h-5" /></div>
-           <button onClick={() => setShowBranchDropdown(!showBranchDropdown)} className="flex flex-col items-start min-w-0 text-left active-scale">
-              <div className="flex items-center gap-1.5 w-full"><span className="text-[13px] font-black uppercase dark:text-white truncate tracking-tighter leading-none">{currentBranchName}</span><ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showBranchDropdown ? 'rotate-180' : ''}`} /></div>
+           <button 
+             onClick={() => canSwitchBranch && setShowBranchDropdown(!showBranchDropdown)} 
+             disabled={!canSwitchBranch}
+             className={`flex flex-col items-start min-w-0 text-left ${canSwitchBranch ? 'active-scale cursor-pointer' : 'cursor-default'}`}
+           >
+              <div className="flex items-center gap-1.5 w-full">
+                <span className="text-[13px] font-black uppercase dark:text-white truncate tracking-tighter leading-none">{currentBranchName}</span>
+                {canSwitchBranch && <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showBranchDropdown ? 'rotate-180' : ''}`} />}
+              </div>
               <p className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">{currentUser?.role}</p>
            </button>
         </div>
@@ -406,7 +439,33 @@ const App = () => {
            <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: handleLogout })} className="w-9 h-9 sm:w-10 sm:h-10 text-rose-500 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-center active-scale transition-all"><LogOut className="w-4 h-4" /></button>
         </div>
         {showBranchDropdown && (
-          <><div className="fixed inset-0 z-[1001]" onClick={() => setShowBranchDropdown(false)} /><div className="absolute top-full left-4 mt-2 w-64 bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800 z-[1002] overflow-hidden animate-in slide-in-from-top-2">{isAdmin && (<button onClick={() => { setCurrentBranchId(ALL_BRANCHES_ID); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-4.5 transition-all flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`}><div className="flex items-center gap-3"><Globe className="w-4.5 h-4.5" /><span className="text-[11px] font-black uppercase">{t('all_branches')}</span></div>{currentBranchId === ALL_BRANCHES_ID && <Check className="w-3.5 h-3.5" />}</button>)}<div className="max-h-[60vh] overflow-y-auto no-scrollbar">{allowedBranches.map(b => (<button key={b.id} onClick={() => { setCurrentBranchId(b.id); setShowBranchDropdown(false); }} className={`w-full text-left px-6 py-4.5 transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-slate-50 dark:bg-slate-800/50 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`} style={{ color: currentBranchId === b.id ? b.color : 'inherit' }}><div className="flex items-center gap-3"><div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: b.color }} /><span className="text-[11px] font-black uppercase">{b.name}</span></div>{currentBranchId === b.id && <Check className="w-3.5 h-3.5" />}</button>))}</div></div></>
+          <>
+            <div className="fixed inset-0 z-[1001]" onClick={() => setShowBranchDropdown(false)} />
+            <div className="absolute top-full left-4 mt-2 w-64 bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-100 dark:border-slate-800 z-[1002] overflow-hidden animate-in slide-in-from-top-2">
+              {isAdmin && (
+                <button 
+                  onClick={() => { setCurrentBranchId(ALL_BRANCHES_ID); setShowBranchDropdown(false); }} 
+                  className={`w-full text-left px-6 py-4.5 transition-all flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 ${currentBranchId === ALL_BRANCHES_ID ? 'bg-indigo-50 dark:bg-indigo-900/10 text-indigo-600 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`}
+                >
+                  <div className="flex items-center gap-3"><Globe className="w-4.5 h-4.5" /><span className="text-[11px] font-black uppercase">{t('all_branches')}</span></div>
+                  {currentBranchId === ALL_BRANCHES_ID && <Check className="w-3.5 h-3.5" />}
+                </button>
+              )}
+              <div className="max-h-[60vh] overflow-y-auto no-scrollbar">
+                {allowedBranches.map(b => (
+                  <button 
+                    key={b.id} 
+                    onClick={() => { setCurrentBranchId(b.id); setShowBranchDropdown(false); }} 
+                    className={`w-full text-left px-6 py-4.5 transition-all flex items-center justify-between border-b last:border-0 border-slate-50 dark:border-slate-800/50 ${currentBranchId === b.id ? 'bg-slate-50 dark:bg-slate-800/50 font-black' : 'dark:text-slate-300 text-slate-700 font-bold'}`} 
+                    style={{ color: currentBranchId === b.id ? b.color : 'inherit' }}
+                  >
+                    <div className="flex items-center gap-3"><div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: b.color }} /><span className="text-[11px] font-black uppercase">{b.name}</span></div>
+                    {currentBranchId === b.id && <Check className="w-3.5 h-3.5" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
         )}
       </header>
       <main className="flex-1 px-4 max-w-6xl mx-auto w-full pt-4 pb-32">
@@ -419,7 +478,24 @@ const App = () => {
             {activeTab === 'stats' && <Dashboard transactions={activeTransactions} initialBalances={{cash: 0, card: 0}} lang={lang} currentBranchId={currentBranchId} allowedBranches={allowedBranches} userRole={currentUser.role} reportSettings={data.reportSettings || StorageService.getEmptyData().reportSettings!} />}
             {activeTab === 'settings' && (
               <div className="space-y-6">
-                <div className="flex gap-2 overflow-x-auto no-scrollbar px-1 pb-2">{[ { id: 'general', label: t('branding'), icon: LayoutGrid }, { id: 'guide', label: t('guide'), icon: HelpCircle }, { id: 'export', label: 'Excel', icon: FileSpreadsheet }, { id: 'sync', label: 'Cloud', icon: Cloud }, { id: 'branches', label: t('branches'), icon: MapPin }, { id: 'users', label: t('users'), icon: Users }, { id: 'audit', label: 'Log', icon: HistoryIcon }, { id: 'about', label: t('about'), icon: Info } ].map(sub => { const isVisible = (sub.id === 'branches' || sub.id === 'users') ? isAdmin : (sub.id === 'sync' ? isSuperAdmin : true); if (!isVisible) return null; return ( <button key={sub.id} onClick={() => setSettingsSubTab(sub.id as any)} style={{ backgroundColor: settingsSubTab === sub.id ? activeBranchColor : '' }} className={`px-4 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 shrink-0 active-scale ${settingsSubTab === sub.id ? 'bg-slate-900 border-transparent text-white shadow-vivid' : 'bg-white/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-500'}`} > <sub.icon className="w-3.5 h-3.5" /> {sub.label} </button> ); })}</div>
+                <div className="flex gap-2 overflow-x-auto no-scrollbar px-1 pb-2">
+                  {[ 
+                    { id: 'general', label: t('branding'), icon: LayoutGrid }, 
+                    { id: 'guide', label: t('guide'), icon: HelpCircle }, 
+                    { id: 'export', label: 'Excel', icon: FileSpreadsheet }, 
+                    { id: 'sync', label: 'Cloud', icon: Cloud }, 
+                    { id: 'branches', label: t('branches'), icon: MapPin }, 
+                    { id: 'users', label: t('users'), icon: Users }, 
+                    { id: 'audit', label: 'Log', icon: HistoryIcon }, 
+                    { id: 'about', label: t('about'), icon: Info } 
+                  ].map(sub => { 
+                    const isVisible = (sub.id === 'branches' || sub.id === 'users') ? isAdmin : (sub.id === 'sync' ? isSuperAdmin : true); 
+                    if (!isVisible) return null; 
+                    return ( 
+                      <button key={sub.id} onClick={() => setSettingsSubTab(sub.id as any)} style={{ backgroundColor: settingsSubTab === sub.id ? activeBranchColor : '' }} className={`px-4 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 shrink-0 active-scale ${settingsSubTab === sub.id ? 'bg-slate-900 border-transparent text-white shadow-vivid' : 'bg-white/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-500'}`} > <sub.icon className="w-3.5 h-3.5" /> {sub.label} </button> 
+                    ); 
+                  })}
+                </div>
                 <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-[2.5rem] p-5 border border-white/20 dark:border-slate-800 shadow-ios min-h-[450px]">
                     {settingsSubTab === 'guide' && <GuideCenter lang={lang} />}
                     {settingsSubTab === 'sync' && isSuperAdmin && (

@@ -5,7 +5,7 @@ import { useTranslation } from '../i18n';
 import { 
   Save, ChevronLeft, ChevronRight, Store, 
   ChevronDown, CreditCard, Calendar,
-  Wallet, Coins, Banknote, MessageSquare, Plus, Trash2, User as UserIcon
+  Wallet, Coins, Banknote, Plus, Trash2, User as UserIcon, Calculator, Sparkles, Tag
 } from 'lucide-react';
 
 interface TransactionFormProps {
@@ -34,21 +34,34 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [type] = useState<TransactionType>(fixedType || TransactionType.INCOME);
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   
-  // States linh hoạt cho UI
   const [showCoins, setShowCoins] = useState(false);
   const [notes, setNotes] = useState<string[]>([]);
 
-  // States nhập liệu
   const [expenseAmount, setExpenseAmount] = useState<string>('');
   const [expenseCategory, setExpenseCategory] = useState<string>(expenseCategories[0] || '');
   const [expenseSource, setExpenseSource] = useState<ExpenseSource>(ExpenseSource.SHOP_CASH);
   const [isPaid, setIsPaid] = useState<boolean>(true);
   const [debtorName, setDebtorName] = useState<string>('');
   
-  const [paperInput, setPaperInput] = useState<string>(''); 
+  const [kasseTotalInput, setKasseTotalInput] = useState<string>(''); 
   const [coinInput, setCoinInput] = useState<string>('');   
   const [appInput, setAppInput] = useState<string>('');   
   const [cardTotalInput, setCardTotalInput] = useState<string>(''); 
+
+  // Đề xuất ghi chú thông minh dựa trên lịch sử
+  const noteSuggestions = useMemo(() => {
+    const allNotes = transactions
+      .filter(tx => tx.type === type && !tx.deletedAt)
+      .flatMap(tx => tx.notes || []);
+    
+    const counts: Record<string, number> = {};
+    allNotes.forEach(n => { if(n && n.trim()) counts[n] = (counts[n] || 0) + 1; });
+    
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(entry => entry[0])
+      .slice(0, 10);
+  }, [transactions, type]);
 
   const validateAndSetAmount = (val: string, setter: (v: string) => void) => {
     const sanitized = val.replace(',', '.');
@@ -61,33 +74,32 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     return isNaN(n) ? 0 : n;
   };
 
-  // Logic gợi ý ghi chú thông minh
-  const getSuggestions = useMemo(() => {
-    const currentCatKey = type === TransactionType.EXPENSE ? expenseCategory : 'Income';
-    const pastNotes = transactions
-      .filter(tx => tx.category === currentCatKey && tx.notes && tx.notes.length > 0)
-      .flatMap(tx => tx.notes);
-    
-    const freqMap: Record<string, number> = {};
-    pastNotes.forEach(n => {
-      if (n.trim()) freqMap[n] = (freqMap[n] || 0) + 1;
-    });
+  const addNoteField = (text?: string) => {
+    if (text) {
+      // Nếu text đã có trong list thì không thêm nữa để tránh trùng
+      if (!notes.includes(text)) setNotes([...notes, text]);
+    } else {
+      setNotes([...notes, '']);
+    }
+  };
 
-    return Object.entries(freqMap)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(entry => entry[0]);
-  }, [transactions, expenseCategory, type]);
-
-  const addNoteField = () => setNotes([...notes, '']);
   const updateNote = (idx: number, val: string) => {
-    const newNotes = [...notes];
-    newNotes[idx] = val;
-    setNotes(newNotes);
+    const updated = [...notes];
+    updated[idx] = val;
+    setNotes(updated);
   };
   const removeNote = (idx: number) => setNotes(notes.filter((_, i) => i !== idx));
 
-  const totalCash = parseNumber(paperInput) + (showCoins ? parseNumber(coinInput) : 0);
+  // LOGIC TÍNH TOÁN THEO YÊU CẦU:
+  const kasseTotal = parseNumber(kasseTotalInput); 
+  const cardTotal = parseNumber(cardTotalInput); 
+  const appTotal = parseNumber(appInput);
+  const coins = showCoins ? parseNumber(coinInput) : 0;
+
+  // Tiền mặt thực tế = (Kasse Shop + Tiền App - Tiền Thẻ)
+  const actualCashTotal = (kasseTotal + appTotal - cardTotal);
+  const paperCash = actualCashTotal - coins;
+  const totalRevenue = kasseTotal + appTotal;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,34 +127,29 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         expenseSource: isPaid ? expenseSource : undefined, 
         isPaid, 
         debtorName: isPaid ? undefined : debtorName,
-      });
+      } as Transaction);
       setExpenseAmount(''); setNotes([]); 
     } else {
-      const app = parseNumber(appInput);
-      const cardTotal = parseNumber(cardTotalInput);
-      const revenue = totalCash + app;
-      
-      if (revenue <= 0 && cardTotal <= 0) return;
+      if (totalRevenue <= 0) return;
       onAddTransaction({
         ...baseTx, 
         type: TransactionType.INCOME, 
-        amount: revenue, 
+        amount: totalRevenue, 
         category: 'Income',
         incomeBreakdown: { 
-          cash: totalCash, 
+          cash: actualCashTotal, // Lưu giá trị (K+A-T) vào trường cash
           card: cardTotal, 
-          delivery: app,
-          coins: showCoins ? parseNumber(coinInput) : 0 
+          delivery: appTotal,
+          coins: coins 
         },
-      });
-      setPaperInput(''); setCoinInput(''); setAppInput(''); setCardTotalInput(''); setNotes([]);
+      } as Transaction);
+      setKasseTotalInput(''); setCoinInput(''); setAppInput(''); setCardTotalInput(''); setNotes([]);
       setShowCoins(false);
     }
   };
 
   return (
     <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-[2.5rem] shadow-ios border border-white dark:border-slate-800/80 flex flex-col relative overflow-hidden animate-ios">
-      {/* Header Form */}
       <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/50 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20">
         <div className="flex-1 truncate">
           <span className="text-[8px] font-black uppercase text-slate-500 tracking-[0.2em] block mb-0.5">{branchName}</span>
@@ -157,7 +164,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       </div>
       
       <form onSubmit={handleSubmit} className="p-5 space-y-4">
-        {/* Date Picker */}
         <div className="flex items-center gap-2 bg-slate-100/50 dark:bg-slate-950/50 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800">
           <button type="button" onClick={() => setDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return dt.toISOString().split('T')[0]; })} className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl text-slate-500 active-scale shadow-sm flex items-center justify-center shrink-0"><ChevronLeft className="w-5 h-5" /></button>
           <div className="flex-1 text-center relative h-10 flex items-center justify-center">
@@ -172,32 +178,54 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-500 uppercase px-2 tracking-widest">{t('paper_cash')}</label>
-                <input type="text" inputMode="decimal" value={paperInput} onChange={e => validateAndSetAmount(e.target.value, setPaperInput)} placeholder="0.00" className="w-full p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl font-black text-sm text-center outline-none" />
+                <label className="text-[9px] font-black text-slate-500 uppercase px-2 tracking-widest">{t('kasse_total')} (€)</label>
+                <input type="text" inputMode="decimal" value={kasseTotalInput} onChange={e => validateAndSetAmount(e.target.value, setKasseTotalInput)} placeholder="0.00" className="w-full p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl font-black text-sm text-center outline-none ring-2 ring-brand-500/10" />
               </div>
               <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-500 uppercase px-2 tracking-widest">{t('card_total')}</label>
-                <input type="text" inputMode="decimal" value={cardTotalInput} onChange={e => validateAndSetAmount(e.target.value, setCardTotalInput)} placeholder="0" className="w-full p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl font-black text-sm text-center outline-none" />
+                <label className="text-[9px] font-black text-slate-500 uppercase px-2 tracking-widest">{t('card_total')} (€)</label>
+                <input type="text" inputMode="decimal" value={cardTotalInput} onChange={e => validateAndSetAmount(e.target.value, setCardTotalInput)} placeholder="0" className="w-full p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl font-black text-sm text-center outline-none ring-2 ring-indigo-500/10" />
               </div>
             </div>
 
-            {showCoins && (
-              <div className="space-y-1 animate-ios">
-                <label className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase px-2 tracking-widest flex items-center gap-1.5">
-                  <Coins className="w-3.5 h-3.5" /> {t('coin_wallet')} (€)
-                </label>
-                <input type="text" inputMode="decimal" value={coinInput} onChange={e => validateAndSetAmount(e.target.value, setCoinInput)} placeholder="0.00" className="w-full p-3.5 bg-amber-50/20 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/50 rounded-2xl font-black text-sm text-center outline-none" />
-              </div>
-            )}
-
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-slate-500 uppercase px-2 tracking-widest">{t('app_total')}</label>
-              <input type="text" inputMode="decimal" value={appInput} onChange={e => validateAndSetAmount(e.target.value, setAppInput)} placeholder="0" className="w-full p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl font-black text-sm text-center outline-none" />
+            <div className="grid grid-cols-2 gap-3">
+               <div className="space-y-1">
+                 <label className="text-[9px] font-black text-slate-500 uppercase px-2 tracking-widest">{t('app_total')} (€)</label>
+                 <input type="text" inputMode="decimal" value={appInput} onChange={e => validateAndSetAmount(e.target.value, setAppInput)} placeholder="0" className="w-full p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl font-black text-sm text-center outline-none" />
+               </div>
+               {showCoins ? (
+                  <div className="space-y-1 animate-ios">
+                    <label className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase px-2 tracking-widest flex items-center gap-1.5">
+                      <Coins className="w-3.5 h-3.5" /> {t('coin_wallet')}
+                    </label>
+                    <input type="text" inputMode="decimal" value={coinInput} onChange={e => validateAndSetAmount(e.target.value, setCoinInput)} placeholder="0.00" className="w-full p-3.5 bg-amber-50/20 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/50 rounded-2xl font-black text-sm text-center outline-none" />
+                  </div>
+               ) : (
+                  <button type="button" onClick={() => setShowCoins(true)} className="mt-5 h-full border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-center gap-2 text-[9px] font-black uppercase text-slate-400">
+                    <Plus className="w-3 h-3" /> {t('add_coins_btn')}
+                  </button>
+               )}
             </div>
 
-            <div className="bg-emerald-500/10 dark:bg-emerald-500/5 p-4 rounded-[1.8rem] border border-emerald-500/20 text-center">
-               <span className="text-[10px] font-black uppercase text-emerald-600 tracking-widest block mb-1">{t('cash_total')}</span>
-               <p className="text-2xl font-black text-emerald-600">{formatCurrency(totalCash, lang)}</p>
+            <div className="bg-slate-50 dark:bg-slate-950 rounded-[1.8rem] p-4 border border-slate-100 dark:border-slate-800 space-y-3 shadow-inner">
+               <div className="flex justify-between items-center text-slate-500">
+                  <span className="text-[10px] font-black uppercase tracking-tight flex items-center gap-2"><Calculator className="w-3 h-3" /> Tiền mặt thực tế</span>
+                  <div className="text-right">
+                    <span className="text-sm font-black text-slate-900 dark:text-white">{formatCurrency(actualCashTotal, lang)}</span>
+                    <p className="text-[7px] font-bold text-slate-400 uppercase leading-none">(Kasse + App - Thẻ)</p>
+                  </div>
+               </div>
+               <div className="flex justify-between items-center pt-1 opacity-70">
+                  <span className="text-[9px] font-black uppercase tracking-tight flex items-center gap-1.5"><Banknote className="w-3 h-3 text-brand-500" /> Tiền giấy</span>
+                  <span className="text-[10px] font-black">{formatCurrency(paperCash, lang)}</span>
+               </div>
+               <div className="flex justify-between items-center opacity-70">
+                  <span className="text-[9px] font-black uppercase tracking-tight flex items-center gap-1.5"><Coins className="w-3 h-3 text-amber-500" /> Tiền xu</span>
+                  <span className="text-[10px] font-black">{formatCurrency(coins, lang)}</span>
+               </div>
+               <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
+                  <span className="text-[10px] font-black uppercase text-brand-600 tracking-widest">Doanh thu tổng</span>
+                  <span className="text-lg font-black text-brand-600">{formatCurrency(totalRevenue, lang)}</span>
+               </div>
             </div>
           </div>
         ) : (
@@ -240,44 +268,38 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           </div>
         )}
 
-        {/* Khối Ghi chú & Mở rộng */}
-        <div className="pt-2 space-y-3">
-          <div className="flex gap-2">
-            {!showCoins && type === TransactionType.INCOME && (
-              <button type="button" onClick={() => setShowCoins(true)} className="flex-1 py-3.5 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase text-slate-500 hover:bg-slate-50 transition-all active-scale">
-                 <Coins className="w-4 h-4" /> {t('add_coins_btn')}
-              </button>
-            )}
-            <button type="button" onClick={addNoteField} className="flex-1 py-3.5 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase text-slate-500 hover:bg-slate-50 transition-all active-scale">
-               <Plus className="w-4 h-4" /> {t('add_note_btn')}
-            </button>
+        <div className="pt-2 space-y-4">
+          <div className="flex items-center justify-between px-2">
+             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-brand-500" /> Đề xuất thông minh</label>
+             <button type="button" onClick={() => addNoteField()} className="text-[9px] font-black text-brand-600 uppercase tracking-widest flex items-center gap-1"><Plus className="w-3 h-3" /> {t('add_note_btn')}</button>
+          </div>
+          
+          <div className="flex flex-wrap gap-2 px-1">
+             {noteSuggestions.map((s, i) => (
+               <button key={i} type="button" onClick={() => addNoteField(s)} className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-[9px] font-black text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-100 dark:border-indigo-800/50 active-scale hover:bg-brand-600 hover:text-white transition-all flex items-center gap-1.5">
+                 <Tag className="w-2.5 h-2.5" /> {s}
+               </button>
+             ))}
+             {noteSuggestions.length === 0 && <span className="text-[8px] font-bold text-slate-300 uppercase italic py-2">Chưa có lịch sử đề xuất</span>}
           </div>
 
-          {notes.map((note, idx) => (
-            <div key={idx} className="space-y-2 animate-ios group">
-              <div className="relative">
-                <textarea 
-                  value={note} 
-                  onChange={e => updateNote(idx, e.target.value)} 
-                  placeholder={`${t('note')} #${idx + 1}`}
-                  className="w-full p-4 bg-slate-50/50 dark:bg-slate-950/30 rounded-2xl border border-slate-200 dark:border-slate-800 outline-none text-xs font-bold dark:text-white resize-none h-18"
-                />
-                <button type="button" onClick={() => removeNote(idx)} className="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-              
-              {!note && getSuggestions.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 px-1">
-                  {getSuggestions.map((s, sIdx) => (
-                    <button key={sIdx} type="button" onClick={() => updateNote(idx, s)} className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-[9px] font-black text-slate-500 uppercase hover:bg-brand-600 hover:text-white transition-all shadow-sm">
-                       {s}
-                    </button>
-                  ))}
+          <div className="space-y-3">
+            {notes.map((note, idx) => (
+              <div key={idx} className="space-y-2 animate-ios group">
+                <div className="relative">
+                  <textarea 
+                    value={note} 
+                    onChange={e => updateNote(idx, e.target.value)} 
+                    placeholder={`${t('note')} #${idx + 1}`}
+                    className="w-full p-4 bg-slate-50/50 dark:bg-slate-950/30 rounded-2xl border border-slate-200 dark:border-slate-800 outline-none text-xs font-bold dark:text-white resize-none h-18 focus:ring-2 focus:ring-brand-500/10 transition-all"
+                  />
+                  <button type="button" onClick={() => removeNote(idx)} className="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
-              )}
-            </div>
-          ))}
+              </div>
+            ))}
+          </div>
         </div>
 
         <button type="submit" className="w-full h-15 bg-brand-600 text-white rounded-[1.8rem] font-black uppercase tracking-[0.1em] text-xs active-scale shadow-vivid flex items-center justify-center gap-2 transition-all hover:bg-brand-500">
