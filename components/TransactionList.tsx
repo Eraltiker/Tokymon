@@ -7,8 +7,7 @@ import {
   ArrowDownCircle, Edit3, Search, 
   CalendarDays, Filter, X, Info, 
   User as UserIcon, MessageSquare, ShieldCheck,
-  Store, Wallet, CreditCard, AlertCircle, CheckCircle2,
-  ChevronDown, ChevronUp
+  Store, Wallet, CreditCard, AlertCircle, ChevronDown
 } from 'lucide-react';
 
 interface TransactionListProps {
@@ -25,28 +24,59 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
   const [showFilters, setShowFilters] = useState(false);
   const isViewer = userRole === UserRole.VIEWER;
 
+  // --- STATES BỘ LỌC NÂNG CAO ---
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [selectedType, setSelectedType] = useState<TransactionType | 'ALL'>('ALL');
+  const [minAmount, setMinAmount] = useState('');
+  const [maxAmount, setMaxAmount] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [selectedSource, setSelectedSource] = useState<'ALL' | ExpenseSource>('ALL');
+  const [paidStatus, setPaidStatus] = useState<'ALL' | 'PAID' | 'DEBT'>('ALL');
+
+  // Lấy danh sách hạng mục duy nhất từ transactions để lọc
+  const availableCategories = useMemo(() => {
+    const cats = new Set(transactions.map(tx => tx.category));
+    return Array.from(cats).sort();
+  }, [transactions]);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(tx => {
       if (tx.deletedAt) return false;
+      
       const notesString = (tx.notes || []).join(' ').toLowerCase();
       const matchesSearch = 
         tx.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
         notesString.includes(searchQuery.toLowerCase()) ||
         (tx.debtorName?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
         (tx.authorName?.toLowerCase().includes(searchQuery.toLowerCase()) || false);
+      
       const matchesStartDate = startDate ? tx.date >= startDate : true;
       const matchesEndDate = endDate ? tx.date <= endDate : true;
       const matchesType = selectedType === 'ALL' ? true : tx.type === selectedType;
-      return matchesSearch && matchesStartDate && matchesEndDate && matchesType;
-    }).sort((a, b) => b.date.localeCompare(a.date));
-  }, [transactions, searchQuery, startDate, endDate, selectedType]);
+      
+      // Lọc theo khoảng giá
+      const amount = tx.amount;
+      const matchesMin = minAmount ? amount >= parseFloat(minAmount) : true;
+      const matchesMax = maxAmount ? amount <= parseFloat(maxAmount) : true;
 
-  // Group by date for cleaner look
+      // Lọc theo hạng mục
+      const matchesCat = selectedCategory === 'ALL' ? true : tx.category === selectedCategory;
+
+      // Lọc theo nguồn tiền
+      const matchesSrc = selectedSource === 'ALL' ? true : tx.expenseSource === selectedSource;
+
+      // Lọc theo trạng thái nợ
+      const matchesPaid = paidStatus === 'ALL' ? true : 
+                         paidStatus === 'PAID' ? tx.isPaid !== false : 
+                         tx.isPaid === false;
+
+      return matchesSearch && matchesStartDate && matchesEndDate && matchesType && 
+             matchesMin && matchesMax && matchesCat && matchesSrc && matchesPaid;
+    }).sort((a, b) => b.date.localeCompare(a.date));
+  }, [transactions, searchQuery, startDate, endDate, selectedType, minAmount, maxAmount, selectedCategory, selectedSource, paidStatus]);
+
   const groupedTransactions = useMemo(() => {
     const groups: Record<string, Transaction[]> = {};
     filteredTransactions.forEach(tx => {
@@ -65,14 +95,25 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
     }
   };
 
+  const resetFilters = () => {
+    setSearchQuery('');
+    setStartDate('');
+    setEndDate('');
+    setSelectedType('ALL');
+    setMinAmount('');
+    setMaxAmount('');
+    setSelectedCategory('ALL');
+    setSelectedSource('ALL');
+    setPaidStatus('ALL');
+  };
+
   return (
     <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-[2.5rem] shadow-ios border border-white dark:border-slate-800 overflow-hidden flex flex-col h-full animate-ios">
-      {/* Search & Filter Header */}
       <div className="px-6 py-4 space-y-4 bg-slate-50/50 dark:bg-slate-800/20 border-b border-slate-100 dark:border-slate-800">
         <div className="flex justify-between items-center">
           <div className="flex flex-col">
             <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] leading-none mb-1">{title}</h3>
-            <p className="text-sm font-black dark:text-white uppercase tracking-tighter">Sổ Nhật Ký Tài Chính</p>
+            <p className="text-sm font-black dark:text-white uppercase tracking-tighter">{t('journal_title')}</p>
           </div>
           <button onClick={() => setShowFilters(!showFilters)} className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all active-scale ${showFilters ? 'bg-brand-600 text-white shadow-vivid' : 'bg-white dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700 shadow-sm'}`}>
             {showFilters ? <X className="w-5 h-5" /> : <Filter className="w-5 h-5" />}
@@ -85,38 +126,98 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
         </div>
 
         {showFilters && (
-          <div className="p-4 bg-white dark:bg-slate-950 rounded-[2rem] border border-slate-100 dark:border-slate-800 space-y-4 animate-ios">
+          <div className="p-5 bg-white dark:bg-slate-950 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 space-y-5 animate-ios shadow-ios">
+             
+             {/* LỌC NGÀY */}
              <div className="grid grid-cols-2 gap-3">
                <div className="space-y-1.5">
-                 <label className="text-[8px] font-black uppercase text-slate-500 tracking-widest ml-1">{t('from_date')}</label>
+                 <label className="text-[8px] font-black uppercase text-slate-400 tracking-widest ml-1">{t('from_date')}</label>
                  <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-3 bg-slate-50 dark:bg-slate-900 rounded-xl text-[10px] font-black border border-slate-100 dark:border-slate-800 outline-none dark:text-white" />
                </div>
                <div className="space-y-1.5">
-                 <label className="text-[8px] font-black uppercase text-slate-500 tracking-widest ml-1">{t('to_date')}</label>
+                 <label className="text-[8px] font-black uppercase text-slate-400 tracking-widest ml-1">{t('to_date')}</label>
                  <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-3 bg-slate-50 dark:bg-slate-900 rounded-xl text-[10px] font-black border border-slate-100 dark:border-slate-800 outline-none dark:text-white" />
                </div>
              </div>
-             <button onClick={() => { setSearchQuery(''); setStartDate(''); setEndDate(''); setSelectedType('ALL'); }} className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[9px] font-black uppercase tracking-widest rounded-xl border border-slate-200 active-scale">Xóa bộ lọc</button>
+
+             {/* LỌC GIÁ & LOẠI */}
+             <div className="grid grid-cols-2 gap-3">
+               <div className="space-y-1.5">
+                 <label className="text-[8px] font-black uppercase text-slate-400 tracking-widest ml-1">{t('filter_min_amount')} (€)</label>
+                 <input type="number" value={minAmount} onChange={e => setMinAmount(e.target.value)} placeholder="0" className="w-full p-3 bg-slate-50 dark:bg-slate-900 rounded-xl text-[10px] font-black border border-slate-100 dark:border-slate-800 outline-none dark:text-white" />
+               </div>
+               <div className="space-y-1.5">
+                 <label className="text-[8px] font-black uppercase text-slate-400 tracking-widest ml-1">{t('filter_max_amount')} (€)</label>
+                 <input type="number" value={maxAmount} onChange={e => setMaxAmount(e.target.value)} placeholder="9999" className="w-full p-3 bg-slate-50 dark:bg-slate-900 rounded-xl text-[10px] font-black border border-slate-100 dark:border-slate-800 outline-none dark:text-white" />
+               </div>
+             </div>
+
+             {/* LỌC HẠNG MỤC & NGUỒN */}
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                   <label className="text-[8px] font-black uppercase text-slate-400 tracking-widest ml-1">{t('filter_category')}</label>
+                   <div className="relative">
+                      <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="w-full p-3 bg-slate-50 dark:bg-slate-900 rounded-xl text-[10px] font-black border border-slate-100 dark:border-slate-800 outline-none dark:text-white appearance-none">
+                         <option value="ALL">{t('all')}</option>
+                         {availableCategories.map(cat => <option key={cat} value={cat}>{translateCategory(cat)}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+                   </div>
+                </div>
+                <div className="space-y-1.5">
+                   <label className="text-[8px] font-black uppercase text-slate-400 tracking-widest ml-1">{t('filter_source')}</label>
+                   <div className="relative">
+                      <select value={selectedSource} onChange={e => setSelectedSource(e.target.value as any)} className="w-full p-3 bg-slate-50 dark:bg-slate-900 rounded-xl text-[10px] font-black border border-slate-100 dark:border-slate-800 outline-none dark:text-white appearance-none">
+                         <option value="ALL">{t('all')}</option>
+                         <option value={ExpenseSource.SHOP_CASH}>{t('src_shop_cash')}</option>
+                         <option value={ExpenseSource.WALLET}>{t('src_wallet')}</option>
+                         <option value={ExpenseSource.CARD}>{t('src_card')}</option>
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+                   </div>
+                </div>
+             </div>
+
+             {/* LỌC TRẠNG THÁI NỢ */}
+             <div className="space-y-1.5">
+                <label className="text-[8px] font-black uppercase text-slate-400 tracking-widest ml-1">{t('filter_status')}</label>
+                <div className="grid grid-cols-3 gap-2">
+                   {[
+                      { id: 'ALL', label: t('all') },
+                      { id: 'PAID', label: t('status_paid') },
+                      { id: 'DEBT', label: t('status_debt') }
+                   ].map(st => (
+                      <button 
+                        key={st.id} 
+                        onClick={() => setPaidStatus(st.id as any)}
+                        className={`py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${paidStatus === st.id ? 'bg-indigo-600 border-indigo-600 text-white shadow-vivid' : 'bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-800'}`}
+                      >
+                        {st.label}
+                      </button>
+                   ))}
+                </div>
+             </div>
+
+             <button onClick={resetFilters} className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-black uppercase tracking-widest rounded-2xl border border-slate-200 dark:border-slate-700 active-scale shadow-sm transition-all hover:bg-slate-200">
+                {t('reset_filter')}
+             </button>
           </div>
         )}
       </div>
       
-      {/* Dense Transaction List */}
       <div className="overflow-y-auto flex-1 no-scrollbar pb-24">
         {groupedTransactions.map(([date, txs]) => (
           <div key={date} className="relative">
-             {/* Sticky Date Header */}
              <div className="sticky top-0 z-20 px-6 py-2 bg-slate-100/90 dark:bg-slate-950/90 backdrop-blur-md border-y border-slate-200/50 dark:border-slate-800/50 flex justify-between items-center">
                 <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <CalendarDays className="w-3.5 h-3.5" /> {date.split('-').reverse().join(' / ')}
                 </span>
-                <span className="text-[9px] font-bold text-slate-400 uppercase">{txs.length} giao dịch</span>
+                <span className="text-[9px] font-bold text-slate-400 uppercase">{txs.length} {t('history')}</span>
              </div>
 
              <div className="divide-y divide-slate-50 dark:divide-slate-800/50">
                 {txs.map(tx => (
                   <div key={tx.id} className="px-6 py-4 flex flex-col gap-2 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors relative group">
-                     {/* Row Main Content */}
                      <div className="flex justify-between items-start gap-4">
                         <div className="flex gap-3 min-w-0">
                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${tx.type === TransactionType.INCOME ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900/30' : 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-950/30 dark:border-rose-900/30'}`}>
@@ -127,12 +228,10 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                                  {tx.debtorName || translateCategory(tx.category)}
                               </h4>
                               <div className="flex flex-wrap items-center gap-2">
-                                 {/* Source Tag */}
                                  <div className={`px-2 py-0.5 rounded-md flex items-center gap-1 text-[8px] font-black uppercase border ${tx.isPaid === false ? 'bg-rose-500 text-white border-rose-600 shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'}`}>
                                     {getSourceIcon(tx.expenseSource)}
-                                    {tx.isPaid === false ? 'CHƯA TRẢ' : translateSource(tx.expenseSource)}
+                                    {tx.isPaid === false ? t('unpaid') : translateSource(tx.expenseSource)}
                                  </div>
-                                 {/* Author Tag */}
                                  <div className="flex items-center gap-1 px-2 py-0.5 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 rounded-md border border-brand-100 dark:border-brand-800 text-[8px] font-black uppercase">
                                     <UserIcon className="w-2.5 h-2.5" /> {tx.authorName || '---'}
                                  </div>
@@ -142,17 +241,16 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
 
                         <div className="text-right shrink-0 flex flex-col justify-center">
                            <p className={`text-sm font-black tracking-tighter ${tx.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'}`}>
-                              {tx.type === TransactionType.INCOME ? '+' : '-'}{formatCurrency(tx.amount)}
+                              {tx.type === TransactionType.INCOME ? '+' : '-'}{formatCurrency(tx.amount, lang)}
                            </p>
                            {tx.lastEditorName && (
                               <div className="flex items-center justify-end gap-1 text-amber-500 dark:text-amber-400 text-[7px] font-black uppercase mt-1">
-                                 <ShieldCheck className="w-2.5 h-2.5" /> Đã sửa bởi {tx.lastEditorName}
+                                 <ShieldCheck className="w-2.5 h-2.5" /> {t('edited_by')} {tx.lastEditorName}
                               </div>
                            )}
                         </div>
                      </div>
 
-                     {/* Notes Sub-Row */}
                      {(tx.notes && tx.notes.length > 0) && (
                         <div className="flex gap-2 pl-[52px]">
                            <MessageSquare className="w-3 h-3 text-slate-300 mt-0.5 shrink-0" />
@@ -166,7 +264,6 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                         </div>
                      )}
 
-                     {/* Action Overlay (Visible on Hover or for Admins/Managers) */}
                      {!isViewer && (
                         <div className="absolute right-6 bottom-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                            <button onClick={() => onEdit(tx)} className="p-2 bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-lg shadow-sm text-slate-400 hover:text-indigo-500 transition-colors"><Edit3 className="w-3.5 h-3.5" /></button>

@@ -1,12 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Transaction, TransactionType, ExpenseSource, Language, formatCurrency } from '../types';
 import { useTranslation } from '../i18n';
 import { 
   Save, ChevronLeft, ChevronRight, Store, 
   ChevronDown, CreditCard, Calendar,
   Wallet, Banknote, Plus, Trash2, User as UserIcon, Calculator,
-  MinusCircle, PlusCircle, Info
+  MinusCircle, PlusCircle, Info, Sparkles
 } from 'lucide-react';
 
 interface TransactionFormProps {
@@ -28,7 +28,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   branchId, 
   lang = 'vi' as Language, 
   branchName,
-  currentUsername = 'Unknown'
+  currentUsername = 'Unknown',
+  transactions
 }) => {
   const { t, translateCategory } = useTranslation(lang);
   const [type] = useState<TransactionType>(fixedType || TransactionType.INCOME);
@@ -45,6 +46,25 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [kasseTotalInput, setKasseTotalInput] = useState<string>(''); 
   const [appInput, setAppInput] = useState<string>('');   
   const [cardTotalInput, setCardTotalInput] = useState<string>(''); 
+
+  // --- LOGIC GỢI Ý THÔNG MINH ---
+  const smartSuggestions = useMemo(() => {
+    // Lấy 100 giao dịch gần nhất cùng loại
+    const relevantTxs = transactions
+      .filter(tx => !tx.deletedAt && tx.type === type)
+      .slice(0, 100);
+    
+    const allNotes = relevantTxs.flatMap(tx => tx.notes || []);
+    const counts: Record<string, number> = {};
+    allNotes.forEach(n => {
+      if (n.trim()) counts[n] = (counts[n] || 0) + 1;
+    });
+
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1]) // Sắp xếp theo tần suất
+      .slice(0, 8) // Lấy top 8
+      .map(([note]) => note);
+  }, [transactions, type]);
 
   const validateAndSetAmount = (val: string, setter: (v: string) => void) => {
     const sanitized = val.replace(',', '.');
@@ -64,6 +84,16 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     setNotes(updated);
   };
   const removeNote = (idx: number) => setNotes(notes.filter((_, i) => i !== idx));
+
+  const applySuggestion = (text: string) => {
+    // Nếu có ô ghi chú trống thì điền vào, không thì tạo mới
+    const emptyIdx = notes.findIndex(n => !n.trim());
+    if (emptyIdx !== -1) {
+      updateNote(emptyIdx, text);
+    } else {
+      setNotes([...notes, text]);
+    }
+  };
 
   const kasseTotal = parseNumber(kasseTotalInput); 
   const cardTotal = parseNumber(cardTotalInput); 
@@ -174,13 +204,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   </div>
                   <div className="text-right">
                     <span className="text-lg font-black text-white">{formatCurrency(actualCashAtKasse, lang)}</span>
-                    <p className="text-[7px] font-bold text-slate-500 uppercase leading-none mt-1">Dự kiến chốt két</p>
+                    <p className="text-[7px] font-bold text-slate-500 uppercase leading-none mt-1">{t('expected_pocket')}</p>
                   </div>
                </div>
-            </div>
-            <div className="flex gap-2 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800/40">
-               <Info className="w-4 h-4 text-indigo-600 shrink-0" />
-               <p className="text-[8px] font-bold text-indigo-700 dark:text-indigo-300 uppercase leading-tight">Mẹo: Doanh thu App được tính là tiền mặt về túi trong ngày để thống kê bàn giao.</p>
             </div>
           </div>
         ) : (
@@ -208,9 +234,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               ) : (
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: ExpenseSource.SHOP_CASH, label: "Tại Quán", icon: Store },
-                    { id: ExpenseSource.WALLET, label: "Ví Tổng", icon: Wallet },
-                    { id: ExpenseSource.CARD, label: "Bank/Thẻ", icon: CreditCard }
+                    { id: ExpenseSource.SHOP_CASH, label: t('src_shop_cash'), icon: Store },
+                    { id: ExpenseSource.WALLET, label: t('src_wallet'), icon: Wallet },
+                    { id: ExpenseSource.CARD, label: t('src_card'), icon: CreditCard }
                   ].map((s) => (
                     <button key={s.id} type="button" onClick={() => setExpenseSource(s.id)} className={`py-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-1.5 active-scale ${expenseSource === s.id ? `bg-brand-600 border-brand-600 text-white` : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500'}`}>
                       <s.icon className="w-4 h-4" />
@@ -223,10 +249,29 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           </div>
         )}
 
-        <div className="pt-2">
-          <div className="flex items-center justify-between px-2 mb-3">
-             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">{t('suggestions')}</label>
+        <div className="pt-2 space-y-4">
+          <div className="flex items-center justify-between px-2">
+             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <Sparkles className="w-3 h-3 text-brand-500" /> {t('suggestions')}
+             </label>
              <button type="button" onClick={addNoteField} className="text-[9px] font-black text-brand-600 uppercase tracking-widest flex items-center gap-1"><Plus className="w-3 h-3" /> {t('add_note_btn')}</button>
+          </div>
+
+          {/* HIỂN THỊ GỢI Ý THÔNG MINH */}
+          <div className="flex flex-wrap gap-1.5 px-1">
+             {smartSuggestions.map((text, i) => (
+               <button 
+                key={i} 
+                type="button" 
+                onClick={() => applySuggestion(text)}
+                className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 rounded-full text-[9px] font-bold text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 active-scale hover:bg-brand-50 hover:text-brand-600 hover:border-brand-100 transition-all"
+               >
+                 {text}
+               </button>
+             ))}
+             {smartSuggestions.length === 0 && (
+               <span className="text-[9px] font-bold text-slate-300 uppercase italic">Chưa có dữ liệu gợi ý...</span>
+             )}
           </div>
           
           <div className="space-y-3">
