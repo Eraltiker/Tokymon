@@ -6,18 +6,23 @@ import {
 } from '../types';
 import { useTranslation } from '../i18n';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, 
-  ResponsiveContainer, PieChart, Pie, Cell, Legend
+  XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, 
+  ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, BarChart, Bar, ComposedChart
 } from 'recharts';
 import { 
-  AlertCircle, ChevronLeft, ChevronRight, 
-  Wallet, Activity, Target, Loader2,
-  Banknote, Calculator,
-  MinusCircle, PlusCircle, TrendingUp, TrendingDown,
-  Info, CheckCircle2, PieChart as PieIcon, BarChart3,
-  ArrowUpRight, ArrowDownRight, Briefcase, Zap, CreditCard,
-  ShoppingBag, DollarSign, Percent, Coins
+  ChevronLeft, ChevronRight, 
+  Wallet, Activity, Loader2,
+  Banknote, TrendingUp,
+  BarChart3,
+  Zap, CreditCard,
+  Sparkles, BrainCircuit,
+  Landmark, Receipt, PiggyBank,
+  Calculator,
+  AlertCircle,
+  ArrowDown,
+  Info
 } from 'lucide-react';
+import { analyzeFinances } from '../services/geminiService';
 
 interface DashboardProps {
   transactions: Transaction[];
@@ -29,7 +34,8 @@ interface DashboardProps {
   reportSettings: ReportSettings;
 }
 
-type DashboardTab = 'DAILY' | 'MONTHLY' | 'WALLET' | 'LIABILITIES';
+type ReportPeriod = 'MONTH' | 'QUARTER' | 'YEAR';
+type DashboardTab = 'OVERVIEW' | 'DAILY' | 'WALLET' | 'LIABILITIES';
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   transactions, 
@@ -38,341 +44,436 @@ const Dashboard: React.FC<DashboardProps> = ({
   allowedBranches, 
 }) => {
   const { t, translateCategory } = useTranslation(lang);
-  const [currentMonth, setCurrentMonth] = useState<string>(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
-  });
+  const [activeTab, setActiveTab] = useState<DashboardTab>('OVERVIEW');
+  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('MONTH');
+  const [viewDate, setViewDate] = useState(new Date());
   
-  const [activeTab, setActiveTab] = useState<DashboardTab>('MONTHLY');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
 
-  // Lấy dữ liệu CHỈ CỦA CHI NHÁNH ĐANG CHỌN
+  const handlePrev = () => {
+    const next = new Date(viewDate);
+    if (reportPeriod === 'MONTH') next.setMonth(next.getMonth() - 1);
+    else if (reportPeriod === 'QUARTER') next.setMonth(next.getMonth() - 3);
+    else next.setFullYear(next.getFullYear() - 1);
+    setViewDate(next);
+    setAiAnalysis(null);
+  };
+
+  const handleNext = () => {
+    const next = new Date(viewDate);
+    if (reportPeriod === 'MONTH') next.setMonth(next.getMonth() + 1);
+    else if (reportPeriod === 'QUARTER') next.setMonth(next.getMonth() + 3);
+    else next.setFullYear(next.getFullYear() + 1);
+    setViewDate(next);
+    setAiAnalysis(null);
+  };
+
+  const periodLabel = useMemo(() => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth() + 1;
+    if (reportPeriod === 'MONTH') return `Tháng ${month} / ${year}`;
+    if (reportPeriod === 'QUARTER') {
+        const q = Math.ceil(month / 3);
+        return `Quý ${q} / ${year}`;
+    }
+    return `Năm ${year}`;
+  }, [viewDate, reportPeriod]);
+
   const branchTransactions = useMemo(() => {
     return transactions.filter(tx => !tx.deletedAt && tx.branchId === currentBranchId);
   }, [transactions, currentBranchId]);
 
-  const monthTransactions = useMemo(() => {
-    return branchTransactions.filter(tx => tx.date.startsWith(currentMonth));
-  }, [branchTransactions, currentMonth]);
+  const stats = useMemo(() => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const q = Math.ceil((month + 1) / 3);
 
-  // Xử lý dữ liệu ngày
-  const dailyData = useMemo(() => {
-    const dayMap: Record<string, any> = {};
-    monthTransactions.forEach(tx => {
-      if (!dayMap[tx.date]) {
-        dayMap[tx.date] = { 
-          date: tx.date, totalRev: 0, cardSales: 0, appSales: 0, shopOut: 0, coinSum: 0 
-        };
+    const filtered = branchTransactions.filter(tx => {
+      const txDate = new Date(tx.date);
+      if (reportPeriod === 'MONTH') return txDate.getFullYear() === year && txDate.getMonth() === month;
+      if (reportPeriod === 'QUARTER') {
+        const txQ = Math.ceil((txDate.getMonth() + 1) / 3);
+        return txDate.getFullYear() === year && txQ === q;
       }
-      const data = dayMap[tx.date];
+      return txDate.getFullYear() === year;
+    });
+
+    let totalRev = 0, totalExp = 0, cardSales = 0, appSales = 0, shopOut = 0, walletOut = 0, cardOut = 0;
+    const groupMap: Record<string, any> = {};
+    const catMap: Record<string, number> = {};
+
+    filtered.forEach(tx => {
+      const txDate = new Date(tx.date);
+      const groupKey = reportPeriod === 'MONTH' ? tx.date : `${txDate.getFullYear()}-${(txDate.getMonth() + 1).toString().padStart(2, '0')}`;
+      
+      if (!groupMap[groupKey]) groupMap[groupKey] = { total: 0, card: 0, app: 0, shopOut: 0, count: 0 };
+
       if (tx.type === TransactionType.INCOME) {
-        data.totalRev += tx.amount || 0;
+        totalRev += tx.amount;
+        groupMap[groupKey].total += tx.amount;
+        groupMap[groupKey].count += 1;
         if (tx.incomeBreakdown) {
-          data.cardSales += tx.incomeBreakdown.card || 0;
-          data.appSales += tx.incomeBreakdown.delivery || 0;
-          data.coinSum += tx.incomeBreakdown.coins || 0;
+          cardSales += tx.incomeBreakdown.card || 0;
+          appSales += tx.incomeBreakdown.delivery || 0;
+          groupMap[groupKey].card += tx.incomeBreakdown.card || 0;
+          groupMap[groupKey].app += tx.incomeBreakdown.delivery || 0;
         }
-      } else if (tx.expenseSource === ExpenseSource.SHOP_CASH) {
-        data.shopOut += tx.amount || 0;
+      } else {
+        totalExp += tx.amount;
+        catMap[tx.category] = (catMap[tx.category] || 0) + tx.amount;
+        if (tx.expenseSource === ExpenseSource.SHOP_CASH) {
+          shopOut += tx.amount;
+          groupMap[groupKey].shopOut += tx.amount;
+        }
+        else if (tx.expenseSource === ExpenseSource.WALLET) walletOut += tx.amount;
+        else if (tx.expenseSource === ExpenseSource.CARD) cardOut += tx.amount;
       }
     });
 
-    return Object.values(dayMap).map((data: any) => {
-      // Tiền mặt tại két (trước khi trừ chi phí) = (Doanh thu - App - Thẻ)
-      // Thực tế Tokymon dùng công thức (Kasse - Thẻ + App) nhưng logic nhập là (Doanh thu = Kasse + App)
-      // Vậy Tiền mặt thực = (Doanh thu - App) - Thẻ + App = Doanh thu - Thẻ.
-      // Tuy nhiên dựa trên TransactionForm: actualCashAtKasse = (kasseTotal + appTotal - cardTotal)
-      const cashAtKasse = (data.totalRev - data.cardSales); 
-      const netHandover = cashAtKasse - data.shopOut;
-
-      return {
-        ...data,
-        day: data.date.split('-')[2],
-        cashAtKasse,
-        netHandover
-      };
-    }).sort((a, b) => b.date.localeCompare(a.date));
-  }, [monthTransactions]);
-
-  // Tổng kết tháng & Biểu đồ
-  const monthlySummary = useMemo(() => {
-    const totalRev = monthTransactions.reduce((acc, tx) => acc + (tx.type === TransactionType.INCOME ? tx.amount : 0), 0);
-    const totalExp = monthTransactions.reduce((acc, tx) => acc + (tx.type === TransactionType.EXPENSE ? tx.amount : 0), 0);
-    const totalHandover = dailyData.reduce((acc, d) => acc + d.netHandover, 0);
     const profit = totalRev - totalExp;
     const margin = totalRev > 0 ? (profit / totalRev) * 100 : 0;
-    
-    // Doanh thu theo ngày (Bar Chart)
-    const barChartData = dailyData.map(d => ({ day: d.day, value: d.totalRev })).sort((a, b) => a.day.localeCompare(b.day));
+    const netCashInPeriod = (totalRev - cardSales - shopOut);
 
-    // Phân bổ chi phí (Pie Chart)
-    const expenseMap: Record<string, number> = {};
-    monthTransactions.filter(tx => tx.type === TransactionType.EXPENSE).forEach(tx => {
-      expenseMap[tx.category] = (expenseMap[tx.category] || 0) + tx.amount;
+    const chartData = Object.entries(groupMap).map(([key, d]) => ({
+      label: reportPeriod === 'MONTH' ? key.split('-')[2] : `T${key.split('-')[1]}`,
+      revenue: d.total,
+      cash: d.total - d.card - d.shopOut
+    })).sort((a, b) => a.label.localeCompare(b.label));
+
+    const pieData = Object.entries(catMap).map(([name, value]) => ({ name: translateCategory(name), value })).sort((a, b) => b.value - a.value);
+
+    const dailyData: Record<string, any> = {};
+    filtered.forEach(tx => {
+      if (!dailyData[tx.date]) dailyData[tx.date] = { total: 0, card: 0, app: 0, shopOut: 0, expenses: [], author: '' };
+      if (tx.type === TransactionType.INCOME) {
+        dailyData[tx.date].total += tx.amount;
+        dailyData[tx.date].author = tx.authorName || 'Unknown';
+        if (tx.incomeBreakdown) {
+          dailyData[tx.date].card += tx.incomeBreakdown.card || 0;
+          dailyData[tx.date].app += tx.incomeBreakdown.delivery || 0;
+        }
+      } else if (tx.type === TransactionType.EXPENSE && tx.expenseSource === ExpenseSource.SHOP_CASH) {
+        dailyData[tx.date].shopOut += tx.amount;
+        dailyData[tx.date].expenses.push(tx);
+      }
     });
-    const pieChartData = Object.entries(expenseMap).map(([name, value]) => ({ 
-      name: translateCategory(name), 
-      value 
-    })).sort((a, b) => b.value - a.value);
 
-    return { totalRev, totalExp, totalHandover, profit, margin, barChartData, pieChartData };
-  }, [monthTransactions, dailyData, translateCategory]);
+    return { 
+      totalRev, totalExp, profit, margin, netCashInPeriod, cardSales, appSales, shopOut, walletOut, cardOut,
+      chartData, pieData, dailyAudit: Object.entries(dailyData).sort((a, b) => b[0].localeCompare(a[0]))
+    };
+  }, [branchTransactions, viewDate, reportPeriod, translateCategory]);
+
+  const handleAIAnalysis = async () => {
+    setIsAnalyzing(true);
+    try {
+      const result = await analyzeFinances({
+        totalIn: stats.totalRev,
+        totalOut: stats.totalExp,
+        profit: stats.profit,
+        margin: stats.margin / 100,
+        totalDebt: 0
+      }, lang);
+      setAiAnalysis(result);
+    } catch (e) { setAiAnalysis("Lỗi dịch vụ phân tích."); } finally { setIsAnalyzing(false); }
+  };
 
   const currentBranch = useMemo(() => allowedBranches.find(b => b.id === currentBranchId), [allowedBranches, currentBranchId]);
-  const branchColor = currentBranch?.color || '#6366f1';
-
-  const PIE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6', '#ec4899'];
+  const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6', '#ec4899'];
 
   return (
-    <div className="space-y-6 pb-40 animate-ios max-w-5xl mx-auto px-1 sm:px-4">
-      {/* Month Navigator */}
-      <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-md rounded-[2.5rem] p-4 border border-white dark:border-slate-800 shadow-soft flex items-center justify-between">
-        <button onClick={() => {
-          const [y, m] = currentMonth.split('-').map(Number);
-          const d = new Date(y, m - 2);
-          setCurrentMonth(`${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`);
-        }} className="p-3 bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-600 dark:text-slate-400 active-scale"><ChevronLeft className="w-5 h-5" /></button>
-        <div className="text-center">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Kỳ báo cáo tháng</p>
-          <span className="text-sm font-black dark:text-white uppercase tracking-widest">{currentMonth.split('-')[1]} / {currentMonth.split('-')[0]}</span>
-        </div>
-        <button onClick={() => {
-          const [y, m] = currentMonth.split('-').map(Number);
-          const d = new Date(y, m);
-          setCurrentMonth(`${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`);
-        }} className="p-3 bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-600 dark:text-slate-400 active-scale"><ChevronRight className="w-5 h-5" /></button>
-      </div>
-
-      {/* Tabs Menu */}
-      <div className="flex p-1.5 bg-slate-200/40 dark:bg-slate-950/40 rounded-[2rem] border border-white/20 dark:border-slate-800/50 sticky top-20 z-40 backdrop-blur-md">
+    <div className="space-y-6 pb-40 animate-ios max-w-6xl mx-auto px-1 sm:px-4">
+      
+      {/* --- TAB NAVIGATION --- */}
+      <div className="flex p-1 bg-slate-200/40 dark:bg-slate-900/50 rounded-[2.5rem] border dark:border-slate-800/60 sticky top-20 z-50 backdrop-blur-xl shadow-sm">
         {[
-          { id: 'MONTHLY', label: 'Tháng', icon: BarChart3 },
-          { id: 'DAILY', label: 'Ngày', icon: Activity },
-          { id: 'WALLET', label: 'Quỹ Quán', icon: Wallet },
-          { id: 'LIABILITIES', label: 'Công Nợ', icon: AlertCircle },
+          { id: 'OVERVIEW', label: t('overview_tab'), icon: BarChart3 },
+          { id: 'DAILY', label: t('daily_tab'), icon: Activity },
+          { id: 'WALLET', label: t('wallet_tab'), icon: Wallet },
+          { id: 'LIABILITIES', label: t('liabilities_tab'), icon: AlertCircle },
         ].map(tab => (
           <button 
             key={tab.id} 
             onClick={() => setActiveTab(tab.id as any)}
-            className={`flex-1 py-3 px-2 rounded-[1.6rem] text-[10px] font-black uppercase tracking-tight transition-all flex items-center justify-center gap-2 ${activeTab === tab.id ? 'bg-white dark:bg-slate-800 text-brand-600 dark:text-white shadow-premium' : 'text-slate-500'}`}
+            className={`flex-1 py-3.5 px-2 rounded-[2.2rem] text-[9px] font-black uppercase tracking-tighter transition-all flex items-center justify-center gap-2 ${activeTab === tab.id ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-white shadow-premium' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
           >
-            <tab.icon className="w-4 h-4" /> <span className="hidden sm:inline">{tab.label}</span>
+            <tab.icon className="w-4 h-4 shrink-0" /> <span className="hidden sm:inline">{tab.label}</span>
           </button>
         ))}
       </div>
 
-      {activeTab === 'MONTHLY' && (
+      {activeTab === 'OVERVIEW' && (
         <div className="space-y-6 animate-ios">
-          {/* Monthly KPI Grid */}
+          <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-4 rounded-[2.5rem] border dark:border-slate-800 shadow-sm">
+            <div className="flex p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl border dark:border-slate-800 w-full md:w-fit">
+              {(['MONTH', 'QUARTER', 'YEAR'] as ReportPeriod[]).map(p => (
+                <button 
+                  key={p} 
+                  onClick={() => { setReportPeriod(p); setAiAnalysis(null); }}
+                  className={`flex-1 md:px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${reportPeriod === p ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500'}`}
+                >
+                  {p === 'MONTH' ? 'Tháng' : p === 'QUARTER' ? 'Quý' : 'Năm'}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 p-1.5 rounded-2xl border dark:border-slate-800 self-center">
+              <button onClick={handlePrev} className="p-2.5 bg-white dark:bg-slate-800 rounded-xl active-scale shadow-sm text-slate-500"><ChevronLeft className="w-4 h-4" /></button>
+              <div className="px-4 text-center min-w-[140px]">
+                <span className="text-[10px] font-black dark:text-white uppercase tracking-widest">{periodLabel}</span>
+              </div>
+              <button onClick={handleNext} className="p-2.5 bg-white dark:bg-slate-800 rounded-xl active-scale shadow-sm text-slate-500"><ChevronRight className="w-4 h-4" /></button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-             <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-white dark:border-slate-800 shadow-ios relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity"><ShoppingBag className="w-12 h-12" /></div>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Doanh Thu Z-Bon</p>
-                <h3 className="text-xl font-black dark:text-white tracking-tighter">{formatCurrency(monthlySummary.totalRev, lang)}</h3>
-                <div className="mt-4 flex items-center gap-1.5 text-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 w-fit px-2 py-0.5 rounded-lg">
-                   <TrendingUp className="w-3 h-3" />
-                   <span className="text-[8px] font-black uppercase">Chỉ số nguồn thu</span>
+             <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 p-5 rounded-[2.2rem] text-white shadow-vivid relative overflow-hidden group">
+                <p className="text-[8px] font-black uppercase tracking-widest opacity-70 mb-1 leading-none">{t('paper_cash')}</p>
+                <h3 className="text-xl sm:text-2xl font-black tracking-tighter leading-none">{formatCurrency(stats.totalRev, lang)}</h3>
+             </div>
+             <div className="bg-white dark:bg-slate-900 p-5 rounded-[2.2rem] border dark:border-slate-800 shadow-ios">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">{t('profit')}</p>
+                <h3 className={`text-xl sm:text-2xl font-black tracking-tighter leading-none ${stats.profit >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{formatCurrency(stats.profit, lang)}</h3>
+             </div>
+             <div className="bg-white dark:bg-slate-900 p-5 rounded-[2.2rem] border dark:border-slate-800 shadow-ios">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">{t('handover_label')}</p>
+                <h3 className="text-xl sm:text-2xl font-black text-indigo-600 dark:text-indigo-400 tracking-tighter leading-none">{formatCurrency(stats.netCashInPeriod, lang)}</h3>
+             </div>
+             <div className="bg-white dark:bg-slate-900 p-5 rounded-[2.2rem] border dark:border-slate-800 shadow-ios">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">{t('expense')}</p>
+                <h3 className="text-xl sm:text-2xl font-black text-rose-500 tracking-tighter leading-none">{formatCurrency(stats.totalExp, lang)}</h3>
+             </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+             <div className="lg:col-span-8 bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-[3rem] border dark:border-slate-800 shadow-ios">
+                <div className="flex justify-between items-center mb-10">
+                   <h4 className="text-sm font-black uppercase tracking-tighter dark:text-white">Hiệu suất Doanh thu</h4>
+                   <TrendingUp className="w-6 h-6 text-indigo-500 opacity-20" />
+                </div>
+                <div className="h-[280px] sm:h-[320px]">
+                   <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={stats.chartData}>
+                         <defs>
+                           <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                             <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2}/>
+                             <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                           </linearGradient>
+                         </defs>
+                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                         <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{fontSize: 9, fontWeight: 800, fill: '#94a3b8'}} />
+                         <YAxis hide />
+                         <RechartsTooltip 
+                            contentStyle={{borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', fontWeight: 800, fontSize: '10px'}}
+                            formatter={(val: number) => [formatCurrency(val, lang)]}
+                         />
+                         <Bar dataKey="revenue" fill="#e2e8f0" radius={[8, 8, 0, 0]} barSize={reportPeriod === 'MONTH' ? 10 : 25} />
+                         <Area type="monotone" dataKey="cash" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
+                      </ComposedChart>
+                   </ResponsiveContainer>
                 </div>
              </div>
              
-             <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-white dark:border-slate-800 shadow-ios relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity"><DollarSign className="w-12 h-12" /></div>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Chi Phí Tổng</p>
-                <h3 className="text-xl font-black text-rose-500 tracking-tighter">{formatCurrency(monthlySummary.totalExp, lang)}</h3>
-                <div className="mt-4 flex items-center gap-1.5 text-rose-400 bg-rose-50 dark:bg-rose-900/10 w-fit px-2 py-0.5 rounded-lg">
-                   <TrendingDown className="w-3 h-3" />
-                   <span className="text-[8px] font-black uppercase">Tổng các nguồn chi</span>
+             <div className="lg:col-span-4 bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-[3rem] border dark:border-slate-800 shadow-ios">
+                <h4 className="text-sm font-black uppercase tracking-tighter dark:text-white mb-10">Cơ cấu Chi phí</h4>
+                <div className="h-[200px] sm:h-[220px] relative">
+                   <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                         <Pie data={stats.pieData} innerRadius={60} outerRadius={80} paddingAngle={6} dataKey="value">
+                            {stats.pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                         </Pie>
+                      </PieChart>
+                   </ResponsiveContainer>
+                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-[9px] font-black text-slate-400 uppercase">Tổng chi</span>
+                      <span className="text-xs font-black dark:text-white tracking-tighter">{formatCurrency(stats.totalExp, lang)}</span>
+                   </div>
                 </div>
-             </div>
-
-             <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-white dark:border-slate-800 shadow-ios relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity"><Briefcase className="w-12 h-12" /></div>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Lợi Nhuận Net</p>
-                <h3 className="text-xl font-black text-indigo-600 dark:text-indigo-400 tracking-tighter">{formatCurrency(monthlySummary.profit, lang)}</h3>
-                <div className="mt-4 flex items-center gap-1.5 text-indigo-400 bg-indigo-50 dark:bg-indigo-900/10 w-fit px-2 py-0.5 rounded-lg">
-                   <Percent className="w-3 h-3" />
-                   <span className="text-[8px] font-black uppercase">{monthlySummary.margin.toFixed(1)}% Marge</span>
-                </div>
-             </div>
-
-             <div className="bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-white dark:border-slate-800 shadow-ios relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity"><Zap className="w-12 h-12" /></div>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Tiền Bàn Giao</p>
-                <h3 className="text-xl font-black text-emerald-600 tracking-tighter">{formatCurrency(monthlySummary.totalHandover, lang)}</h3>
-                <div className="mt-4 flex items-center gap-1.5 text-emerald-500 bg-emerald-50 dark:bg-emerald-900/10 w-fit px-2 py-0.5 rounded-lg">
-                   <CheckCircle2 className="w-3 h-3" />
-                   <span className="text-[8px] font-black uppercase">Đã đối soát két</span>
-                </div>
-             </div>
-          </div>
-
-          {/* Monthly Trend Chart */}
-          <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-white dark:border-slate-800 shadow-ios">
-             <div className="flex items-center gap-3 mb-8">
-                <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl text-indigo-600"><BarChart3 className="w-6 h-6" /></div>
-                <div>
-                  <h4 className="text-sm font-black uppercase tracking-tight dark:text-white">Xu hướng doanh thu ngày</h4>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Biến động doanh thu Z-Bon trong tháng</p>
-                </div>
-             </div>
-             <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={monthlySummary.barChartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }} />
-                    <YAxis hide />
-                    <RechartsTooltip cursor={{ fill: 'rgba(99, 102, 241, 0.05)' }} contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', fontSize: '10px', fontWeight: 800 }} />
-                    <Bar dataKey="value" fill={branchColor} radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-             </div>
-          </div>
-
-          {/* Expense Analysis */}
-          <div className="bg-white dark:bg-slate-900 p-8 rounded-[3rem] border border-white dark:border-slate-800 shadow-ios">
-             <div className="flex items-center gap-3 mb-8">
-                <div className="p-3 bg-rose-50 dark:bg-rose-900/20 rounded-2xl text-rose-500"><PieIcon className="w-6 h-6" /></div>
-                <div>
-                  <h4 className="text-sm font-black uppercase tracking-tight dark:text-white">Phân tích cơ cấu chi phí</h4>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Chiếm tỷ trọng theo danh mục</p>
-                </div>
-             </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
-                <div className="h-[250px] w-full relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={monthlySummary.pieChartData} innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value">
-                        {monthlySummary.pieChartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                     <span className="text-[8px] font-black uppercase text-slate-400">Tổng chi</span>
-                     <span className="text-base font-black dark:text-white">{formatCurrency(monthlySummary.totalExp, lang)}</span>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                   {monthlySummary.pieChartData.slice(0, 5).map((d, i) => (
-                     <div key={i} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl">
-                        <div className="flex items-center gap-3">
-                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
-                           <span className="text-[10px] font-black uppercase text-slate-600 dark:text-slate-300 truncate max-w-[120px]">{d.name}</span>
-                        </div>
-                        <div className="text-right">
-                           <span className="text-[11px] font-black dark:text-white block">{formatCurrency(d.value, lang)}</span>
-                           <span className="text-[8px] font-bold text-slate-400">{(d.value / monthlySummary.totalExp * 100).toFixed(1)}%</span>
-                        </div>
-                     </div>
+                <div className="mt-8 space-y-2.5">
+                   {stats.pieData.slice(0, 4).map((item, i) => (
+                      <div key={i} className="flex justify-between items-center group">
+                         <div className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                            <span className="text-[9px] font-black text-slate-500 uppercase truncate max-w-[100px]">{item.name}</span>
+                         </div>
+                         <span className="text-[9px] font-black dark:text-white">{formatCurrency(item.value, lang)}</span>
+                      </div>
                    ))}
                 </div>
              </div>
+          </div>
+
+          <div className="bg-slate-900 rounded-[3rem] p-6 sm:p-8 text-white shadow-premium overflow-hidden relative">
+             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/20 rounded-full -mr-32 -mt-32 blur-3xl animate-pulse" />
+             <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+                <div className="flex items-center gap-5">
+                   <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/10 rounded-2xl flex items-center justify-center shadow-lg"><BrainCircuit className="w-8 h-8 text-indigo-400" /></div>
+                   <div>
+                      <h4 className="text-lg sm:text-xl font-black uppercase tracking-tighter">{t('ai_analysis_title')}</h4>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Chiến lược & Dự báo</p>
+                   </div>
+                </div>
+                <button 
+                   onClick={handleAIAnalysis}
+                   disabled={isAnalyzing}
+                   className="w-full md:w-fit px-8 py-4 bg-white text-slate-900 rounded-2xl font-black uppercase text-[10px] tracking-widest active-scale shadow-lg flex items-center justify-center gap-3 transition-all hover:bg-indigo-50 disabled:opacity-50"
+                >
+                   {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Sparkles className="w-4 h-4" /> {t('ai_btn')}</>}
+                </button>
+             </div>
+             {aiAnalysis && (
+                <div className="mt-8 p-5 bg-white/5 rounded-2xl border border-white/10 animate-ios">
+                   <div className="prose prose-sm prose-invert max-w-none text-[12px] leading-relaxed font-bold">
+                      {aiAnalysis}
+                   </div>
+                </div>
+             )}
           </div>
         </div>
       )}
 
       {activeTab === 'DAILY' && (
-        <div className="space-y-4 animate-ios">
-          {dailyData.map((d) => (
-            <div key={d.date} className="bg-white/95 dark:bg-slate-900/90 rounded-[2.5rem] border border-white dark:border-slate-800 shadow-ios overflow-hidden group">
-               {/* Daily Header */}
-               <div className="p-6 flex flex-col sm:flex-row justify-between items-center gap-6">
-                  <div className="flex items-center gap-5">
-                    <div className="w-16 h-16 bg-slate-900 dark:bg-slate-800 text-white rounded-[1.8rem] flex flex-col items-center justify-center shrink-0 border border-slate-700 shadow-xl">
-                      <span className="text-2xl font-black leading-none">{d.day}</span>
-                      <span className="text-[9px] uppercase tracking-tighter opacity-70 font-black">THÁNG {currentMonth.split('-')[1]}</span>
+        <div className="space-y-6 animate-ios">
+          {stats.dailyAudit.map(([date, d]: any) => {
+            const dayParts = date.split('-');
+            const cashExp = d.shopOut || 0;
+            const expectedCashInHand = d.total - d.card; 
+            const finalNetHandover = expectedCashInHand - cashExp; 
+            
+            return (
+              <div key={date} className="bg-white dark:bg-slate-900 rounded-[2.5rem] border dark:border-slate-800 shadow-premium overflow-hidden flex flex-col group transition-all hover:scale-[1.01] w-full">
+                 <div className="px-6 py-5 bg-slate-900 text-white flex justify-between items-center">
+                    <div className="flex items-center gap-4">
+                       <div className="flex flex-col items-center justify-center w-12 h-12 bg-white/10 rounded-2xl border border-white/20">
+                          <span className="text-lg font-black leading-none">{dayParts[2]}</span>
+                          <span className="text-[7px] font-black uppercase opacity-60">Tháng {dayParts[1]}</span>
+                       </div>
+                       <div>
+                          <h4 className="text-xs font-black uppercase tracking-tight">Phiếu quyết toán ngày</h4>
+                          <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest mt-0.5">#{date.replace(/-/g, '')}</p>
+                       </div>
                     </div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Doanh thu ngày (Z-Bon)</p>
-                      <h4 className="text-2xl font-black dark:text-white tracking-tighter leading-none">{formatCurrency(d.totalRev, lang)}</h4>
+                    <div className="text-right hidden sm:block">
+                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Kiểm soát</p>
+                       <p className="text-[10px] font-black uppercase">{d.author}</p>
                     </div>
-                  </div>
-                  
-                  <div className="text-center shrink-0 bg-emerald-50 dark:bg-emerald-950/20 p-5 px-10 rounded-[2rem] border border-emerald-100 dark:border-emerald-800/50 relative overflow-hidden">
-                     <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500" />
-                     <p className={`text-3xl font-black tracking-tighter leading-none mb-1 ${d.netHandover < 0 ? 'text-rose-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                       {formatCurrency(d.netHandover, lang)}
-                     </p>
-                     <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-500 uppercase tracking-[0.3em]">TIỀN BÀN GIAO</p>
-                  </div>
-               </div>
+                 </div>
 
-               {/* Detailed Financial Breakdown */}
-               <div className="px-6 py-6 bg-slate-50 dark:bg-slate-950/30 border-t dark:border-slate-800/50 grid grid-cols-2 sm:grid-cols-4 gap-6">
-                  <div className="space-y-1">
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><CreditCard className="w-3 h-3" /> Thẻ (Bank)</p>
-                     <p className="text-sm font-black dark:text-white">{formatCurrency(d.cardSales, lang)}</p>
-                  </div>
-                  <div className="space-y-1">
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Zap className="w-3 h-3" /> App Delivery</p>
-                     <p className="text-sm font-black dark:text-white">{formatCurrency(d.appSales, lang)}</p>
-                  </div>
-                  <div className="space-y-1">
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Banknote className="w-3 h-3 text-emerald-500" /> Tiền tại két</p>
-                     <p className="text-sm font-black text-emerald-600">{formatCurrency(d.cashAtKasse, lang)}</p>
-                  </div>
-                  <div className="space-y-1">
-                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><MinusCircle className="w-3 h-3 text-rose-500" /> Chi tại quán</p>
-                     <p className="text-sm font-black text-rose-500">{formatCurrency(d.shopOut, lang)}</p>
-                  </div>
-               </div>
+                 <div className="p-6 sm:p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-5">
+                       <div className="flex items-center gap-3 border-b dark:border-slate-800 pb-3">
+                          <Receipt className="w-4 h-4 text-indigo-500" />
+                          <h5 className="text-[9px] font-black uppercase tracking-widest text-slate-500">Doanh số Z-Bon</h5>
+                       </div>
+                       <div className="space-y-3.5">
+                          <div className="flex justify-between items-center">
+                             <span className="text-[10px] font-bold text-slate-400 uppercase">Doanh thu chốt:</span>
+                             <span className="text-base font-black dark:text-white">{formatCurrency(d.total, lang)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-rose-500">
+                             <div className="flex items-center gap-2">
+                                <CreditCard className="w-3.5 h-3.5" />
+                                <span className="text-[10px] font-black uppercase">Thanh toán Thẻ:</span>
+                             </div>
+                             <span className="text-sm font-black">-{formatCurrency(d.card, lang)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-indigo-500">
+                             <div className="flex items-center gap-2">
+                                <Zap className="w-3.5 h-3.5" />
+                                <span className="text-[10px] font-black uppercase">Doanh thu App:</span>
+                             </div>
+                             <span className="text-sm font-black">{formatCurrency(d.app, lang)}</span>
+                          </div>
+                          <div className="pt-3 border-t-2 border-dashed dark:border-slate-800 flex justify-between items-center">
+                             <span className="text-[9px] font-black uppercase text-slate-400">{t('cash_total')}:</span>
+                             <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatCurrency(expectedCashInHand, lang)}</span>
+                          </div>
+                       </div>
+                    </div>
 
-               {/* Audit Footer */}
-               <div className="px-6 py-3 bg-white dark:bg-slate-900 border-t dark:border-slate-800/50 flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                     <Coins className="w-4 h-4 text-amber-500" />
-                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tiền xu tách riêng: {formatCurrency(d.coinSum, lang)}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
-                     <Calculator className="w-3.5 h-3.5 text-slate-400" />
-                     <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Hệ thống đã tự động đối soát</span>
-                  </div>
-               </div>
-            </div>
-          ))}
-          {dailyData.length === 0 && (
-            <div className="py-24 text-center opacity-30 flex flex-col items-center gap-6">
-               <Loader2 className="w-12 h-12 animate-spin" />
-               <p className="text-sm font-black uppercase tracking-widest">Đang tải hoặc chưa có dữ liệu</p>
-            </div>
-          )}
+                    <div className="bg-slate-50 dark:bg-slate-950 p-5 rounded-[2rem] border dark:border-slate-800 relative">
+                       <div className="flex items-center gap-3 mb-5">
+                          <Calculator className="w-4 h-4 text-emerald-500" />
+                          <h5 className="text-[9px] font-black uppercase tracking-widest text-slate-500">Quyết toán thực tế</h5>
+                       </div>
+                       <div className="space-y-3.5">
+                          <div className="flex justify-between items-center">
+                             <span className="text-[10px] font-bold text-slate-400 uppercase">Cầm tay dự kiến:</span>
+                             <span className="text-xs font-black dark:text-white">{formatCurrency(expectedCashInHand, lang)}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-rose-500">
+                             <div className="flex items-center gap-2">
+                                <ArrowDown className="w-3.5 h-3.5" />
+                                <span className="text-[10px] font-black uppercase">Chi mặt tại quán:</span>
+                             </div>
+                             <span className="text-xs font-black">-{formatCurrency(cashExp, lang)}</span>
+                          </div>
+                          <div className="mt-5 p-4 bg-emerald-600 rounded-2xl text-white shadow-vivid text-center">
+                             <p className="text-[8px] font-black uppercase tracking-[0.2em] opacity-80 mb-1">TỔNG TIỀN BÀN GIAO</p>
+                             <h6 className="text-2xl font-black tracking-tighter">{formatCurrency(finalNetHandover, lang)}</h6>
+                          </div>
+                       </div>
+                    </div>
+                 </div>
+
+                 <div className="px-6 py-3.5 bg-slate-50/50 dark:bg-slate-950/20 border-t dark:border-slate-800 flex flex-wrap justify-between items-center gap-3">
+                    <div className="flex items-center gap-4">
+                       <div className="flex items-center gap-2 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                          <PiggyBank className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-[9px] font-black uppercase text-emerald-600">Dư két = Tiền Tip</span>
+                       </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-400 italic">
+                       <Info className="w-3 h-3" />
+                       <span className="text-[8px] font-bold">Dữ liệu đã được hệ thống Tokymon xác thực.</span>
+                    </div>
+                 </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
       {activeTab === 'WALLET' && (
-        <div className="animate-ios max-w-lg mx-auto">
-          <div className="bg-white/95 dark:bg-slate-900/90 rounded-[3.5rem] p-10 border border-white dark:border-slate-800 shadow-ios text-center space-y-10 relative overflow-hidden">
-             <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-600/5 rounded-full blur-3xl" />
-             <div className="w-24 h-24 rounded-[2.5rem] flex items-center justify-center mb-10 mx-auto shadow-vivid text-white animate-float" style={{ backgroundColor: branchColor }}>
-               <Wallet className="w-12 h-12" />
-             </div>
-             <div className="space-y-2">
-                <h2 className="text-3xl font-black dark:text-white uppercase tracking-tighter leading-none">Quỹ Tiền Tokymon</h2>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.4em]">{currentBranch?.name}</p>
-             </div>
-             
-             <div className="p-8 bg-slate-50 dark:bg-slate-950 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-800 space-y-6">
-                <div className="flex justify-between items-center">
-                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vốn tiền mặt ban đầu</span>
-                   <span className="text-sm font-black dark:text-white">{formatCurrency(currentBranch?.initialCash || 0, lang)}</span>
-                </div>
-                <div className="flex justify-between items-center text-emerald-600">
-                   <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5"><ArrowUpRight className="w-4 h-4" /> Bàn giao tích lũy tháng</span>
-                   <span className="text-sm font-black">+{formatCurrency(monthlySummary.totalHandover, lang)}</span>
-                </div>
-                <div className="h-px bg-slate-200 dark:bg-slate-800" />
-                <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-soft">
-                   <span className="text-xs font-black uppercase tracking-widest dark:text-white">Hiện có ước tính</span>
-                   <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400 tracking-tighter">{formatCurrency((currentBranch?.initialCash || 0) + monthlySummary.totalHandover, lang)}</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-ios">
+          <div className="bg-white/95 dark:bg-slate-900/90 rounded-[2.5rem] p-6 sm:p-8 border border-white dark:border-slate-800 shadow-ios relative overflow-hidden group">
+             <div className="flex items-center gap-4 mb-8">
+                <div className="w-12 h-12 bg-indigo-600 text-white rounded-[1.2rem] flex items-center justify-center shadow-vivid"><Wallet className="w-6 h-6" /></div>
+                <div>
+                   <h2 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none">{t('cash_wallet')}</h2>
+                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Hauptkasse</p>
                 </div>
              </div>
-             
-             <div className="flex items-center gap-3 p-5 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/30">
-                <Info className="w-5 h-5 text-amber-600 shrink-0" />
-                <p className="text-[9px] font-bold text-amber-700 dark:text-amber-400 leading-relaxed uppercase text-left">
-                  Dữ liệu này dựa trên Báo cáo Ngày. Đảm bảo nhân viên đã nhập chính xác các khoản Chi tại quán.
-                </p>
+             <div className="space-y-3.5 p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl border dark:border-slate-800">
+                <div className="flex justify-between items-center text-[10px] font-black uppercase text-slate-400"><span>Vốn đầu kỳ:</span><span>{formatCurrency(currentBranch?.initialCash || 0, lang)}</span></div>
+                <div className="flex justify-between items-center text-emerald-600 text-[10px] font-black uppercase"><span>Bàn giao:</span><span>+{formatCurrency(stats.netCashInPeriod, lang)}</span></div>
+                <div className="flex justify-between items-center text-rose-500 text-[10px] font-black uppercase"><span>Rút chi:</span><span>-{formatCurrency(stats.walletOut, lang)}</span></div>
+                <div className="h-px bg-slate-200 dark:bg-slate-800 my-1" />
+                <div className="text-center pt-2">
+                   <p className="text-[9px] font-black uppercase text-slate-400 mb-1">Số dư hiện tại</p>
+                   <p className="text-3xl font-black text-indigo-600 dark:text-indigo-400 tracking-tighter">{formatCurrency((currentBranch?.initialCash || 0) + stats.netCashInPeriod - stats.walletOut, lang)}</p>
+                </div>
+             </div>
+          </div>
+
+          <div className="bg-white/95 dark:bg-slate-900/90 rounded-[2.5rem] p-6 sm:p-8 border border-white dark:border-slate-800 shadow-ios relative overflow-hidden group">
+             <div className="flex items-center gap-4 mb-8">
+                <div className="w-12 h-12 bg-emerald-600 text-white rounded-[1.2rem] flex items-center justify-center shadow-vivid"><Landmark className="w-6 h-6" /></div>
+                <div>
+                   <h2 className="text-xl font-black dark:text-white uppercase tracking-tighter leading-none">{t('bank_card')}</h2>
+                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Digital Flow</p>
+                </div>
+             </div>
+             <div className="space-y-3.5 p-5 bg-slate-50 dark:bg-slate-950 rounded-2xl border dark:border-slate-800">
+                <div className="flex justify-between items-center text-[10px] font-black uppercase text-slate-400"><span>Vốn bank đầu kỳ:</span><span>{formatCurrency(currentBranch?.initialCard || 0, lang)}</span></div>
+                <div className="flex justify-between items-center text-emerald-600 text-[10px] font-black uppercase"><span>Tiền thẻ:</span><span>+{formatCurrency(stats.cardSales, lang)}</span></div>
+                <div className="flex justify-between items-center text-rose-500 text-[10px] font-black uppercase"><span>Chi Bank:</span><span>-{formatCurrency(stats.cardOut, lang)}</span></div>
+                <div className="h-px bg-slate-200 dark:bg-slate-800 my-1" />
+                <div className="text-center pt-2">
+                   <p className="text-[9px] font-black uppercase text-slate-400 mb-1">Số dư ước tính</p>
+                   <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tighter">{formatCurrency((currentBranch?.initialCard || 0) + stats.cardSales - stats.cardOut, lang)}</p>
+                </div>
              </div>
           </div>
         </div>
@@ -380,36 +481,43 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       {activeTab === 'LIABILITIES' && (
         <div className="space-y-6 animate-ios">
-           <div className="bg-slate-900 rounded-[3rem] p-10 text-white shadow-premium text-center relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-rose-600/20 rounded-full -mr-32 -mt-32 blur-3xl" />
-              <p className="text-[11px] font-black uppercase opacity-60 mb-4 tracking-[0.3em]">Tổng nợ chi nhánh Tokymon</p>
-              <h2 className="text-5xl font-black tracking-tighter leading-none">
-                {formatCurrency(branchTransactions.filter(t => t.type === TransactionType.EXPENSE && t.isPaid === false).reduce((acc, tx) => acc + tx.amount, 0), lang)}
-              </h2>
+           <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white shadow-premium text-center relative overflow-hidden">
+              <p className="text-[10px] font-black uppercase opacity-60 mb-3 tracking-[0.3em]">{t('debt_total')}</p>
+              <h2 className="text-5xl font-black tracking-tighter leading-none">{formatCurrency(branchTransactions.filter(t => t.type === TransactionType.EXPENSE && t.isPaid === false).reduce((acc, t) => acc + t.amount, 0), lang)}</h2>
            </div>
            
-           <div className="grid grid-cols-1 gap-3">
+           <div className="grid grid-cols-1 gap-2.5">
               {branchTransactions.filter(t => t.type === TransactionType.EXPENSE && t.isPaid === false).sort((a,b) => b.date.localeCompare(a.date)).map(tx => (
-                <div key={tx.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border dark:border-slate-800 flex justify-between items-center shadow-ios active-scale">
+                <div key={tx.id} className="bg-white dark:bg-slate-900 p-5 rounded-2xl border dark:border-slate-800 flex justify-between items-center shadow-ios hover:scale-[1.01] transition-all">
                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-rose-50 dark:bg-rose-950/30 text-rose-500 rounded-2xl flex items-center justify-center border border-rose-100 dark:border-rose-900/50"><AlertCircle className="w-6 h-6" /></div>
+                      <div className="w-10 h-10 bg-rose-50 dark:bg-rose-950/30 text-rose-600 rounded-xl flex items-center justify-center border border-rose-100 dark:border-rose-900/50"><AlertCircle className="w-5 h-5" /></div>
                       <div>
-                         <p className="text-sm font-black dark:text-white uppercase tracking-tight leading-none mb-1">{tx.debtorName || translateCategory(tx.category)}</p>
-                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{tx.date.split('-').reverse().join('/')}</p>
+                         <p className="text-xs font-black dark:text-white uppercase leading-none mb-1">{tx.debtorName || translateCategory(tx.category)}</p>
+                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{tx.date.split('-').reverse().join('/')}</p>
                       </div>
                    </div>
-                   <span className="text-lg font-black text-rose-600">{formatCurrency(tx.amount, lang)}</span>
+                   <div className="text-right">
+                      <span className="text-base font-black text-rose-600">{formatCurrency(tx.amount, lang)}</span>
+                      <p className="text-[7px] font-black uppercase text-slate-400 tracking-widest mt-0.5">{translateCategory(tx.category)}</p>
+                   </div>
                 </div>
               ))}
               {branchTransactions.filter(t => t.type === TransactionType.EXPENSE && t.isPaid === false).length === 0 && (
-                <div className="py-24 text-center opacity-30 flex flex-col items-center">
-                   <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-6"><CheckCircle2 className="w-10 h-10" /></div>
-                   <p className="text-xs font-black uppercase tracking-widest">Không có công nợ. Quản lý tài chính tuyệt vời!</p>
+                <div className="py-20 text-center opacity-30">
+                  <PiggyBank className="w-10 h-10 mx-auto mb-4" />
+                  <p className="text-xs font-black uppercase tracking-widest">Không có công nợ</p>
                 </div>
               )}
            </div>
         </div>
       )}
+
+      <div className="flex items-center justify-center gap-6 py-10 opacity-30">
+         <div className="h-px bg-slate-400 flex-1" />
+         <span className="text-[8px] font-black uppercase tracking-[0.4em] whitespace-nowrap">Tokymon Management</span>
+         <div className="h-px bg-slate-400 flex-1" />
+      </div>
+
     </div>
   );
 };

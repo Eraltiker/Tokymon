@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { 
   Transaction, Branch, User, Category, UserRole, Language,
-  AppData, SCHEMA_VERSION, TransactionType,
+  AppData, SCHEMA_VERSION, TransactionType, APP_CHANGELOG
 } from './types';
 import { StorageService } from './services/storageService';
 import Dashboard from './components/Dashboard';
@@ -19,7 +19,8 @@ import {
   Wallet, ArrowDownCircle, Sun, Moon, LogOut, 
   MapPin, Users,
   ChevronDown, Cloud, FileSpreadsheet, LayoutGrid, 
-  ArrowRight, Store, Info, CheckCircle2, User as UserIcon, X
+  ArrowRight, Store, Info, CheckCircle2, User as UserIcon, X,
+  History, Sparkles, Lock, ShieldCheck, Mail
 } from 'lucide-react';
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
@@ -142,31 +143,95 @@ const App = () => {
 
   if (!currentUser) {
     return (
-      <div className="min-h-screen relative flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-slate-950 overflow-hidden">
+      <div className="min-h-screen relative flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 overflow-hidden">
+        {/* Decorative Animated Blobs */}
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 blur-[120px] rounded-full animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-500/10 blur-[120px] rounded-full animate-pulse-slow" />
         <div className="login-mesh" />
-        <div className="w-full max-w-[400px] z-10 flex flex-col items-center gap-8 animate-ios">
-          <div className="text-center space-y-4">
-            <div className="w-24 h-24 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-premium flex items-center justify-center mx-auto border border-white/50 animate-float">
-              <UtensilsCrossed className="w-12 h-12 text-brand-600" />
+
+        <div className="w-full max-w-[420px] z-10 flex flex-col items-center gap-10 animate-ios">
+          {/* Brand Header */}
+          <div className="text-center space-y-5">
+            <div className="w-24 h-24 bg-white dark:bg-slate-900 rounded-[2.8rem] shadow-premium flex items-center justify-center mx-auto border border-white/80 dark:border-slate-800 animate-float relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-brand-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <UtensilsCrossed className="w-12 h-12 text-brand-600 dark:text-brand-400 relative z-10" />
             </div>
-            <h1 className="text-4xl font-black dark:text-white tracking-tighter uppercase leading-none">TOKYMON</h1>
+            <div className="space-y-1">
+              <h1 className="text-4xl font-black dark:text-white tracking-tighter uppercase leading-none">TOKYMON</h1>
+              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.4em]">Finance Manager</p>
+            </div>
           </div>
-          <div className="w-full glass p-1 rounded-[3.2rem] shadow-premium relative border border-white/40">
-            <div className="bg-white/40 dark:bg-slate-900/60 p-8 rounded-[3rem] space-y-8">
-              <div className="text-center space-y-2">
-                 <h2 className="text-xl font-black uppercase text-slate-800 dark:text-slate-100">{t('login_welcome')}</h2>
-                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest opacity-60">Finance Pro Release</p>
+
+          {/* Login Card */}
+          <div className="w-full glass p-1.5 rounded-[3.5rem] shadow-premium relative border border-white/60 dark:border-slate-800/40">
+            <div className="bg-white/40 dark:bg-slate-900/60 p-8 sm:p-10 rounded-[3.2rem] space-y-10">
+              <div className="text-center space-y-3">
+                 <h2 className="text-2xl font-black uppercase text-slate-800 dark:text-slate-100 tracking-tight leading-none">{t('login_welcome')}</h2>
+                 <div className="flex items-center justify-center gap-2">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest opacity-80">v{SCHEMA_VERSION.split(' ')[0]} Official Release</p>
+                 </div>
               </div>
+
               <form onSubmit={handleLoginSubmit} className="space-y-6">
-                <input type="text" value={loginForm.username} onChange={e => setLoginForm({...loginForm, username: e.target.value})} className="w-full h-15 px-6 bg-white/50 dark:bg-slate-950/40 rounded-2xl font-bold border border-slate-200 outline-none text-sm" placeholder={t('username')} required />
-                <input type="password" value={loginForm.password} onChange={e => setLoginForm({...loginForm, password: e.target.value})} className="w-full h-15 px-6 bg-white/50 dark:bg-slate-950/40 rounded-2xl font-bold border border-slate-200 outline-none text-sm" placeholder={t('password')} required />
-                {loginError && <p className="text-rose-500 text-[10px] font-black uppercase text-center">{loginError}</p>}
-                <button type="submit" className="w-full h-15 bg-brand-600 text-white rounded-[1.8rem] font-black uppercase shadow-vivid flex items-center justify-center gap-3 transition-all active-scale">
-                  <span>{t('login')}</span>
-                  <ArrowRight className="w-5 h-5" />
+                <div className="space-y-4">
+                  <div className="relative group">
+                    <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-600 transition-colors">
+                      <UserIcon className="w-5 h-5" />
+                    </div>
+                    <input 
+                      type="text" 
+                      value={loginForm.username} 
+                      onChange={e => setLoginForm({...loginForm, username: e.target.value})} 
+                      className="w-full h-16 pl-16 pr-6 bg-white/60 dark:bg-slate-950/40 rounded-2xl font-bold border border-slate-200 dark:border-slate-800 outline-none text-[15px] focus:border-brand-600 focus:ring-4 focus:ring-brand-600/5 transition-all dark:text-white placeholder:text-slate-400" 
+                      placeholder={t('username')} 
+                      required 
+                    />
+                  </div>
+                  
+                  <div className="relative group">
+                    <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-600 transition-colors">
+                      <Lock className="w-5 h-5" />
+                    </div>
+                    <input 
+                      type="password" 
+                      value={loginForm.password} 
+                      onChange={e => setLoginForm({...loginForm, password: e.target.value})} 
+                      className="w-full h-16 pl-16 pr-6 bg-white/60 dark:bg-slate-950/40 rounded-2xl font-bold border border-slate-200 dark:border-slate-800 outline-none text-[15px] focus:border-brand-600 focus:ring-4 focus:ring-brand-600/5 transition-all dark:text-white placeholder:text-slate-400" 
+                      placeholder={t('password')} 
+                      required 
+                    />
+                  </div>
+                </div>
+
+                {loginError && (
+                  <div className="flex items-center justify-center gap-2 text-rose-500 text-[10px] font-black uppercase text-center bg-rose-500/10 py-3 rounded-xl border border-rose-500/20 animate-shake">
+                    <Info className="w-3.5 h-3.5" />
+                    {loginError}
+                  </div>
+                )}
+
+                <button 
+                  type="submit" 
+                  className="w-full h-16 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl font-black uppercase shadow-vivid flex items-center justify-center gap-3 transition-all active:scale-95 group"
+                >
+                  <span className="text-sm tracking-widest">{t('login')}</span>
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </button>
               </form>
             </div>
+          </div>
+
+          {/* Professional Footer */}
+          <div className="flex flex-col items-center gap-4">
+             <div className="flex items-center gap-6 opacity-30">
+                <div className="h-px w-8 bg-slate-400" />
+                <span className="text-[9px] font-black uppercase tracking-[0.4em]">Enterprise Security</span>
+                <div className="h-px w-8 bg-slate-400" />
+             </div>
+             <p className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-tighter">
+                Developed by <span className="text-brand-600 dark:text-brand-400">thPhuoc</span>
+             </p>
           </div>
         </div>
       </div>
@@ -199,7 +264,6 @@ const App = () => {
         </div>
       </header>
 
-      {/* Modern Branch Selector Card Grid */}
       {showBranchSelector && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
            <div className="w-full max-w-xl space-y-6">
@@ -224,7 +288,6 @@ const App = () => {
                    </button>
                  ))}
               </div>
-              <p className="text-center text-[10px] font-bold text-slate-500 uppercase tracking-widest opacity-60">Vui lòng chọn cơ sở để xem báo cáo chi tiết</p>
            </div>
         </div>
       )}
@@ -256,13 +319,37 @@ const App = () => {
                   </div>
                 )}
                 {settingsSubTab === 'about' && (
-                  <div className="text-center space-y-8 py-10">
-                     <div className="w-20 h-20 bg-brand-600 rounded-[2rem] flex items-center justify-center text-white shadow-vivid mx-auto animate-float"><UtensilsCrossed className="w-10 h-10" /></div>
-                     <h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Tokymon Finance</h2>
-                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">v{SCHEMA_VERSION.split(' ')[0]}</p>
-                     <div className="flex items-center justify-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Professional Financial Edition
+                  <div className="max-w-2xl mx-auto space-y-10 py-10">
+                     <div className="text-center space-y-6">
+                        <div className="w-20 h-20 bg-brand-600 rounded-[2rem] flex items-center justify-center text-white shadow-vivid mx-auto animate-float"><UtensilsCrossed className="w-10 h-10" /></div>
+                        <h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Tokymon Finance</h2>
+                        <div className="flex items-center justify-center gap-2">
+                           <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-[10px] font-black uppercase text-slate-500">v{SCHEMA_VERSION.split(' ')[0]}</span>
+                           <span className="px-3 py-1 bg-brand-500 text-white rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5"><Sparkles className="w-3 h-3" /> TokyPro Release</span>
+                        </div>
                      </div>
+
+                     <div className="space-y-4">
+                        <h3 className="text-xs font-black uppercase text-slate-500 tracking-widest flex items-center gap-2"><History className="w-4 h-4" /> Nhật ký thay đổi</h3>
+                        <div className="space-y-3">
+                           {APP_CHANGELOG.map((log, idx) => (
+                              <div key={idx} className="bg-slate-50 dark:bg-slate-800/40 p-6 rounded-[2rem] border dark:border-slate-800">
+                                 <div className="flex justify-between items-center mb-4">
+                                    <span className="text-[11px] font-black dark:text-white uppercase tracking-tighter">Phiên bản {log.version}</span>
+                                 </div>
+                                 <ul className="space-y-2">
+                                    {log.changes[lang].map((c, i) => (
+                                       <li key={i} className="flex gap-3 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                                          <div className="w-1.5 h-1.5 bg-brand-500 rounded-full mt-1.5 shrink-0" /> {c}
+                                       </li>
+                                    ))}
+                                 </ul>
+                              </div>
+                           ))}
+                        </div>
+                     </div>
+
+                     <p className="text-center text-[9px] font-black uppercase text-slate-400 tracking-[0.4em]">Designed & Developed by thPhuoc</p>
                   </div>
                 )}
              </div>

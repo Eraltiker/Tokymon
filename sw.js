@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'tokymon-finance-v1.3.2'; // Version mới cưỡng bức cập nhật
+const CACHE_NAME = 'tokymon-finance-v1.7.0'; 
 const ASSETS_TO_CACHE = [
   './',
   './index.html'
@@ -28,7 +28,6 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Tuyệt đối không cache dữ liệu API hoặc Sync
   if (
     event.request.url.includes('kvdb.io') || 
     event.request.url.includes('generativelanguage') ||
@@ -37,7 +36,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Luôn ưu tiên mạng (Network First)
   event.respondWith(
     fetch(event.request)
       .then((response) => {

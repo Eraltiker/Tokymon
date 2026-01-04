@@ -62,7 +62,6 @@ export interface IncomeBreakdown {
   cash: number;
   card: number;
   delivery?: number;
-  coins?: number;
 }
 
 export interface HistoryEntry {
@@ -143,15 +142,15 @@ export interface AppData {
 
 export const APP_CHANGELOG = [
   {
-    version: '1.6.0',
+    version: '1.7.5',
     changes: {
-      vi: ['Tối ưu báo cáo ngày chi tiết', 'Nâng cấp phân tích lợi nhuận tháng', 'Giao diện tài chính chuyên nghiệp'],
-      de: ['Optimierte tägliche Berichte', 'Erweiterte monatliche Gewinnanalyse', 'Professionelles Finanzinterface']
+      vi: ['Loại bỏ quản lý tiền xu', 'Chuẩn hóa thuật ngữ tài chính', 'Tối ưu hiển thị di động'],
+      de: ['Münzverwaltung entfernt', 'Finanzbegriffe standardisiert', 'Mobile Ansicht optimiert']
     }
   }
 ];
 
-export const SCHEMA_VERSION = "1.6.0 (FinPro)";
+export const SCHEMA_VERSION = "1.7.5";
 
 export const formatCurrency = (val: number, lang: Language = 'vi') => 
   new Intl.NumberFormat(lang === 'vi' ? 'vi-VN' : 'de-DE', { 
