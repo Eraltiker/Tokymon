@@ -143,16 +143,15 @@ export interface AppData {
 
 export const APP_CHANGELOG = [
   {
-    version: '1.1.2',
+    version: '1.6.0',
     changes: {
-      vi: ['Tối ưu nhập nhiều ghi chú', 'Hiển thị người nhập/sửa trực quan', 'Gợi ý ghi chú thông minh'],
-      de: ['Optimierung mehrerer Notizfelder', 'Anzeige Ersteller/Bearbeiter', 'Intelligente Notizvorschläge']
+      vi: ['Tối ưu báo cáo ngày chi tiết', 'Nâng cấp phân tích lợi nhuận tháng', 'Giao diện tài chính chuyên nghiệp'],
+      de: ['Optimierte tägliche Berichte', 'Erweiterte monatliche Gewinnanalyse', 'Professionelles Finanzinterface']
     }
   }
 ];
 
-export const SCHEMA_VERSION = "1.1.2 (Multi-Note & User Tracking)";
-export const ALL_BRANCHES_ID = "all_branches_system";
+export const SCHEMA_VERSION = "1.6.0 (FinPro)";
 
 export const formatCurrency = (val: number, lang: Language = 'vi') => 
   new Intl.NumberFormat(lang === 'vi' ? 'vi-VN' : 'de-DE', { 
@@ -164,12 +163,4 @@ export const EXPENSE_SOURCE_LABELS: Record<ExpenseSource, string> = {
   [ExpenseSource.SHOP_CASH]: 'Tiền Quán',
   [ExpenseSource.WALLET]: 'Ví Tổng',
   [ExpenseSource.CARD]: 'Thẻ/Bank'
-};
-
-export const DEFAULT_RECURRING_TEMPLATE = {
-  amount: 0,
-  category: '',
-  expenseSource: ExpenseSource.WALLET,
-  dayOfMonth: 1,
-  notes: []
 };

@@ -1,11 +1,12 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Transaction, TransactionType, ExpenseSource, Language, formatCurrency } from '../types';
 import { useTranslation } from '../i18n';
 import { 
   Save, ChevronLeft, ChevronRight, Store, 
   ChevronDown, CreditCard, Calendar,
-  Wallet, Coins, Banknote, Plus, Trash2, User as UserIcon, Calculator, Sparkles, Tag
+  Wallet, Coins, Banknote, Plus, Trash2, User as UserIcon, Calculator,
+  MinusCircle, PlusCircle
 } from 'lucide-react';
 
 interface TransactionFormProps {
@@ -25,7 +26,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   expenseCategories, 
   fixedType, 
   branchId, 
-  transactions, 
   lang = 'vi' as Language, 
   branchName,
   currentUsername = 'Unknown'
@@ -48,21 +48,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [appInput, setAppInput] = useState<string>('');   
   const [cardTotalInput, setCardTotalInput] = useState<string>(''); 
 
-  // Đề xuất ghi chú thông minh dựa trên lịch sử
-  const noteSuggestions = useMemo(() => {
-    const allNotes = transactions
-      .filter(tx => tx.type === type && !tx.deletedAt)
-      .flatMap(tx => tx.notes || []);
-    
-    const counts: Record<string, number> = {};
-    allNotes.forEach(n => { if(n && n.trim()) counts[n] = (counts[n] || 0) + 1; });
-    
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .map(entry => entry[0])
-      .slice(0, 10);
-  }, [transactions, type]);
-
   const validateAndSetAmount = (val: string, setter: (v: string) => void) => {
     const sanitized = val.replace(',', '.');
     if (/^[0-9]*\.?[0-9]*$/.test(sanitized)) setter(sanitized);
@@ -74,15 +59,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     return isNaN(n) ? 0 : n;
   };
 
-  const addNoteField = (text?: string) => {
-    if (text) {
-      // Nếu text đã có trong list thì không thêm nữa để tránh trùng
-      if (!notes.includes(text)) setNotes([...notes, text]);
-    } else {
-      setNotes([...notes, '']);
-    }
-  };
-
+  const addNoteField = () => setNotes([...notes, '']);
   const updateNote = (idx: number, val: string) => {
     const updated = [...notes];
     updated[idx] = val;
@@ -90,16 +67,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   };
   const removeNote = (idx: number) => setNotes(notes.filter((_, i) => i !== idx));
 
-  // LOGIC TÍNH TOÁN THEO YÊU CẦU:
+  // --- CÔNG THỨC TOKYMON CHUẨN: (Kasse + App - Thẻ) ---
   const kasseTotal = parseNumber(kasseTotalInput); 
   const cardTotal = parseNumber(cardTotalInput); 
   const appTotal = parseNumber(appInput);
   const coins = showCoins ? parseNumber(coinInput) : 0;
 
-  // Tiền mặt thực tế = (Kasse Shop + Tiền App - Tiền Thẻ)
-  const actualCashTotal = (kasseTotal + appTotal - cardTotal);
-  const paperCash = actualCashTotal - coins;
-  const totalRevenue = kasseTotal + appTotal;
+  // Tiền mặt tại két (trước khi trừ chi phí)
+  const actualCashAtKasse = (kasseTotal + appTotal - cardTotal);
+  const paperCash = actualCashAtKasse - coins;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,14 +106,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       } as Transaction);
       setExpenseAmount(''); setNotes([]); 
     } else {
-      if (totalRevenue <= 0) return;
+      if (kasseTotal <= 0 && appTotal <= 0) return;
       onAddTransaction({
         ...baseTx, 
         type: TransactionType.INCOME, 
-        amount: totalRevenue, 
+        amount: kasseTotal + appTotal, 
         category: 'Income',
         incomeBreakdown: { 
-          cash: actualCashTotal, // Lưu giá trị (K+A-T) vào trường cash
+          cash: actualCashAtKasse, 
           card: cardTotal, 
           delivery: appTotal,
           coins: coins 
@@ -154,7 +130,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         <div className="flex-1 truncate">
           <span className="text-[8px] font-black uppercase text-slate-500 tracking-[0.2em] block mb-0.5">{branchName}</span>
           <h2 className="text-base font-extrabold uppercase dark:text-white leading-none truncate">
-            {type === TransactionType.INCOME ? t('chot_so') : t('chi_phi')}
+            {type === TransactionType.INCOME ? "Chốt Báo Cáo Ngày" : "Nhập Chi Phí"}
           </h2>
         </div>
         <div className="flex items-center gap-1.5 px-3 py-1 bg-brand-50 dark:bg-brand-900/30 rounded-full border border-brand-100 dark:border-brand-800">
@@ -163,7 +139,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         </div>
       </div>
       
-      <form onSubmit={handleSubmit} className="p-5 space-y-4">
+      <form onSubmit={handleSubmit} className="p-5 space-y-5">
         <div className="flex items-center gap-2 bg-slate-100/50 dark:bg-slate-950/50 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800">
           <button type="button" onClick={() => setDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return dt.toISOString().split('T')[0]; })} className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl text-slate-500 active-scale shadow-sm flex items-center justify-center shrink-0"><ChevronLeft className="w-5 h-5" /></button>
           <div className="flex-1 text-center relative h-10 flex items-center justify-center">
@@ -176,88 +152,84 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
         {type === TransactionType.INCOME ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-500 uppercase px-2 tracking-widest">{t('kasse_total')} (€)</label>
-                <input type="text" inputMode="decimal" value={kasseTotalInput} onChange={e => validateAndSetAmount(e.target.value, setKasseTotalInput)} placeholder="0.00" className="w-full p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl font-black text-sm text-center outline-none ring-2 ring-brand-500/10" />
+            <div className="bg-brand-50/50 dark:bg-brand-900/10 p-4 rounded-3xl border border-brand-100 dark:border-brand-800/50">
+              <label className="text-[9px] font-black text-brand-600 dark:text-brand-400 uppercase px-1 tracking-widest flex items-center gap-2 mb-2">
+                <Calculator className="w-3.5 h-3.5" /> Tổng Kasse (Z-Bon)
+              </label>
+              <input type="text" inputMode="decimal" value={kasseTotalInput} onChange={e => validateAndSetAmount(e.target.value, setKasseTotalInput)} placeholder="0.00" className="w-full p-4 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-xl text-center outline-none ring-4 ring-brand-500/5 transition-all focus:ring-brand-500/10" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-rose-500 uppercase px-2 tracking-widest flex items-center gap-2">
+                  <MinusCircle className="w-3.5 h-3.5" /> Tiền Thẻ (Bank)
+                </label>
+                <input type="text" inputMode="decimal" value={cardTotalInput} onChange={e => validateAndSetAmount(e.target.value, setCardTotalInput)} placeholder="0" className="w-full p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-sm text-center outline-none" />
               </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-500 uppercase px-2 tracking-widest">{t('card_total')} (€)</label>
-                <input type="text" inputMode="decimal" value={cardTotalInput} onChange={e => validateAndSetAmount(e.target.value, setCardTotalInput)} placeholder="0" className="w-full p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl font-black text-sm text-center outline-none ring-2 ring-indigo-500/10" />
+              <div className="space-y-1.5">
+                <label className="text-[9px] font-black text-indigo-500 uppercase px-2 tracking-widest flex items-center gap-2">
+                  <PlusCircle className="w-3.5 h-3.5" /> Tiền App (€)
+                </label>
+                <input type="text" inputMode="decimal" value={appInput} onChange={e => validateAndSetAmount(e.target.value, setAppInput)} placeholder="0" className="w-full p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-sm text-center outline-none" />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-               <div className="space-y-1">
-                 <label className="text-[9px] font-black text-slate-500 uppercase px-2 tracking-widest">{t('app_total')} (€)</label>
-                 <input type="text" inputMode="decimal" value={appInput} onChange={e => validateAndSetAmount(e.target.value, setAppInput)} placeholder="0" className="w-full p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl font-black text-sm text-center outline-none" />
-               </div>
-               {showCoins ? (
-                  <div className="space-y-1 animate-ios">
-                    <label className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase px-2 tracking-widest flex items-center gap-1.5">
-                      <Coins className="w-3.5 h-3.5" /> {t('coin_wallet')}
-                    </label>
-                    <input type="text" inputMode="decimal" value={coinInput} onChange={e => validateAndSetAmount(e.target.value, setCoinInput)} placeholder="0.00" className="w-full p-3.5 bg-amber-50/20 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/50 rounded-2xl font-black text-sm text-center outline-none" />
+            <div className="bg-slate-900 dark:bg-black rounded-[2rem] p-5 space-y-4 shadow-vivid border border-slate-800">
+               <div className="flex justify-between items-center text-slate-400">
+                  <div className="flex items-center gap-2">
+                    <Banknote className="w-4 h-4 text-emerald-500" />
+                    <span className="text-[10px] font-black uppercase tracking-tight">Két thực tế chốt ca</span>
                   </div>
-               ) : (
-                  <button type="button" onClick={() => setShowCoins(true)} className="mt-5 h-full border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-center gap-2 text-[9px] font-black uppercase text-slate-400">
-                    <Plus className="w-3 h-3" /> {t('add_coins_btn')}
-                  </button>
-               )}
-            </div>
-
-            <div className="bg-slate-50 dark:bg-slate-950 rounded-[1.8rem] p-4 border border-slate-100 dark:border-slate-800 space-y-3 shadow-inner">
-               <div className="flex justify-between items-center text-slate-500">
-                  <span className="text-[10px] font-black uppercase tracking-tight flex items-center gap-2"><Calculator className="w-3 h-3" /> Tiền mặt thực tế</span>
                   <div className="text-right">
-                    <span className="text-sm font-black text-slate-900 dark:text-white">{formatCurrency(actualCashTotal, lang)}</span>
-                    <p className="text-[7px] font-bold text-slate-400 uppercase leading-none">(Kasse + App - Thẻ)</p>
+                    <span className="text-lg font-black text-white">{formatCurrency(actualCashAtKasse, lang)}</span>
+                    <p className="text-[7px] font-bold text-slate-500 uppercase leading-none">(K + A - T)</p>
                   </div>
                </div>
-               <div className="flex justify-between items-center pt-1 opacity-70">
-                  <span className="text-[9px] font-black uppercase tracking-tight flex items-center gap-1.5"><Banknote className="w-3 h-3 text-brand-500" /> Tiền giấy</span>
-                  <span className="text-[10px] font-black">{formatCurrency(paperCash, lang)}</span>
-               </div>
-               <div className="flex justify-between items-center opacity-70">
-                  <span className="text-[9px] font-black uppercase tracking-tight flex items-center gap-1.5"><Coins className="w-3 h-3 text-amber-500" /> Tiền xu</span>
-                  <span className="text-[10px] font-black">{formatCurrency(coins, lang)}</span>
-               </div>
-               <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
-                  <span className="text-[10px] font-black uppercase text-brand-600 tracking-widest">Doanh thu tổng</span>
-                  <span className="text-lg font-black text-brand-600">{formatCurrency(totalRevenue, lang)}</span>
+               
+               <div className="h-px bg-slate-800 w-full" />
+               
+               <div className="flex items-center justify-between">
+                  <button type="button" onClick={() => setShowCoins(!showCoins)} className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 hover:text-white transition-colors">
+                    <Coins className="w-3.5 h-3.5 text-amber-500" /> {showCoins ? 'Ẩn tiền xu' : 'Tách tiền xu'}
+                  </button>
+                  {showCoins && (
+                    <div className="flex items-center gap-2 animate-ios">
+                      <input type="text" inputMode="decimal" value={coinInput} onChange={e => validateAndSetAmount(e.target.value, setCoinInput)} placeholder="Xu" className="w-24 p-2 bg-slate-800 border border-slate-700 rounded-lg font-black text-xs text-center text-white outline-none" />
+                    </div>
+                  )}
                </div>
             </div>
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="space-y-1 text-center">
-              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{t('amount')} (€)</label>
-              <input type="text" inputMode="decimal" value={expenseAmount} onChange={e => validateAndSetAmount(e.target.value, setExpenseAmount)} className="w-full py-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl font-black text-xl text-rose-600 text-center outline-none" required />
+            <div className="space-y-1.5 text-center">
+              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Số tiền chi (€)</label>
+              <input type="text" inputMode="decimal" value={expenseAmount} onChange={e => validateAndSetAmount(e.target.value, setExpenseAmount)} className="w-full py-5 bg-rose-50/30 dark:bg-rose-950/20 border-2 border-rose-100 dark:border-rose-900/50 rounded-2xl font-black text-2xl text-rose-600 text-center outline-none focus:ring-4 focus:ring-rose-500/10" required />
             </div>
             
-            <div className="flex p-1 bg-slate-100 dark:bg-slate-950 rounded-[1.2rem] border dark:border-slate-800">
-              <button type="button" onClick={() => setIsPaid(true)} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${isPaid ? 'bg-white dark:bg-slate-800 text-brand-600 shadow-sm' : 'text-slate-400'}`}>{t('paid')}</button>
-              <button type="button" onClick={() => setIsPaid(false)} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${!isPaid ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400'}`}>{t('unpaid')}</button>
+            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl border dark:border-slate-800">
+              <button type="button" onClick={() => setIsPaid(true)} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${isPaid ? 'bg-white dark:bg-slate-800 text-brand-600 shadow-sm' : 'text-slate-400'}`}>Đã thanh toán</button>
+              <button type="button" onClick={() => setIsPaid(false)} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${!isPaid ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400'}`}>Công nợ</button>
             </div>
 
             <div className="space-y-3">
               <div className="relative">
-                <select value={expenseCategory} onChange={e => setExpenseCategory(e.target.value)} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 focus:border-brand-500 rounded-2xl font-black text-[11px] uppercase outline-none appearance-none transition-all dark:text-slate-200">
+                <select value={expenseCategory} onChange={e => setExpenseCategory(e.target.value)} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-brand-500 rounded-2xl font-black text-[11px] uppercase outline-none appearance-none transition-all dark:text-slate-200">
                   {expenseCategories.map(c => <option key={c} value={c}>{translateCategory(c)}</option>)}
                 </select>
                 <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
               </div>
 
               {!isPaid ? (
-                <input type="text" value={debtorName} onChange={e => setDebtorName(e.target.value)} placeholder={t('vendor_name')} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl font-black text-[11px] outline-none" required />
+                <input type="text" value={debtorName} onChange={e => setDebtorName(e.target.value)} placeholder="Tên chủ nợ / NCC" className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-[11px] outline-none" required />
               ) : (
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: ExpenseSource.SHOP_CASH, label: translateSource(ExpenseSource.SHOP_CASH), icon: Store },
-                    { id: ExpenseSource.WALLET, label: translateSource(ExpenseSource.WALLET), icon: Wallet },
-                    { id: ExpenseSource.CARD, label: translateSource(ExpenseSource.CARD), icon: CreditCard }
+                    { id: ExpenseSource.SHOP_CASH, label: "Tại Quán", icon: Store },
+                    { id: ExpenseSource.WALLET, label: "Ví Tổng", icon: Wallet },
+                    { id: ExpenseSource.CARD, label: "Bank/Thẻ", icon: CreditCard }
                   ].map((s) => (
-                    <button key={s.id} type="button" onClick={() => setExpenseSource(s.id)} className={`py-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-1.5 active-scale ${expenseSource === s.id ? `bg-brand-600 border-brand-600 text-white` : 'bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-500'}`}>
+                    <button key={s.id} type="button" onClick={() => setExpenseSource(s.id)} className={`py-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-1.5 active-scale ${expenseSource === s.id ? `bg-brand-600 border-brand-600 text-white` : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500'}`}>
                       <s.icon className="w-4 h-4" />
                       <span className="text-[8px] font-black uppercase tracking-tighter leading-none text-center">{s.label}</span>
                     </button>
@@ -268,42 +240,31 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           </div>
         )}
 
-        <div className="pt-2 space-y-4">
-          <div className="flex items-center justify-between px-2">
-             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Sparkles className="w-3.5 h-3.5 text-brand-500" /> Đề xuất thông minh</label>
-             <button type="button" onClick={() => addNoteField()} className="text-[9px] font-black text-brand-600 uppercase tracking-widest flex items-center gap-1"><Plus className="w-3 h-3" /> {t('add_note_btn')}</button>
+        <div className="pt-2">
+          <div className="flex items-center justify-between px-2 mb-3">
+             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">Ghi chú nhanh</label>
+             <button type="button" onClick={addNoteField} className="text-[9px] font-black text-brand-600 uppercase tracking-widest flex items-center gap-1"><Plus className="w-3 h-3" /> Thêm note</button>
           </div>
           
-          <div className="flex flex-wrap gap-2 px-1">
-             {noteSuggestions.map((s, i) => (
-               <button key={i} type="button" onClick={() => addNoteField(s)} className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-[9px] font-black text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-100 dark:border-indigo-800/50 active-scale hover:bg-brand-600 hover:text-white transition-all flex items-center gap-1.5">
-                 <Tag className="w-2.5 h-2.5" /> {s}
-               </button>
-             ))}
-             {noteSuggestions.length === 0 && <span className="text-[8px] font-bold text-slate-300 uppercase italic py-2">Chưa có lịch sử đề xuất</span>}
-          </div>
-
           <div className="space-y-3">
             {notes.map((note, idx) => (
-              <div key={idx} className="space-y-2 animate-ios group">
-                <div className="relative">
-                  <textarea 
-                    value={note} 
-                    onChange={e => updateNote(idx, e.target.value)} 
-                    placeholder={`${t('note')} #${idx + 1}`}
-                    className="w-full p-4 bg-slate-50/50 dark:bg-slate-950/30 rounded-2xl border border-slate-200 dark:border-slate-800 outline-none text-xs font-bold dark:text-white resize-none h-18 focus:ring-2 focus:ring-brand-500/10 transition-all"
-                  />
-                  <button type="button" onClick={() => removeNote(idx)} className="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+              <div key={idx} className="relative group animate-ios">
+                <textarea 
+                  value={note} 
+                  onChange={e => updateNote(idx, e.target.value)} 
+                  placeholder={`Ghi chú #${idx + 1}`}
+                  className="w-full p-4 bg-slate-50/50 dark:bg-slate-950/30 rounded-2xl border border-slate-200 dark:border-slate-800 outline-none text-[11px] font-bold dark:text-white resize-none h-16 transition-all"
+                />
+                <button type="button" onClick={() => removeNote(idx)} className="absolute top-2 right-2 p-1.5 text-slate-300 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100">
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             ))}
           </div>
         </div>
 
-        <button type="submit" className="w-full h-15 bg-brand-600 text-white rounded-[1.8rem] font-black uppercase tracking-[0.1em] text-xs active-scale shadow-vivid flex items-center justify-center gap-2 transition-all hover:bg-brand-500">
-          <Save className="w-5 h-5" /> {t('save_transaction')}
+        <button type="submit" className="w-full h-16 bg-brand-600 text-white rounded-[2rem] font-black uppercase tracking-[0.1em] text-xs active-scale shadow-vivid flex items-center justify-center gap-2 transition-all hover:bg-brand-500">
+          <Save className="w-5 h-5" /> Lưu báo cáo
         </button>
       </form>
     </div>
