@@ -21,9 +21,19 @@ import {
   AlertCircle,
   ArrowDown,
   Info,
-  Banknote
+  Banknote,
+  Search,
+  User,
+  Truck,
+  ArrowRight,
+  CheckCircle2,
+  Edit3,
+  CheckCircle,
+  // Fix: Added Calendar icon to imports
+  Calendar
 } from 'lucide-react';
 import { analyzeFinances } from '../services/geminiService';
+import EditTransactionModal from './EditTransactionModal';
 
 interface DashboardProps {
   transactions: Transaction[];
@@ -33,6 +43,9 @@ interface DashboardProps {
   allowedBranches: Branch[];
   userRole?: UserRole;
   reportSettings: ReportSettings;
+  onEditTransaction?: (tx: Transaction) => void;
+  expenseCategories?: string[];
+  currentUsername?: string;
 }
 
 type ReportPeriod = 'MONTH' | 'QUARTER' | 'YEAR';
@@ -42,7 +55,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   transactions, 
   lang, 
   currentBranchId, 
-  allowedBranches, 
+  allowedBranches,
+  onEditTransaction,
+  expenseCategories = [],
+  currentUsername
 }) => {
   const { t, translateCategory } = useTranslation(lang);
   const [activeTab, setActiveTab] = useState<DashboardTab>('OVERVIEW');
@@ -51,6 +67,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+
+  const [debtSearch, setDebtSearch] = useState('');
+  const [debtFilter, setDebtFilter] = useState<'ALL' | 'VENDOR' | 'STAFF'>('ALL');
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
   const handlePrev = () => {
     const next = new Date(viewDate);
@@ -123,12 +143,18 @@ const Dashboard: React.FC<DashboardProps> = ({
       } else {
         totalExp += tx.amount;
         catMap[tx.category] = (catMap[tx.category] || 0) + tx.amount;
-        if (tx.expenseSource === ExpenseSource.SHOP_CASH) {
-          shopOut += tx.amount;
-          groupMap[groupKey].shopOut += tx.amount;
+        
+        const isStaffAdvance = tx.category === 'Nợ / Tiền ứng';
+        const isPaid = tx.isPaid !== false;
+        
+        if (isPaid || isStaffAdvance) {
+          if (tx.expenseSource === ExpenseSource.SHOP_CASH) {
+            shopOut += tx.amount;
+            groupMap[groupKey].shopOut += tx.amount;
+          }
+          else if (tx.expenseSource === ExpenseSource.WALLET) walletOut += tx.amount;
+          else if (tx.expenseSource === ExpenseSource.CARD) cardOut += tx.amount;
         }
-        else if (tx.expenseSource === ExpenseSource.WALLET) walletOut += tx.amount;
-        else if (tx.expenseSource === ExpenseSource.CARD) cardOut += tx.amount;
       }
     });
 
@@ -154,9 +180,12 @@ const Dashboard: React.FC<DashboardProps> = ({
           dailyData[tx.date].card += tx.incomeBreakdown.card || 0;
           dailyData[tx.date].app += tx.incomeBreakdown.delivery || 0;
         }
-      } else if (tx.type === TransactionType.EXPENSE && tx.expenseSource === ExpenseSource.SHOP_CASH) {
-        dailyData[tx.date].shopOut += tx.amount;
-        dailyData[tx.date].expenses.push(tx);
+      } else if (tx.type === TransactionType.EXPENSE) {
+         const isStaffAdvance = tx.category === 'Nợ / Tiền ứng';
+         if ((tx.isPaid !== false || isStaffAdvance) && tx.expenseSource === ExpenseSource.SHOP_CASH) {
+            dailyData[tx.date].shopOut += tx.amount;
+            dailyData[tx.date].expenses.push(tx);
+         }
       }
     });
 
@@ -174,7 +203,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         totalOut: stats.totalExp,
         profit: stats.profit,
         margin: stats.margin / 100,
-        totalDebt: 0
+        totalDebt: totalRemainingDebt
       }, lang);
       setAiAnalysis(result);
     } catch (e) { setAiAnalysis("Lỗi dịch vụ phân tích."); } finally { setIsAnalyzing(false); }
@@ -183,10 +212,31 @@ const Dashboard: React.FC<DashboardProps> = ({
   const currentBranch = useMemo(() => allowedBranches.find(b => b.id === currentBranchId), [allowedBranches, currentBranchId]);
   const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6', '#ec4899'];
 
+  const debtList = useMemo(() => {
+    return branchTransactions.filter(tx => {
+      const isDebt = tx.type === TransactionType.EXPENSE && tx.isPaid === false;
+      if (!isDebt) return false;
+      
+      const searchLower = debtSearch.toLowerCase();
+      const matchesSearch = 
+        tx.debtorName?.toLowerCase().includes(searchLower) || 
+        tx.notes?.some(n => n.toLowerCase().includes(searchLower)) ||
+        tx.category.toLowerCase().includes(searchLower);
+
+      if (debtFilter === 'VENDOR') return matchesSearch && tx.category !== 'Nợ / Tiền ứng';
+      if (debtFilter === 'STAFF') return matchesSearch && tx.category === 'Nợ / Tiền ứng';
+      
+      return matchesSearch;
+    }).sort((a, b) => b.date.localeCompare(a.date));
+  }, [branchTransactions, debtSearch, debtFilter]);
+
+  const totalRemainingDebt = useMemo(() => {
+    return debtList.reduce((acc, tx) => acc + (tx.amount - (tx.paidAmount || 0)), 0);
+  }, [debtList]);
+
   return (
     <div className="space-y-6 pb-40 animate-ios max-w-6xl mx-auto px-1 sm:px-4">
       
-      {/* --- TAB NAVIGATION --- */}
       <div className="flex p-1 bg-slate-200/40 dark:bg-slate-900/50 rounded-[2.5rem] border dark:border-slate-800/60 sticky top-20 z-50 backdrop-blur-xl shadow-sm">
         {[
           { id: 'OVERVIEW', label: t('overview_tab'), icon: BarChart3 },
@@ -483,34 +533,136 @@ const Dashboard: React.FC<DashboardProps> = ({
       {activeTab === 'LIABILITIES' && (
         <div className="space-y-6 animate-ios">
            <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white shadow-premium text-center relative overflow-hidden">
-              <p className="text-[10px] font-black uppercase opacity-60 mb-3 tracking-[0.3em]">{t('debt_total')}</p>
-              <h2 className="text-5xl font-black tracking-tighter leading-none">{formatCurrency(branchTransactions.filter(t => t.type === TransactionType.EXPENSE && t.isPaid === false).reduce((acc, t) => acc + t.amount, 0), lang)}</h2>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+              <p className="text-[10px] font-black uppercase opacity-60 mb-3 tracking-[0.3em]">{t('liabilities_list')}</p>
+              <h2 className="text-5xl font-black tracking-tighter leading-none">{formatCurrency(totalRemainingDebt, lang)}</h2>
+           </div>
+
+           <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-4 rounded-[2.5rem] border dark:border-slate-800 shadow-sm space-y-4">
+              <div className="relative">
+                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                 <input 
+                    type="text" 
+                    value={debtSearch}
+                    onChange={e => setDebtSearch(e.target.value)}
+                    placeholder={t('placeholder_search')}
+                    className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border dark:border-slate-800 rounded-2xl font-bold text-xs outline-none focus:border-indigo-500 transition-all"
+                 />
+              </div>
+              <div className="flex p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl border dark:border-slate-800">
+                {(['ALL', 'VENDOR', 'STAFF'] as const).map(f => (
+                  <button 
+                    key={f} 
+                    onClick={() => setDebtFilter(f)}
+                    className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${debtFilter === f ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-400'}`}
+                  >
+                    {f === 'VENDOR' ? <Truck className="w-3.5 h-3.5" /> : f === 'STAFF' ? <User className="w-3.5 h-3.5" /> : null}
+                    {f === 'VENDOR' ? t('debt_type_vendor') : f === 'STAFF' ? t('debt_type_staff') : t('all')}
+                  </button>
+                ))}
+              </div>
            </div>
            
-           <div className="grid grid-cols-1 gap-2.5">
-              {branchTransactions.filter(t => t.type === TransactionType.EXPENSE && t.isPaid === false).sort((a,b) => b.date.localeCompare(a.date)).map(tx => (
-                <div key={tx.id} className="bg-white dark:bg-slate-900 p-5 rounded-2xl border dark:border-slate-800 flex justify-between items-center shadow-ios hover:scale-[1.01] transition-all">
-                   <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-rose-50 dark:bg-rose-950/30 text-rose-600 rounded-xl flex items-center justify-center border border-rose-100 dark:border-rose-900/50"><AlertCircle className="w-5 h-5" /></div>
-                      <div>
-                         <p className="text-xs font-black dark:text-white uppercase leading-none mb-1">{tx.debtorName || translateCategory(tx.category)}</p>
-                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{tx.date.split('-').reverse().join('/')}</p>
-                      </div>
-                   </div>
-                   <div className="text-right">
-                      <span className="text-base font-black text-rose-600">{formatCurrency(tx.amount, lang)}</span>
-                      <p className="text-[7px] font-black uppercase text-slate-400 tracking-widest mt-0.5">{translateCategory(tx.category)}</p>
-                   </div>
-                </div>
-              ))}
-              {branchTransactions.filter(t => t.type === TransactionType.EXPENSE && t.isPaid === false).length === 0 && (
-                <div className="py-20 text-center opacity-30">
-                  <PiggyBank className="w-10 h-10 mx-auto mb-4" />
-                  <p className="text-xs font-black uppercase tracking-widest">{t('no_data')}</p>
+           <div className="grid grid-cols-1 gap-6">
+              {debtList.map(tx => {
+                const isStaffDebt = tx.category === 'Nợ / Tiền ứng';
+                const remaining = tx.amount - (tx.paidAmount || 0);
+                const progress = (tx.paidAmount || 0) / tx.amount * 100;
+                
+                return (
+                  <div key={tx.id} className="bg-white dark:bg-slate-900 p-6 rounded-[2.2rem] border dark:border-slate-800 flex flex-col gap-5 shadow-ios group relative overflow-hidden transition-all hover:border-indigo-500/30">
+                     <div className={`absolute top-0 right-0 px-5 py-2 text-white text-[9px] font-black uppercase rounded-bl-3xl tracking-widest z-10 ${isStaffDebt ? 'bg-indigo-600' : 'bg-rose-600'}`}>
+                        {isStaffDebt ? t('debt_type_staff') : t('debt_type_vendor')}
+                     </div>
+                     
+                     <div className="flex justify-between items-start pt-2">
+                        <div className="flex items-center gap-4">
+                           <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-2 shadow-sm ${isStaffDebt ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 border-indigo-100 dark:border-indigo-900/50' : 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 border-rose-100 dark:border-rose-900/50'}`}>
+                              {isStaffDebt ? <User className="w-7 h-7" /> : <Truck className="w-7 h-7" />}
+                           </div>
+                           <div>
+                              <p className="text-base font-black dark:text-white uppercase leading-tight mb-1.5">{tx.debtorName || translateCategory(tx.category)}</p>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                <Calendar className="w-3 h-3" /> {tx.date.split('-').reverse().join('/')}
+                              </p>
+                           </div>
+                        </div>
+                        <div className="text-right">
+                           <span className={`text-2xl font-black ${isStaffDebt ? 'text-indigo-600' : 'text-rose-600'}`}>{formatCurrency(remaining, lang)}</span>
+                           <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest mt-1">
+                              {t('remaining_debt')}
+                           </p>
+                        </div>
+                     </div>
+
+                     <div className="space-y-3 bg-slate-50 dark:bg-slate-950/50 p-4 rounded-2xl border dark:border-slate-800">
+                        <div className="flex justify-between text-[10px] font-black uppercase">
+                           <div className="flex items-center gap-2 text-slate-400">
+                              <span>{t('total')}:</span>
+                              <span className="dark:text-slate-200">{formatCurrency(tx.amount, lang)}</span>
+                           </div>
+                           <div className="flex items-center gap-2 text-emerald-600">
+                              <span>{t('paid')}:</span>
+                              <span>{formatCurrency(tx.paidAmount || 0, lang)}</span>
+                           </div>
+                        </div>
+                        <div className="w-full h-3 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden relative">
+                           <div className={`h-full transition-all duration-1000 ease-out shadow-sm ${isStaffDebt ? 'bg-indigo-500' : 'bg-rose-500'}`} style={{ width: `${progress}%` }} />
+                           <span className="absolute inset-0 flex items-center justify-center text-[7px] font-black text-white mix-blend-difference uppercase">{Math.round(progress)}% {t('paid')}</span>
+                        </div>
+                     </div>
+
+                     <div className="flex justify-between items-center pt-2">
+                        <div className="flex items-center gap-2 text-slate-500 max-w-[50%]">
+                           <Info className="w-4 h-4 text-slate-300 shrink-0" />
+                           <span className="text-[10px] font-bold uppercase truncate italic">{tx.notes?.[0] || '---'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                           <button 
+                             onClick={() => setEditingTx(tx)}
+                             className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-200 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-[10px] font-black uppercase active-scale shadow-sm transition-all hover:bg-slate-50"
+                           >
+                              <Edit3 className="w-3.5 h-3.5" /> {t('partial_pay')}
+                           </button>
+                           <button 
+                             onClick={() => {
+                               const updated = { ...tx, isPaid: true, paidAmount: tx.amount, updatedAt: new Date().toISOString() };
+                               onEditTransaction?.(updated);
+                             }}
+                             className={`flex items-center gap-2 px-4 py-2.5 text-white rounded-xl text-[10px] font-black uppercase active-scale shadow-vivid transition-all ${isStaffDebt ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-emerald-600 hover:bg-emerald-500'}`}
+                           >
+                              <CheckCircle className="w-3.5 h-3.5" /> {t('full_pay')}
+                           </button>
+                        </div>
+                     </div>
+                  </div>
+                );
+              })}
+              
+              {debtList.length === 0 && (
+                <div className="py-24 text-center opacity-30 flex flex-col items-center gap-4">
+                  <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center">
+                    <CheckCircle2 className="w-10 h-10" />
+                  </div>
+                  <p className="text-xs font-black uppercase tracking-widest">Tuyệt vời! Không còn công nợ.</p>
                 </div>
               )}
            </div>
         </div>
+      )}
+
+      {editingTx && (
+        <EditTransactionModal 
+          transaction={editingTx}
+          expenseCategories={expenseCategories}
+          onClose={() => setEditingTx(null)}
+          onSave={(updated) => {
+            onEditTransaction?.(updated);
+            setEditingTx(null);
+          }}
+          lang={lang}
+          currentUsername={currentUsername}
+        />
       )}
 
       <div className="flex items-center justify-center gap-6 py-10 opacity-30">

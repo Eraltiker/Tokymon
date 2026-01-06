@@ -1,11 +1,11 @@
 
 import React, { useState } from 'react';
-import { Transaction, TransactionType, HistoryEntry, Language, ExpenseSource } from '../types';
+import { Transaction, TransactionType, HistoryEntry, Language, ExpenseSource, formatCurrency } from '../types';
 import { useTranslation } from '../i18n';
 import { 
   X, Save, ChevronLeft, ChevronRight, Calendar, 
   Banknote, MessageSquare, Plus, Trash2, CreditCard, 
-  Store, Wallet, AlertCircle, ChevronDown 
+  Store, Wallet, AlertCircle, ChevronDown, CheckCircle2 
 } from 'lucide-react';
 
 interface EditTransactionModalProps {
@@ -31,6 +31,7 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const [category, setCategory] = useState(transaction.category);
 
   const [expenseAmount, setExpenseAmount] = useState(transaction.amount.toString());
+  const [paidAmountInput, setPaidAmountInput] = useState((transaction.paidAmount || 0).toString());
   const [expenseSource, setExpenseSource] = useState<ExpenseSource>(transaction.expenseSource || ExpenseSource.SHOP_CASH);
   const [isPaid, setIsPaid] = useState<boolean>(transaction.isPaid !== false);
   const [debtorName, setDebtorName] = useState<string>(transaction.debtorName || '');
@@ -70,7 +71,8 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       editorName: currentUsername,
       incomeBreakdown: transaction.incomeBreakdown,
       expenseSource: transaction.expenseSource,
-      isPaid: transaction.isPaid
+      isPaid: transaction.isPaid,
+      paidAmount: transaction.paidAmount
     };
     
     const finalNotes = notes.filter(n => n.trim() !== '');
@@ -93,10 +95,14 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       updated.amount = kasseTotal + app;
       updated.incomeBreakdown = { cash: actualCash, card: cardTotal, delivery: app };
     } else {
-      updated.amount = parseLocaleNumber(expenseAmount);
-      updated.isPaid = isPaid;
-      updated.expenseSource = isPaid ? expenseSource : undefined;
-      updated.debtorName = isPaid ? undefined : debtorName;
+      const totalAmount = parseLocaleNumber(expenseAmount);
+      const paidAmt = parseLocaleNumber(paidAmountInput);
+      
+      updated.amount = totalAmount;
+      updated.paidAmount = paidAmt;
+      updated.isPaid = isPaid || (paidAmt >= totalAmount);
+      updated.expenseSource = updated.isPaid ? expenseSource : undefined;
+      updated.debtorName = updated.isPaid && !isPaid ? undefined : debtorName;
     }
 
     onSave(updated);
@@ -112,8 +118,8 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                {transaction.type === TransactionType.INCOME ? <Banknote className="w-5 h-5" /> : <CreditCard className="w-5 h-5" />}
             </div>
             <div>
-              <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tighter text-xs">Sửa giao dịch</h3>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mt-1">{transaction.type === TransactionType.INCOME ? 'Báo cáo ngày' : 'Chi phí'}</p>
+              <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tighter text-xs">{t('edit_title')}</h3>
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mt-1">{transaction.type === TransactionType.INCOME ? t('income') : t('expense')}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full text-slate-500"><X className="w-5 h-5" /></button>
@@ -137,16 +143,16 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             <div className="space-y-4">
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 px-1"><Banknote className="w-3 h-3 text-emerald-500" /> Doanh thu (Z-Bon)</label>
+                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 px-1"><Banknote className="w-3 h-3 text-emerald-500" /> {t('kasse_total')}</label>
                   <input type="text" inputMode="decimal" value={kasseTotalInput} onChange={e => validateAndSetAmount(e.target.value, setKasseTotalInput)} className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-black text-xl text-center outline-none" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                    <div className="space-y-1.5">
-                     <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 px-1"><CreditCard className="w-3 h-3 text-indigo-500" /> Tiền Thẻ</label>
+                     <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 px-1"><CreditCard className="w-3 h-3 text-indigo-500" /> {t('card_total')}</label>
                      <input type="text" inputMode="decimal" value={cardTotalInput} onChange={e => validateAndSetAmount(e.target.value, setCardTotalInput)} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-black text-sm text-center outline-none" />
                    </div>
                    <div className="space-y-1.5">
-                     <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">Tiền App</label>
+                     <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">{t('app_total')}</label>
                      <input type="text" inputMode="decimal" value={appInput} onChange={e => validateAndSetAmount(e.target.value, setAppInput)} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-black text-sm text-center outline-none" />
                    </div>
                 </div>
@@ -155,7 +161,7 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
           ) : (
             <div className="space-y-5">
               <div className="space-y-1.5">
-                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">Số tiền (€)</label>
+                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">{t('amount')} (€)</label>
                 <input type="text" inputMode="decimal" value={expenseAmount} onChange={e => validateAndSetAmount(e.target.value, setExpenseAmount)} className="w-full py-4 bg-rose-500/5 border-2 border-rose-100 dark:border-rose-900 rounded-2xl font-black text-2xl text-rose-600 text-center outline-none" />
               </div>
 
@@ -164,13 +170,27 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                 <button type="button" onClick={() => setIsPaid(false)} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${!isPaid ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400'}`}>{t('unpaid')}</button>
               </div>
 
+              {!isPaid && (
+                 <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/30 space-y-3 animate-ios">
+                    <div className="flex justify-between items-center">
+                       <label className="text-[9px] font-black text-amber-600 uppercase tracking-widest">{t('paid_amount')} (€)</label>
+                       <button onClick={() => setPaidAmountInput(expenseAmount)} className="text-[8px] font-black text-emerald-600 uppercase hover:underline">{t('full_pay')}</button>
+                    </div>
+                    <input type="text" inputMode="decimal" value={paidAmountInput} onChange={e => validateAndSetAmount(e.target.value, setPaidAmountInput)} className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-amber-200 dark:border-amber-800 rounded-xl font-black text-lg outline-none text-emerald-600" />
+                    <div className="flex justify-between text-[8px] font-black uppercase text-amber-500 px-1 pt-1">
+                       <span>{t('remaining_debt')}:</span>
+                       <span>{formatCurrency(Math.max(0, parseLocaleNumber(expenseAmount) - parseLocaleNumber(paidAmountInput)), lang)}</span>
+                    </div>
+                 </div>
+              )}
+
               {isPaid ? (
                 <div className="space-y-3">
                   <div className="grid grid-cols-3 gap-2">
                     {[
-                      { id: ExpenseSource.SHOP_CASH, label: "Tiền Quán", icon: Store },
-                      { id: ExpenseSource.WALLET, label: "Ví Tổng", icon: Wallet },
-                      { id: ExpenseSource.CARD, label: "Bank", icon: CreditCard }
+                      { id: ExpenseSource.SHOP_CASH, label: t('src_shop_cash'), icon: Store },
+                      { id: ExpenseSource.WALLET, label: t('src_wallet'), icon: Wallet },
+                      { id: ExpenseSource.CARD, label: t('src_card'), icon: CreditCard }
                     ].map((s) => (
                       <button key={s.id} type="button" onClick={() => setExpenseSource(s.id)} className={`py-2.5 rounded-xl border-2 transition-all flex flex-col items-center gap-1 active-scale ${expenseSource === s.id ? `bg-brand-600 border-brand-600 text-white shadow-vivid` : 'bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-500'}`}>
                         <s.icon className="w-3.5 h-3.5" />
@@ -181,13 +201,13 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                 </div>
               ) : (
                 <div className="space-y-2">
-                   <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">Đối tác / Nhà cung cấp</label>
-                   <input type="text" value={debtorName} onChange={e => setDebtorName(e.target.value)} placeholder="Tên..." className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border dark:border-slate-800 rounded-xl font-bold text-xs outline-none" />
+                   <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">{t('vendor_name')}</label>
+                   <input type="text" value={debtorName} onChange={e => setDebtorName(e.target.value)} placeholder="..." className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border dark:border-slate-800 rounded-xl font-bold text-xs outline-none" />
                 </div>
               )}
 
               <div className="relative">
-                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1 mb-1 block">Hạng mục</label>
+                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1 mb-1 block">{t('category')}</label>
                 <select value={category} onChange={e => setCategory(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-950 border dark:border-slate-800 rounded-xl font-black text-[10px] uppercase appearance-none outline-none">
                   {expenseCategories.map(c => <option key={c} value={c}>{translateCategory(c)}</option>)}
                 </select>

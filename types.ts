@@ -73,6 +73,7 @@ export interface HistoryEntry {
   incomeBreakdown?: IncomeBreakdown;
   expenseSource?: ExpenseSource;
   isPaid?: boolean;
+  paidAmount?: number;
 }
 
 export interface Transaction {
@@ -80,6 +81,7 @@ export interface Transaction {
   branchId: string;
   date: string;
   amount: number;
+  paidAmount?: number; // Số tiền đã trả thực tế (cho nợ)
   type: TransactionType;
   category: string;
   notes: string[];
@@ -142,6 +144,13 @@ export interface AppData {
 
 export const APP_CHANGELOG = [
   {
+    version: '1.8.0',
+    changes: {
+      vi: ['Quản lý nợ nhân viên/tiền ứng', 'Trả nợ từng phần', 'Tối ưu UI công nợ'],
+      de: ['Mitarbeiter-Vorschuss Verwaltung', 'Teilzahlungen für Schulden', 'Schulden-UI optimiert']
+    }
+  },
+  {
     version: '1.7.5',
     changes: {
       vi: ['Loại bỏ quản lý tiền xu', 'Chuẩn hóa thuật ngữ tài chính', 'Tối ưu hiển thị di động'],
@@ -150,7 +159,7 @@ export const APP_CHANGELOG = [
   }
 ];
 
-export const SCHEMA_VERSION = "1.7.5";
+export const SCHEMA_VERSION = "1.8.0";
 
 export const formatCurrency = (val: number, lang: Language = 'vi') => 
   new Intl.NumberFormat(lang === 'vi' ? 'vi-VN' : 'de-DE', { 

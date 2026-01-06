@@ -6,7 +6,7 @@ import {
   Save, ChevronLeft, ChevronRight, Store, 
   ChevronDown, CreditCard, Calendar,
   Wallet, Banknote, Plus, Trash2, User as UserIcon, Calculator,
-  MinusCircle, PlusCircle, Info, Sparkles
+  MinusCircle, PlusCircle, Info, Sparkles, UserCheck, Truck
 } from 'lucide-react';
 
 interface TransactionFormProps {
@@ -41,15 +41,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [expenseCategory, setExpenseCategory] = useState<string>(expenseCategories[0] || '');
   const [expenseSource, setExpenseSource] = useState<ExpenseSource>(ExpenseSource.SHOP_CASH);
   const [isPaid, setIsPaid] = useState<boolean>(true);
+  const [debtType, setDebtType] = useState<'VENDOR' | 'STAFF'>('VENDOR');
   const [debtorName, setDebtorName] = useState<string>('');
   
   const [kasseTotalInput, setKasseTotalInput] = useState<string>(''); 
   const [appInput, setAppInput] = useState<string>('');   
   const [cardTotalInput, setCardTotalInput] = useState<string>(''); 
 
-  // --- LOGIC GỢI Ý THÔNG MINH ---
   const smartSuggestions = useMemo(() => {
-    // Lấy 100 giao dịch gần nhất cùng loại
     const relevantTxs = transactions
       .filter(tx => !tx.deletedAt && tx.type === type)
       .slice(0, 100);
@@ -61,8 +60,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     });
 
     return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1]) // Sắp xếp theo tần suất
-      .slice(0, 8) // Lấy top 8
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
       .map(([note]) => note);
   }, [transactions, type]);
 
@@ -86,7 +85,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const removeNote = (idx: number) => setNotes(notes.filter((_, i) => i !== idx));
 
   const applySuggestion = (text: string) => {
-    // Nếu có ô ghi chú trống thì điền vào, không thì tạo mới
     const emptyIdx = notes.findIndex(n => !n.trim());
     if (emptyIdx !== -1) {
       updateNote(emptyIdx, text);
@@ -98,7 +96,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const kasseTotal = parseNumber(kasseTotalInput); 
   const cardTotal = parseNumber(cardTotalInput); 
   const appTotal = parseNumber(appInput);
-
   const actualCashAtKasse = kasseTotal - cardTotal;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -106,48 +103,65 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     const now = new Date().toISOString();
     const filteredNotes = notes.filter(n => n.trim() !== '');
     
-    const baseTx = { 
-      id: Date.now().toString(), 
-      branchId, 
-      date, 
-      notes: filteredNotes, 
-      authorName: currentUsername,
-      updatedAt: now, 
-      history: [] 
-    };
-    
     if (type === TransactionType.EXPENSE) {
       const amount = parseNumber(expenseAmount);
-      if (amount <= 0) return;
+      if (amount <= 0) {
+        alert(lang === 'vi' ? 'Vui lòng nhập số tiền chi phí!' : 'Bitte Betrag eingeben!');
+        return;
+      }
+
+      // Tự động gán category dựa trên debtType nếu đang ở chế độ công nợ
+      let finalCategory = expenseCategory;
+      if (!isPaid) {
+        finalCategory = debtType === 'STAFF' ? 'Nợ / Tiền ứng' : expenseCategory;
+      }
+
+      const isStaffAdvance = finalCategory === 'Nợ / Tiền ứng';
+
       onAddTransaction({
-        ...baseTx, 
-        type: TransactionType.EXPENSE, 
-        amount, 
-        category: expenseCategory,
-        expenseSource: isPaid ? expenseSource : undefined, 
-        isPaid, 
+        id: Date.now().toString(),
+        branchId,
+        date,
+        amount,
+        type: TransactionType.EXPENSE,
+        category: finalCategory,
+        notes: filteredNotes,
+        authorName: currentUsername,
+        expenseSource: (isPaid || isStaffAdvance) ? expenseSource : undefined,
+        isPaid,
         debtorName: isPaid ? undefined : debtorName,
-      } as Transaction);
-      setExpenseAmount(''); setNotes([]); 
+        updatedAt: now,
+        history: []
+      });
+      setExpenseAmount(''); setNotes([]); setDebtorName('');
     } else {
-      if (kasseTotal <= 0) return;
+      if (kasseTotal <= 0) {
+        alert(lang === 'vi' ? 'Vui lòng nhập doanh thu Z-Bon!' : 'Bitte Umsatz eingeben!');
+        return;
+      }
       onAddTransaction({
-        ...baseTx, 
-        type: TransactionType.INCOME, 
-        amount: kasseTotal, 
+        id: Date.now().toString(),
+        branchId,
+        date,
+        amount: kasseTotal,
+        type: TransactionType.INCOME,
         category: 'Income',
+        notes: filteredNotes,
+        authorName: currentUsername,
         incomeBreakdown: { 
           cash: actualCashAtKasse, 
           card: cardTotal, 
           delivery: appTotal
         },
-      } as Transaction);
+        updatedAt: now,
+        history: []
+      });
       setKasseTotalInput(''); setAppInput(''); setCardTotalInput(''); setNotes([]);
     }
   };
 
   return (
-    <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-[2.5rem] shadow-ios border border-white dark:border-slate-800/80 flex flex-col relative overflow-hidden animate-ios w-full">
+    <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-[2.5rem] shadow-ios border border-white dark:border-slate-800/80 flex flex-col relative animate-ios w-full mb-8 z-[10]">
       <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/50 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20">
         <div className="flex-1 truncate">
           <span className="text-[8px] font-black uppercase text-slate-500 tracking-[0.2em] block mb-0.5">{branchName}</span>
@@ -161,7 +175,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         </div>
       </div>
       
-      <form onSubmit={handleSubmit} className="p-5 space-y-5">
+      <form onSubmit={handleSubmit} className="p-5 space-y-6 pb-20">
         <div className="flex items-center gap-2 bg-slate-100/50 dark:bg-slate-950/50 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800">
           <button type="button" onClick={() => setDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return dt.toISOString().split('T')[0]; })} className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl text-slate-500 active-scale shadow-sm flex items-center justify-center shrink-0"><ChevronLeft className="w-5 h-5" /></button>
           <div className="flex-1 text-center relative h-10 flex items-center justify-center">
@@ -195,19 +209,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <input type="text" inputMode="decimal" value={appInput} onChange={e => validateAndSetAmount(e.target.value, setAppInput)} placeholder="0" className="w-full p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-sm text-center outline-none" />
               </div>
             </div>
-
-            <div className="bg-slate-900 dark:bg-black rounded-[2rem] p-5 space-y-4 shadow-vivid border border-slate-800">
-               <div className="flex justify-between items-center text-slate-400">
-                  <div className="flex items-center gap-2">
-                    <Banknote className="w-4 h-4 text-emerald-500" />
-                    <span className="text-[10px] font-black uppercase tracking-tight">{t('cash_total')}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-lg font-black text-white">{formatCurrency(actualCashAtKasse, lang)}</span>
-                    <p className="text-[7px] font-bold text-slate-500 uppercase leading-none mt-1">{t('expected_pocket')}</p>
-                  </div>
-               </div>
-            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -221,28 +222,56 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               <button type="button" onClick={() => setIsPaid(false)} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${!isPaid ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400'}`}>{t('unpaid')}</button>
             </div>
 
-            <div className="space-y-3">
-              <div className="relative">
-                <select value={expenseCategory} onChange={e => setExpenseCategory(e.target.value)} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-brand-500 rounded-2xl font-black text-[11px] uppercase outline-none appearance-none transition-all dark:text-slate-200">
-                  {expenseCategories.map(c => <option key={c} value={c}>{translateCategory(c)}</option>)}
-                </select>
-                <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
-              </div>
+            {!isPaid && (
+               <div className="grid grid-cols-2 gap-2 p-1 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 animate-ios">
+                  <button type="button" onClick={() => setDebtType('VENDOR')} className={`py-2 rounded-xl text-[8px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${debtType === 'VENDOR' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800' : 'text-slate-400'}`}>
+                    <Truck className="w-3 h-3" /> {t('debt_type_vendor')}
+                  </button>
+                  <button type="button" onClick={() => setDebtType('STAFF')} className={`py-2 rounded-xl text-[8px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${debtType === 'STAFF' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800' : 'text-slate-400'}`}>
+                    <UserCheck className="w-3 h-3" /> {t('debt_type_staff')}
+                  </button>
+               </div>
+            )}
 
-              {!isPaid ? (
-                <input type="text" value={debtorName} onChange={e => setDebtorName(e.target.value)} placeholder={t('vendor_name')} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-[11px] outline-none" required />
-              ) : (
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: ExpenseSource.SHOP_CASH, label: t('src_shop_cash'), icon: Store },
-                    { id: ExpenseSource.WALLET, label: t('src_wallet'), icon: Wallet },
-                    { id: ExpenseSource.CARD, label: t('src_card'), icon: CreditCard }
-                  ].map((s) => (
-                    <button key={s.id} type="button" onClick={() => setExpenseSource(s.id)} className={`py-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-1.5 active-scale ${expenseSource === s.id ? `bg-brand-600 border-brand-600 text-white` : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500'}`}>
-                      <s.icon className="w-4 h-4" />
-                      <span className="text-[8px] font-black uppercase tracking-tighter leading-none text-center">{s.label}</span>
-                    </button>
-                  ))}
+            <div className="space-y-3">
+              {(isPaid || debtType === 'VENDOR') && (
+                <div className="relative">
+                  <select value={expenseCategory} onChange={e => setExpenseCategory(e.target.value)} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-brand-500 rounded-2xl font-black text-[11px] uppercase outline-none appearance-none transition-all dark:text-slate-200">
+                    {expenseCategories.filter(c => c !== 'Nợ / Tiền ứng').map(c => <option key={c} value={c}>{translateCategory(c)}</option>)}
+                  </select>
+                  <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                </div>
+              )}
+
+              {(isPaid || debtType === 'STAFF') ? (
+                <div className="space-y-3 animate-ios">
+                  {debtType === 'STAFF' && !isPaid && (
+                    <div className="px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl flex items-center gap-2 border border-indigo-100 dark:border-indigo-800">
+                      <Info className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <span className="text-[8px] font-black text-indigo-600 uppercase leading-tight">Tiền ứng sẽ trừ vào quỹ ngay lập tức để dễ quản lý.</span>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: ExpenseSource.SHOP_CASH, label: t('src_shop_cash'), icon: Store },
+                      { id: ExpenseSource.WALLET, label: t('src_wallet'), icon: Wallet },
+                      { id: ExpenseSource.CARD, label: t('src_card'), icon: CreditCard }
+                    ].map((s) => (
+                      <button key={s.id} type="button" onClick={() => setExpenseSource(s.id)} className={`py-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-1.5 active-scale ${expenseSource === s.id ? `bg-brand-600 border-brand-600 text-white shadow-vivid` : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500'}`}>
+                        <s.icon className="w-4 h-4" />
+                        <span className="text-[8px] font-black uppercase tracking-tighter leading-none text-center">{s.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {!isPaid && (
+                <div className="relative group">
+                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                      {debtType === 'STAFF' ? <UserCheck className="w-4 h-4" /> : <Truck className="w-4 h-4" />}
+                   </div>
+                   <input type="text" value={debtorName} onChange={e => setDebtorName(e.target.value)} placeholder={debtType === 'STAFF' ? "Tên nhân viên..." : "Tên nhà cung cấp..."} className="w-full pl-11 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-[11px] outline-none transition-all focus:border-indigo-500" required />
                 </div>
               )}
             </div>
@@ -257,21 +286,17 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
              <button type="button" onClick={addNoteField} className="text-[9px] font-black text-brand-600 uppercase tracking-widest flex items-center gap-1"><Plus className="w-3 h-3" /> {t('add_note_btn')}</button>
           </div>
 
-          {/* HIỂN THỊ GỢI Ý THÔNG MINH */}
-          <div className="flex flex-wrap gap-1.5 px-1">
+          <div className="flex overflow-x-auto no-scrollbar gap-2 px-1 py-1 -mx-1">
              {smartSuggestions.map((text, i) => (
                <button 
                 key={i} 
                 type="button" 
                 onClick={() => applySuggestion(text)}
-                className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 rounded-full text-[9px] font-bold text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 active-scale hover:bg-brand-50 hover:text-brand-600 hover:border-brand-100 transition-all"
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-full text-[10px] font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 active-scale whitespace-nowrap transition-all"
                >
                  {text}
                </button>
              ))}
-             {smartSuggestions.length === 0 && (
-               <span className="text-[9px] font-bold text-slate-300 uppercase italic">Chưa có dữ liệu gợi ý...</span>
-             )}
           </div>
           
           <div className="space-y-3">
@@ -281,19 +306,21 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   value={note} 
                   onChange={e => updateNote(idx, e.target.value)} 
                   placeholder={`${t('note')} #${idx + 1}`}
-                  className="w-full p-4 bg-slate-50/50 dark:bg-slate-950/30 rounded-2xl border border-slate-200 dark:border-slate-800 outline-none text-[11px] font-bold dark:text-white resize-none h-16 transition-all"
+                  className="w-full p-4 bg-slate-50/50 dark:bg-slate-950/30 rounded-2xl border border-slate-200 dark:border-slate-800 outline-none text-[12px] font-bold dark:text-white resize-none h-20 transition-all focus:border-brand-500"
                 />
-                <button type="button" onClick={() => removeNote(idx)} className="absolute top-2 right-2 p-1.5 text-slate-300 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100">
-                  <Trash2 className="w-4 h-4" />
+                <button type="button" onClick={() => removeNote(idx)} className="absolute top-3 right-3 p-2 text-slate-300 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100">
+                  <Trash2 className="w-5 h-5" />
                 </button>
               </div>
             ))}
           </div>
         </div>
 
-        <button type="submit" className="w-full h-16 bg-brand-600 text-white rounded-[2rem] font-black uppercase tracking-[0.1em] text-xs active-scale shadow-vivid flex items-center justify-center gap-2 transition-all hover:bg-brand-500">
-          <Save className="w-5 h-5" /> {t('save_transaction')}
-        </button>
+        <div className="pt-4 relative z-20">
+          <button type="submit" className="w-full h-16 bg-brand-600 text-white rounded-[2rem] font-black uppercase tracking-[0.1em] text-xs active-scale shadow-vivid flex items-center justify-center gap-2 transition-all hover:bg-brand-500">
+            <Save className="w-5 h-5" /> {t('save_transaction')}
+          </button>
+        </div>
       </form>
     </div>
   );

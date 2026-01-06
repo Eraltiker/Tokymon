@@ -144,13 +144,11 @@ const App = () => {
   if (!currentUser) {
     return (
       <div className="min-h-screen relative flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-950 overflow-hidden">
-        {/* Decorative Animated Blobs */}
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 blur-[120px] rounded-full animate-pulse" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-500/10 blur-[120px] rounded-full animate-pulse-slow" />
         <div className="login-mesh" />
 
         <div className="w-full max-w-[420px] z-10 flex flex-col items-center gap-10 animate-ios">
-          {/* Brand Header */}
           <div className="text-center space-y-5">
             <div className="w-24 h-24 bg-white dark:bg-slate-900 rounded-[2.8rem] shadow-premium flex items-center justify-center mx-auto border border-white/80 dark:border-slate-800 animate-float relative overflow-hidden group">
               <div className="absolute inset-0 bg-gradient-to-br from-brand-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -162,7 +160,6 @@ const App = () => {
             </div>
           </div>
 
-          {/* Login Card */}
           <div className="w-full glass p-1.5 rounded-[3.5rem] shadow-premium relative border border-white/60 dark:border-slate-800/40">
             <div className="bg-white/40 dark:bg-slate-900/60 p-8 sm:p-10 rounded-[3.2rem] space-y-10">
               <div className="text-center space-y-3">
@@ -222,7 +219,6 @@ const App = () => {
             </div>
           </div>
 
-          {/* Professional Footer */}
           <div className="flex flex-col items-center gap-4">
              <div className="flex items-center gap-6 opacity-30">
                 <div className="h-px w-8 bg-slate-400" />
@@ -293,7 +289,19 @@ const App = () => {
       )}
 
       <main className="flex-1 px-2 sm:px-4 max-w-6xl mx-auto w-full pt-4">
-        {activeTab === 'stats' && <Dashboard transactions={data.transactions} initialBalances={{cash: 0, card: 0}} lang={lang} currentBranchId={currentBranchId} allowedBranches={allowedBranches} reportSettings={data.reportSettings!} />}
+        {activeTab === 'stats' && (
+          <Dashboard 
+            transactions={data.transactions} 
+            initialBalances={{cash: 0, card: 0}} 
+            lang={lang} 
+            currentBranchId={currentBranchId} 
+            allowedBranches={allowedBranches} 
+            reportSettings={data.reportSettings!} 
+            onEditTransaction={u => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}), true)}
+            expenseCategories={data.expenseCategories.filter(c => c.branchId === currentBranchId).map(c => c.name)}
+            currentUsername={currentUser.username}
+          />
+        )}
         {activeTab === 'income' && <IncomeManager transactions={data.transactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={id => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}), true)} onEditTransaction={u => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}), true)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranch?.name} lang={lang} currentUsername={currentUser.username} />}
         {activeTab === 'expense' && <ExpenseManager transactions={data.transactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={id => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}), true)} onEditTransaction={u => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}), true)} expenseCategories={data.expenseCategories.filter(c => c.branchId === currentBranchId).map(c => c.name)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranch?.name} lang={lang} currentUsername={currentUser.username} />}
         {activeTab === 'settings' && (
@@ -357,8 +365,8 @@ const App = () => {
         )}
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 px-6 z-[200] flex justify-center pb-8 safe-pb">
-        <nav className="h-20 max-w-md w-full glass border border-white/40 dark:border-slate-800 flex items-center justify-around px-2 rounded-[2.5rem] shadow-2xl">
+      <div className="fixed bottom-0 left-0 right-0 px-6 z-[200] flex justify-center pb-8 safe-pb pointer-events-none">
+        <nav className="h-20 max-w-md w-full glass border border-white/40 dark:border-slate-800 flex items-center justify-around px-2 rounded-[2.5rem] shadow-2xl pointer-events-auto">
           {[ 
             { id: 'stats', label: t('stats'), icon: LayoutDashboard }, 
             { id: 'income', label: t('income'), icon: Wallet }, 
