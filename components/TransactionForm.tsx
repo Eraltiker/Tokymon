@@ -1,12 +1,13 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Transaction, TransactionType, ExpenseSource, Language, formatCurrency } from '../types';
 import { useTranslation } from '../i18n';
 import { 
   Save, ChevronLeft, ChevronRight, Store, 
   ChevronDown, CreditCard, Calendar,
   Wallet, Banknote, Plus, Trash2, User as UserIcon, Calculator,
-  MinusCircle, PlusCircle, Info, Sparkles, UserCheck, Truck
+  MinusCircle, PlusCircle, Info, Sparkles, UserCheck, Truck,
+  AlertCircle, CheckCircle2, Tag, Layers, X, MessageSquare
 } from 'lucide-react';
 
 interface TransactionFormProps {
@@ -36,34 +37,25 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   
   const [notes, setNotes] = useState<string[]>([]);
+  const [currentNote, setCurrentNote] = useState('');
 
   const [expenseAmount, setExpenseAmount] = useState<string>('');
   const [expenseCategory, setExpenseCategory] = useState<string>(expenseCategories[0] || '');
   const [expenseSource, setExpenseSource] = useState<ExpenseSource>(ExpenseSource.SHOP_CASH);
   const [isPaid, setIsPaid] = useState<boolean>(true);
-  const [debtType, setDebtType] = useState<'VENDOR' | 'STAFF'>('VENDOR');
   const [debtorName, setDebtorName] = useState<string>('');
   
   const [kasseTotalInput, setKasseTotalInput] = useState<string>(''); 
   const [appInput, setAppInput] = useState<string>('');   
   const [cardTotalInput, setCardTotalInput] = useState<string>(''); 
 
-  const smartSuggestions = useMemo(() => {
-    const relevantTxs = transactions
-      .filter(tx => !tx.deletedAt && tx.type === type)
-      .slice(0, 100);
-    
-    const allNotes = relevantTxs.flatMap(tx => tx.notes || []);
-    const counts: Record<string, number> = {};
-    allNotes.forEach(n => {
-      if (n.trim()) counts[n] = (counts[n] || 0) + 1;
-    });
-
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 12)
-      .map(([note]) => note);
-  }, [transactions, type]);
+  // Tự động chuyển trạng thái khi chọn hạng mục Nợ/Tiền ứng
+  useEffect(() => {
+    if (expenseCategory === 'Nợ / Tiền ứng') {
+      setIsPaid(false);
+      setExpenseSource(ExpenseSource.WALLET);
+    }
+  }, [expenseCategory]);
 
   const validateAndSetAmount = (val: string, setter: (v: string) => void) => {
     const sanitized = val.replace(',', '.');
@@ -76,249 +68,233 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     return isNaN(n) ? 0 : n;
   };
 
-  const addNoteField = () => setNotes([...notes, '']);
-  const updateNote = (idx: number, val: string) => {
-    const updated = [...notes];
-    updated[idx] = val;
-    setNotes(updated);
-  };
-  const removeNote = (idx: number) => setNotes(notes.filter((_, i) => i !== idx));
-
-  const applySuggestion = (text: string) => {
-    const emptyIdx = notes.findIndex(n => !n.trim());
-    if (emptyIdx !== -1) {
-      updateNote(emptyIdx, text);
-    } else {
-      setNotes([...notes, text]);
+  const addNote = () => {
+    if (currentNote.trim()) {
+      setNotes([...notes, currentNote.trim()]);
+      setCurrentNote('');
     }
   };
 
-  const kasseTotal = parseNumber(kasseTotalInput); 
-  const cardTotal = parseNumber(cardTotalInput); 
-  const appTotal = parseNumber(appInput);
-  const actualCashAtKasse = kasseTotal - cardTotal;
+  const removeNote = (idx: number) => {
+    setNotes(notes.filter((_, i) => i !== idx));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const now = new Date().toISOString();
-    const filteredNotes = notes.filter(n => n.trim() !== '');
+    let finalNotes = [...notes];
+    if (currentNote.trim()) finalNotes.push(currentNote.trim());
     
     if (type === TransactionType.EXPENSE) {
       const amount = parseNumber(expenseAmount);
-      if (amount <= 0) {
-        alert(lang === 'vi' ? 'Vui lòng nhập số tiền chi phí!' : 'Bitte Betrag eingeben!');
-        return;
-      }
-
-      // Tự động gán category dựa trên debtType nếu đang ở chế độ công nợ
-      let finalCategory = expenseCategory;
-      if (!isPaid) {
-        finalCategory = debtType === 'STAFF' ? 'Nợ / Tiền ứng' : expenseCategory;
-      }
-
-      const isStaffAdvance = finalCategory === 'Nợ / Tiền ứng';
+      if (amount <= 0) return;
 
       onAddTransaction({
         id: Date.now().toString(),
         branchId,
         date,
         amount,
+        paidAmount: isPaid ? amount : 0,
         type: TransactionType.EXPENSE,
-        category: finalCategory,
-        notes: filteredNotes,
+        category: expenseCategory,
+        notes: finalNotes,
         authorName: currentUsername,
-        expenseSource: (isPaid || isStaffAdvance) ? expenseSource : undefined,
+        expenseSource: expenseSource,
         isPaid,
-        debtorName: isPaid ? undefined : debtorName,
+        debtorName: (expenseCategory === 'Nợ / Tiền ứng' || !isPaid) ? debtorName : undefined,
         updatedAt: now,
         history: []
       });
-      setExpenseAmount(''); setNotes([]); setDebtorName('');
+      setExpenseAmount(''); setNotes([]); setDebtorName(''); setCurrentNote('');
     } else {
-      if (kasseTotal <= 0) {
-        alert(lang === 'vi' ? 'Vui lòng nhập doanh thu Z-Bon!' : 'Bitte Umsatz eingeben!');
-        return;
-      }
+      const kasseTotal = parseNumber(kasseTotalInput);
+      const appTotal = parseNumber(appInput);
+      const cardTotal = parseNumber(cardTotalInput);
+      if (kasseTotal <= 0 && appTotal <= 0) return;
+      
       onAddTransaction({
         id: Date.now().toString(),
         branchId,
         date,
-        amount: kasseTotal,
+        amount: kasseTotal + appTotal,
         type: TransactionType.INCOME,
         category: 'Income',
-        notes: filteredNotes,
+        notes: finalNotes,
         authorName: currentUsername,
-        incomeBreakdown: { 
-          cash: actualCashAtKasse, 
-          card: cardTotal, 
-          delivery: appTotal
-        },
+        incomeBreakdown: { cash: (kasseTotal + appTotal) - cardTotal, card: cardTotal, delivery: appTotal },
         updatedAt: now,
         history: []
       });
-      setKasseTotalInput(''); setAppInput(''); setCardTotalInput(''); setNotes([]);
+      setKasseTotalInput(''); setAppInput(''); setCardTotalInput(''); setNotes([]); setCurrentNote('');
     }
   };
 
+  const isIncome = type === TransactionType.INCOME;
+
   return (
-    <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-[2.5rem] shadow-ios border border-white dark:border-slate-800/80 flex flex-col relative animate-ios w-full mb-8 z-[10]">
-      <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/50 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20">
-        <div className="flex-1 truncate">
-          <span className="text-[8px] font-black uppercase text-slate-500 tracking-[0.2em] block mb-0.5">{branchName}</span>
-          <h2 className="text-base font-extrabold uppercase dark:text-white leading-none truncate">
-            {type === TransactionType.INCOME ? t('chot_so') : t('chi_phi')}
-          </h2>
+    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-premium border border-white dark:border-slate-800/60 flex flex-col relative animate-ios w-full mb-8 overflow-hidden transition-all duration-300">
+      {/* Header Compact Modern */}
+      <div className="px-6 py-4 border-b dark:border-slate-800/50 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <div className={`p-2.5 rounded-2xl shadow-sm ${isIncome ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
+            {isIncome ? <PlusCircle className="w-5 h-5" /> : <MinusCircle className="w-5 h-5" />}
+          </div>
+          <div>
+            <h2 className="text-xs font-black uppercase dark:text-white tracking-tighter leading-none">{isIncome ? "Nhập Doanh Thu" : "Nhập Chi Phí"}</h2>
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">{branchName}</p>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1 bg-brand-50 dark:bg-brand-900/30 rounded-full border border-brand-100 dark:border-brand-800 shrink-0">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 rounded-full border dark:border-slate-700 shadow-soft">
            <UserIcon className="w-3 h-3 text-brand-600" />
-           <span className="text-[9px] font-black uppercase tracking-widest text-brand-600 dark:text-brand-400">{currentUsername}</span>
+           <span className="text-[9px] font-black uppercase text-slate-600 dark:text-slate-300">{currentUsername}</span>
         </div>
       </div>
       
-      <form onSubmit={handleSubmit} className="p-5 space-y-6 pb-20">
-        <div className="flex items-center gap-2 bg-slate-100/50 dark:bg-slate-950/50 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800">
-          <button type="button" onClick={() => setDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return dt.toISOString().split('T')[0]; })} className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl text-slate-500 active-scale shadow-sm flex items-center justify-center shrink-0"><ChevronLeft className="w-5 h-5" /></button>
-          <div className="flex-1 text-center relative h-10 flex items-center justify-center">
-            <Calendar className="w-4 h-4 text-brand-500 mr-2" />
-            <span className="text-xs font-black dark:text-white uppercase tracking-tight">{date.split('-').reverse().join('/')}</span>
+      <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        {/* Date Selector Segmented */}
+        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl border dark:border-slate-800">
+          <button type="button" onClick={() => setDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return dt.toISOString().split('T')[0]; })} className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl text-slate-400 active-scale shadow-sm flex items-center justify-center shrink-0"><ChevronLeft className="w-4 h-4" /></button>
+          <div className="flex-1 text-center relative h-10 flex items-center justify-center group">
+            <span className="text-[10px] font-black dark:text-white uppercase tracking-widest flex items-center gap-2 group-active:scale-95 transition-transform"><Calendar className="w-3.5 h-3.5 text-brand-500" /> {date.split('-').reverse().join('/')}</span>
             <input type="date" value={date} onChange={e => setDate(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer w-full" />
           </div>
-          <button type="button" onClick={() => setDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() + 1); return dt.toISOString().split('T')[0]; })} className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl text-slate-500 active-scale shadow-sm flex items-center justify-center shrink-0"><ChevronRight className="w-5 h-5" /></button>
+          <button type="button" onClick={() => setDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() + 1); return dt.toISOString().split('T')[0]; })} className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl text-slate-400 active-scale shadow-sm flex items-center justify-center shrink-0"><ChevronRight className="w-4 h-4" /></button>
         </div>
 
-        {type === TransactionType.INCOME ? (
-          <div className="space-y-4">
-            <div className="bg-brand-50/50 dark:bg-brand-900/10 p-4 rounded-3xl border border-brand-100 dark:border-brand-800/50">
-              <label className="text-[9px] font-black text-brand-600 dark:text-brand-400 uppercase px-1 tracking-widest flex items-center gap-2 mb-2">
-                <Calculator className="w-3.5 h-3.5" /> {t('kasse_total')}
-              </label>
-              <input type="text" inputMode="decimal" value={kasseTotalInput} onChange={e => validateAndSetAmount(e.target.value, setKasseTotalInput)} placeholder="0.00" className="w-full p-4 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-xl text-center outline-none ring-4 ring-brand-500/5 transition-all focus:ring-brand-500/10" />
+        {isIncome ? (
+          <div className="space-y-5">
+            <div className="relative group">
+               <label className="absolute -top-2 left-6 bg-white dark:bg-slate-900 px-2 text-[8px] font-black text-slate-400 uppercase tracking-widest z-10">{t('kasse_total')}</label>
+               <input type="text" inputMode="decimal" value={kasseTotalInput} onChange={e => validateAndSetAmount(e.target.value, setKasseTotalInput)} placeholder="0.00" className="w-full py-6 px-6 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-[2rem] font-black text-4xl text-emerald-600 dark:text-emerald-500 text-center outline-none focus:border-emerald-500 transition-all shadow-inner" />
+               <Calculator className="absolute right-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-200 pointer-events-none group-focus-within:text-emerald-300" />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-rose-500 uppercase px-2 tracking-widest flex items-center gap-2">
-                  <MinusCircle className="w-3.5 h-3.5" /> {t('card_total')}
-                </label>
-                <input type="text" inputMode="decimal" value={cardTotalInput} onChange={e => validateAndSetAmount(e.target.value, setCardTotalInput)} placeholder="0" className="w-full p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-sm text-center outline-none" />
+              <div className="relative">
+                <label className="absolute -top-2 left-4 bg-white dark:bg-slate-900 px-2 text-[8px] font-black text-rose-500 uppercase tracking-widest z-10">{t('card_total')}</label>
+                <input type="text" inputMode="decimal" value={cardTotalInput} onChange={e => validateAndSetAmount(e.target.value, setCardTotalInput)} placeholder="0" className="w-full p-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl font-black text-xl text-center outline-none focus:border-rose-400" />
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-indigo-500 uppercase px-2 tracking-widest flex items-center gap-2">
-                  <PlusCircle className="w-3.5 h-3.5" /> {t('app_total')}
-                </label>
-                <input type="text" inputMode="decimal" value={appInput} onChange={e => validateAndSetAmount(e.target.value, setAppInput)} placeholder="0" className="w-full p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-sm text-center outline-none" />
+              <div className="relative">
+                <label className="absolute -top-2 left-4 bg-white dark:bg-slate-900 px-2 text-[8px] font-black text-indigo-500 uppercase tracking-widest z-10">{t('app_total')}</label>
+                <input type="text" inputMode="decimal" value={appInput} onChange={e => validateAndSetAmount(e.target.value, setAppInput)} placeholder="0" className="w-full p-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl font-black text-xl text-center outline-none focus:border-indigo-400" />
               </div>
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            <div className="space-y-1.5 text-center">
-              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{t('amount')} (€)</label>
-              <input type="text" inputMode="decimal" value={expenseAmount} onChange={e => validateAndSetAmount(e.target.value, setExpenseAmount)} className="w-full py-5 bg-rose-50/30 dark:bg-rose-950/20 border-2 border-rose-100 dark:border-rose-900/50 rounded-2xl font-black text-2xl text-rose-600 text-center outline-none focus:ring-4 focus:ring-rose-500/10" required />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl border dark:border-slate-800">
-              <button type="button" onClick={() => setIsPaid(true)} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${isPaid ? 'bg-white dark:bg-slate-800 text-brand-600 shadow-sm' : 'text-slate-400'}`}>{t('paid')}</button>
-              <button type="button" onClick={() => setIsPaid(false)} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${!isPaid ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400'}`}>{t('unpaid')}</button>
+          <div className="space-y-6">
+            {/* HERO AMOUNT */}
+            <div className="text-center space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{t('amount')} (€)</label>
+              <input 
+                type="text" 
+                inputMode="decimal" 
+                value={expenseAmount} 
+                onChange={e => validateAndSetAmount(e.target.value, setExpenseAmount)} 
+                className="w-full py-6 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-[2.5rem] font-black text-5xl text-rose-600 dark:text-rose-500 text-center outline-none focus:border-rose-500 transition-all shadow-inner" 
+                placeholder="0.00"
+                required 
+              />
             </div>
 
-            {!isPaid && (
-               <div className="grid grid-cols-2 gap-2 p-1 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 animate-ios">
-                  <button type="button" onClick={() => setDebtType('VENDOR')} className={`py-2 rounded-xl text-[8px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${debtType === 'VENDOR' ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800' : 'text-slate-400'}`}>
-                    <Truck className="w-3 h-3" /> {t('debt_type_vendor')}
-                  </button>
-                  <button type="button" onClick={() => setDebtType('STAFF')} className={`py-2 rounded-xl text-[8px] font-black uppercase transition-all flex items-center justify-center gap-1.5 ${debtType === 'STAFF' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800' : 'text-slate-400'}`}>
-                    <UserCheck className="w-3 h-3" /> {t('debt_type_staff')}
-                  </button>
+            {/* COMPACT OPTIONS GRID */}
+            <div className="grid grid-cols-1 gap-4 bg-slate-50/50 dark:bg-slate-800/30 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800">
+               <div className="space-y-2">
+                  <div className="flex items-center gap-2 px-2">
+                    <Tag className="w-3 h-3 text-slate-400" />
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('category')}</label>
+                  </div>
+                  <div className="relative">
+                    <select value={expenseCategory} onChange={e => setExpenseCategory(e.target.value)} className="w-full p-4 bg-white dark:bg-slate-900 border dark:border-slate-700 rounded-2xl font-black text-[11px] uppercase outline-none appearance-none pr-10 shadow-sm">
+                      {expenseCategories.map(c => <option key={c} value={c}>{translateCategory(c)}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" />
+                  </div>
                </div>
-            )}
 
-            <div className="space-y-3">
-              {(isPaid || debtType === 'VENDOR') && (
-                <div className="relative">
-                  <select value={expenseCategory} onChange={e => setExpenseCategory(e.target.value)} className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-brand-500 rounded-2xl font-black text-[11px] uppercase outline-none appearance-none transition-all dark:text-slate-200">
-                    {expenseCategories.filter(c => c !== 'Nợ / Tiền ứng').map(c => <option key={c} value={c}>{translateCategory(c)}</option>)}
-                  </select>
-                  <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
-                </div>
-              )}
-
-              {(isPaid || debtType === 'STAFF') ? (
-                <div className="space-y-3 animate-ios">
-                  {debtType === 'STAFF' && !isPaid && (
-                    <div className="px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl flex items-center gap-2 border border-indigo-100 dark:border-indigo-800">
-                      <Info className="w-4 h-4 text-indigo-600 shrink-0" />
-                      <span className="text-[8px] font-black text-indigo-600 uppercase leading-tight">Tiền ứng sẽ trừ vào quỹ ngay lập tức để dễ quản lý.</span>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-3 gap-2">
+               <div className="space-y-2">
+                  <div className="flex items-center gap-2 px-2">
+                    <Banknote className="w-3 h-3 text-slate-400" />
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{t('source')}</label>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-200/50 dark:bg-slate-950 rounded-2xl">
                     {[
-                      { id: ExpenseSource.SHOP_CASH, label: t('src_shop_cash'), icon: Store },
-                      { id: ExpenseSource.WALLET, label: t('src_wallet'), icon: Wallet },
-                      { id: ExpenseSource.CARD, label: t('src_card'), icon: CreditCard }
-                    ].map((s) => (
-                      <button key={s.id} type="button" onClick={() => setExpenseSource(s.id)} className={`py-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-1.5 active-scale ${expenseSource === s.id ? `bg-brand-600 border-brand-600 text-white shadow-vivid` : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500'}`}>
-                        <s.icon className="w-4 h-4" />
-                        <span className="text-[8px] font-black uppercase tracking-tighter leading-none text-center">{s.label}</span>
+                      { id: ExpenseSource.SHOP_CASH, icon: Store, label: 'Shop' },
+                      { id: ExpenseSource.WALLET, icon: Wallet, label: 'Ví' },
+                      { id: ExpenseSource.CARD, icon: CreditCard, label: 'Bank' }
+                    ].map(src => (
+                      <button 
+                        key={src.id} 
+                        type="button" 
+                        onClick={() => setExpenseSource(src.id)}
+                        className={`py-2.5 rounded-xl flex flex-col items-center justify-center gap-1 transition-all active-scale ${expenseSource === src.id ? 'bg-white dark:bg-slate-800 text-brand-600 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-700' : 'text-slate-400 hover:text-slate-600'}`}
+                      >
+                        <src.icon className="w-3.5 h-3.5" />
+                        <span className="text-[7px] font-black uppercase tracking-widest">{src.label}</span>
                       </button>
                     ))}
                   </div>
-                </div>
-              ) : null}
+               </div>
 
-              {!isPaid && (
-                <div className="relative group">
-                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                      {debtType === 'STAFF' ? <UserCheck className="w-4 h-4" /> : <Truck className="w-4 h-4" />}
-                   </div>
-                   <input type="text" value={debtorName} onChange={e => setDebtorName(e.target.value)} placeholder={debtType === 'STAFF' ? "Tên nhân viên..." : "Tên nhà cung cấp..."} className="w-full pl-11 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl font-black text-[11px] outline-none transition-all focus:border-indigo-500" required />
-                </div>
-              )}
+               {expenseCategory !== 'Nợ / Tiền ứng' && (
+                 <div className="flex bg-slate-200/50 dark:bg-slate-950 p-1 rounded-2xl">
+                    <button type="button" onClick={() => setIsPaid(true)} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${isPaid ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-400'}`}>
+                      <CheckCircle2 className="w-3.5 h-3.5" /> {t('paid')}
+                    </button>
+                    <button type="button" onClick={() => setIsPaid(false)} className={`flex-1 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${!isPaid ? 'bg-rose-500 text-white shadow-lg' : 'text-slate-400'}`}>
+                      <AlertCircle className="w-3.5 h-3.5" /> {t('unpaid')}
+                    </button>
+                 </div>
+               )}
             </div>
+
+            {/* DEBTOR FIELD - AUTO REVEAL */}
+            {(expenseCategory === 'Nợ / Tiền ứng' || !isPaid) && (
+              <div className="space-y-2 animate-ios p-5 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-[2rem] border border-indigo-100 dark:border-indigo-900/30">
+                <label className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                   <UserCheck className="w-3.5 h-3.5" /> Đối tác / Nhân viên
+                </label>
+                <input type="text" value={debtorName} onChange={e => setDebtorName(e.target.value)} placeholder="Tên..." className="w-full p-4 bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-800 rounded-2xl font-bold text-xs outline-none focus:border-indigo-500 shadow-sm" />
+              </div>
+            )}
           </div>
         )}
 
-        <div className="pt-2 space-y-4">
-          <div className="flex items-center justify-between px-2">
-             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <Sparkles className="w-3 h-3 text-brand-500" /> {t('suggestions')}
+        {/* COMPACT NOTES AS TAGS */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <MessageSquare className="w-3.5 h-3.5 text-brand-500" /> {t('note')}
              </label>
-             <button type="button" onClick={addNoteField} className="text-[9px] font-black text-brand-600 uppercase tracking-widest flex items-center gap-1"><Plus className="w-3 h-3" /> {t('add_note_btn')}</button>
-          </div>
-
-          <div className="flex overflow-x-auto no-scrollbar gap-2 px-1 py-1 -mx-1">
-             {smartSuggestions.map((text, i) => (
-               <button 
-                key={i} 
-                type="button" 
-                onClick={() => applySuggestion(text)}
-                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-full text-[10px] font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 active-scale whitespace-nowrap transition-all"
-               >
-                 {text}
-               </button>
-             ))}
+             <button type="button" onClick={addNote} disabled={!currentNote.trim()} className="text-[9px] font-black text-brand-600 uppercase flex items-center gap-1.5 bg-brand-50 dark:bg-brand-900/30 px-4 py-2 rounded-xl border border-brand-100 dark:border-brand-800 active-scale disabled:opacity-30"><Plus className="w-3 h-3" /> {t('add_new')}</button>
           </div>
           
-          <div className="space-y-3">
-            {notes.map((note, idx) => (
-              <div key={idx} className="relative group animate-ios">
-                <textarea 
-                  value={note} 
-                  onChange={e => updateNote(idx, e.target.value)} 
-                  placeholder={`${t('note')} #${idx + 1}`}
-                  className="w-full p-4 bg-slate-50/50 dark:bg-slate-950/30 rounded-2xl border border-slate-200 dark:border-slate-800 outline-none text-[12px] font-bold dark:text-white resize-none h-20 transition-all focus:border-brand-500"
-                />
-                <button type="button" onClick={() => removeNote(idx)} className="absolute top-3 right-3 p-2 text-slate-300 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100">
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
-            ))}
+          <div className="relative">
+            <input 
+              type="text"
+              value={currentNote} 
+              onChange={e => setCurrentNote(e.target.value)} 
+              onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addNote())}
+              placeholder="Ghi nhanh nội dung..."
+              className="w-full p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl outline-none text-xs font-bold dark:text-white transition-all focus:border-brand-500 shadow-inner"
+            />
           </div>
+
+          {notes.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+               {notes.map((n, i) => (
+                 <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg border dark:border-slate-700 animate-ios group">
+                    <span className="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase leading-none">{n}</span>
+                    <button type="button" onClick={() => removeNote(i)} className="text-slate-400 hover:text-rose-500 transition-colors"><X className="w-3 h-3" /></button>
+                 </div>
+               ))}
+            </div>
+          )}
         </div>
 
-        <div className="pt-4 relative z-20">
-          <button type="submit" className="w-full h-16 bg-brand-600 text-white rounded-[2rem] font-black uppercase tracking-[0.1em] text-xs active-scale shadow-vivid flex items-center justify-center gap-2 transition-all hover:bg-brand-500">
-            <Save className="w-5 h-5" /> {t('save_transaction')}
+        {/* ACTION BUTTON */}
+        <div className="pt-2">
+          <button type="submit" className="w-full h-16 bg-brand-600 text-white rounded-[2rem] font-black uppercase tracking-widest text-[11px] active-scale shadow-vivid flex items-center justify-center gap-3 transition-all hover:bg-brand-700 hover:scale-[1.01] group">
+            <Save className="w-5 h-5 group-hover:scale-110 transition-transform" /> {t('save_transaction')}
           </button>
         </div>
       </form>

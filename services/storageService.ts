@@ -11,26 +11,47 @@ let dbPromise: Promise<IDBDatabase> | null = null;
 const getDB = (): Promise<IDBDatabase> => {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => { dbPromise = null; reject(request.error); };
+    try {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      
+      request.onupgradeneeded = (event: any) => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME);
+        }
+      };
+
+      request.onsuccess = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          dbPromise = null;
+          indexedDB.deleteDatabase(DB_NAME);
+          window.location.reload();
+          reject(new Error("Database Store missing, re-initializing..."));
+          return;
+        }
+        resolve(db);
+      };
+
+      request.onerror = () => { 
+        dbPromise = null; 
+        reject(request.error); 
+      };
+
+      request.onblocked = () => {
+        console.warn("IndexedDB blocked by another tab. Please close other Tokymon tabs.");
+      };
+    } catch (err) {
+      dbPromise = null;
+      reject(err);
+    }
   });
   return dbPromise;
 };
 
 export const StorageService = {
-  /**
-   * Thuật toán Last-Write-Wins (LWW) Element Set
-   * Đảm bảo dữ liệu mới nhất (dựa trên updatedAt) luôn được giữ lại.
-   */
   mergeArrays: <T extends { id: string; updatedAt: string; deletedAt?: string }>(local: T[], remote: T[]): T[] => {
     const combinedMap = new Map<string, T>();
-    
-    // Đưa tất cả vào một mảng để xử lý
     const allItems = [...(local || []), ...(remote || [])];
 
     for (const item of allItems) {
@@ -42,14 +63,12 @@ export const StorageService = {
         continue;
       }
 
-      const existingTime = new Date(existing.updatedAt).getTime();
-      const itemTime = new Date(item.updatedAt).getTime();
+      const existingTime = new Date(existing.updatedAt || 0).getTime();
+      const itemTime = new Date(item.updatedAt || 0).getTime();
 
-      // Nếu mục này bị xóa (deletedAt), nó chỉ thắng nếu deletedAt mới hơn hoặc updatedAt mới hơn
       if (itemTime > existingTime) {
         combinedMap.set(item.id, item);
       } else if (itemTime === existingTime) {
-        // Nếu cùng timestamp, ưu tiên trạng thái bị xóa để tránh "zombie data"
         if (item.deletedAt && !existing.deletedAt) {
           combinedMap.set(item.id, item);
         }
@@ -60,19 +79,18 @@ export const StorageService = {
   },
 
   mergeAppData: (local: AppData, remote: AppData): AppData => {
-    // Luôn giữ phiên bản schema cao nhất
     const version = (parseFloat(local.version) > parseFloat(remote.version)) ? local.version : remote.version;
     
     return {
       version: version || SCHEMA_VERSION,
       lastSync: new Date().toISOString(),
-      transactions: StorageService.mergeArrays(local.transactions, remote.transactions),
-      branches: StorageService.mergeArrays(local.branches, remote.branches),
-      users: StorageService.mergeArrays(local.users, remote.users),
-      expenseCategories: StorageService.mergeArrays(local.expenseCategories, remote.expenseCategories),
-      recurringExpenses: StorageService.mergeArrays(local.recurringExpenses, remote.recurringExpenses),
+      transactions: StorageService.mergeArrays(local.transactions || [], remote.transactions || []),
+      branches: StorageService.mergeArrays(local.branches || [], remote.branches || []),
+      users: StorageService.mergeArrays(local.users || [], remote.users || []),
+      expenseCategories: StorageService.mergeArrays(local.expenseCategories || [], remote.expenseCategories || []),
+      recurringExpenses: StorageService.mergeArrays(local.recurringExpenses || [], remote.recurringExpenses || []),
       auditLogs: [...(local.auditLogs || []), ...(remote.auditLogs || [])]
-        .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i)
+        .filter((v, i, a) => v && v.id && a.findIndex(t => t.id === v.id) === i)
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
         .slice(0, 1000),
       reportSettings: remote.reportSettings || local.reportSettings,
@@ -82,19 +100,30 @@ export const StorageService = {
 
   async syncWithCloud(syncKey: string, localData: AppData, forcePush: boolean = false): Promise<AppData> {
     if (!syncKey || syncKey.trim() === '') return localData;
-    const url = `https://kvdb.io/${syncKey}/tokymon_v1`;
+    
+    const url = `https://kvdb.io/${syncKey}/tokymon_v1?t=${Date.now()}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000); // Rút ngắn timeout đồng bộ còn 6s
     
     try {
       if (forcePush) {
         await fetch(url, { 
           method: 'POST', 
           body: JSON.stringify(localData), 
-          headers: { 'Content-Type': 'application/json' } 
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          priority: 'high' as any
         });
+        clearTimeout(timeoutId);
         return { ...localData, lastSync: new Date().toISOString() };
       }
       
-      const response = await fetch(url, { cache: 'no-store' });
+      const response = await fetch(url, { 
+        cache: 'no-store',
+        signal: controller.signal,
+        priority: 'high' as any
+      });
+      
       let remoteData: AppData;
       
       if (response.ok) {
@@ -104,20 +133,23 @@ export const StorageService = {
         remoteData = StorageService.getEmptyData(true); 
       }
 
-      // Thực hiện Merge an toàn
       const merged = StorageService.mergeAppData(localData, remoteData);
       
-      // Đẩy bản đã merge lên lại Cloud ngay lập tức
-      await fetch(url, { 
+      // Đẩy bản merge lên Cloud ở chế độ background
+      fetch(url, { 
         method: 'POST', 
         body: JSON.stringify(merged), 
-        headers: { 'Content-Type': 'application/json' } 
-      });
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        priority: 'low' as any
+      }).catch(err => console.warn("Background cloud update failed", err));
       
+      clearTimeout(timeoutId);
       return merged;
     } catch (e) { 
-      console.error("Sync Error - Network down?", e);
-      throw e; 
+      clearTimeout(timeoutId);
+      console.warn("Tokymon Sync: Operating in Local mode.", e);
+      return { ...localData, lastSync: localData.lastSync || 'Offline' }; 
     }
   },
 
@@ -132,7 +164,6 @@ export const StorageService = {
         request.onsuccess = () => resolve(true);
         request.onerror = () => reject(request.error);
         
-        // Đảm bảo transaction hoàn tất
         transaction.oncomplete = () => resolve(true);
       });
     } catch (e) { 
@@ -144,28 +175,38 @@ export const StorageService = {
   async loadLocal(): Promise<AppData> {
     try {
       const db = await getDB();
-      const rawData = await new Promise<any>((resolve) => {
-        const transaction = db.transaction(STORE_NAME, 'readonly');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.get(DATA_KEY);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => resolve(null);
+      const rawData = await new Promise<any>((resolve, reject) => {
+        try {
+          const transaction = db.transaction(STORE_NAME, 'readonly');
+          const store = transaction.objectStore(STORE_NAME);
+          const request = store.get(DATA_KEY);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        } catch (err) {
+          reject(err);
+        }
       });
 
+      const emptyTemplate = StorageService.getEmptyData(false);
+      
       if (!rawData) {
-        const empty = StorageService.getEmptyData(false);
-        await StorageService.saveLocal(empty);
-        return empty;
+        await StorageService.saveLocal(emptyTemplate);
+        return emptyTemplate;
       }
       
-      // Đảm bảo dữ liệu load lên đầy đủ các trường
       return {
-        ...StorageService.getEmptyData(true),
+        ...emptyTemplate,
         ...rawData,
-        version: SCHEMA_VERSION // Cập nhật version local
+        version: SCHEMA_VERSION,
+        transactions: rawData.transactions || [],
+        branches: rawData.branches || [],
+        users: rawData.users || [],
+        expenseCategories: rawData.expenseCategories || emptyTemplate.expenseCategories,
+        recurringExpenses: rawData.recurringExpenses || [],
+        auditLogs: rawData.auditLogs || []
       };
     } catch (e) { 
-      console.error("IDB Load Error", e);
+      console.error("IDB Load Error, falling back to empty data", e);
       return StorageService.getEmptyData(false); 
     }
   },

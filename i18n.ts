@@ -93,7 +93,7 @@ export const translations = {
     card_total: "Thanh toán Thẻ",
     app_total: "Doanh thu App",
     paid: "Đã trả",
-    unpaid: "Công nợ",
+    unpaid: "Chưa trả",
     vendor_name: "Tên Chủ nợ / Nhân viên",
     save_transaction: "Lưu báo cáo",
     placeholder_search: "Tìm theo tên, ghi chú...",
@@ -146,12 +146,12 @@ export const translations = {
     // Debt specific
     paid_amount: "Đã trả",
     remaining_debt: "Còn nợ",
-    partial_pay: "Trả một phần",
+    partial_pay: "Trả thêm",
     full_pay: "Trả hết",
     debt_type_vendor: "Nhà cung cấp",
-    debt_type_staff: "Tiền ứng NV",
-    debt_manager_title: "Quản Lý Công Nợ & Tiền Ứng",
-    quick_pay_btn: "Thanh toán nhanh",
+    debt_type_staff: "Nhân viên ứng",
+    debt_manager_title: "Chi tiết Công nợ",
+    quick_pay_btn: "Thanh toán",
 
     // Filter labels
     filter_min_amount: "Giá thấp nhất",

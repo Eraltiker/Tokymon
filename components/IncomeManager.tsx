@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { Transaction, TransactionType, UserRole, Language } from '../types';
 import TransactionForm from './TransactionForm';
 import TransactionList from './TransactionList';
-import EditTransactionModal from './EditTransactionModal';
 import { useTranslation } from '../i18n';
 
 interface IncomeManagerProps {
@@ -32,7 +31,6 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({
   currentUsername
 }) => {
   const { t } = useTranslation(lang);
-  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const incomeTransactions = transactions.filter(tx => tx.type === TransactionType.INCOME && tx.branchId === branchId && !tx.deletedAt);
   const isViewer = userRole === UserRole.VIEWER;
 
@@ -57,26 +55,12 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({
         <TransactionList 
           transactions={incomeTransactions} 
           onDelete={onDeleteTransaction}
-          onEdit={(tx) => setEditingTx(tx)}
+          onEdit={(tx) => onEditTransaction(tx)}
           title={`${t('income')} - ${branchName}`} 
           userRole={userRole}
           lang={lang}
         />
       </div>
-
-      {editingTx && (
-        <EditTransactionModal 
-          transaction={editingTx}
-          expenseCategories={[]}
-          onClose={() => setEditingTx(null)}
-          onSave={(updated) => {
-            onEditTransaction(updated);
-            setEditingTx(null);
-          }}
-          lang={lang}
-          currentUsername={currentUsername}
-        />
-      )}
     </div>
   );
 };

@@ -13,6 +13,7 @@ import RecurringManager from './components/RecurringManager';
 import BranchManager from './components/BranchManager';
 import UserManager from './components/UserManager';
 import ExportManager from './components/ExportManager';
+import EditTransactionModal from './components/EditTransactionModal';
 import { useTranslation } from './i18n';
 import { 
   UtensilsCrossed, LayoutDashboard, Settings, 
@@ -20,12 +21,13 @@ import {
   MapPin, Users,
   ChevronDown, Cloud, FileSpreadsheet, LayoutGrid, 
   ArrowRight, Store, Info, CheckCircle2, User as UserIcon, X,
-  History, Sparkles, Lock, ShieldCheck, Mail
+  History, Sparkles, Lock, ShieldCheck, Mail, RefreshCw, Zap
 } from 'lucide-react';
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
 const GLOBAL_SYNC_KEY = 'NZQkBLdrxvnEEMUw928weK';
-const SYNC_DEBOUNCE_MS = 5000; 
+const SYNC_DEBOUNCE_MS = 1500; // Rút ngắn còn 1.5s để đồng bộ nhanh hơn
+const POLLING_INTERVAL = 8000; // Tăng tần suất kiểm tra lên mỗi 8s
 
 const App = () => {
   const validateSessionOnStartup = () => {
@@ -57,12 +59,15 @@ const App = () => {
   const [data, setData] = useState<AppData>(StorageService.getEmptyData());
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncStatus, setLastSyncStatus] = useState<'success' | 'error' | 'syncing'>('success');
   const [showBranchSelector, setShowBranchSelector] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(validateSessionOnStartup);
   const [currentBranchId, setCurrentBranchId] = useState<string>(() => localStorage.getItem('tokymon_current_branch') || '');
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const [confirmModal, setConfirmModal] = useState<{show: boolean, title: string, message: string, onConfirm: () => void} | null>(null);
+  
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   
   const dataRef = useRef(data);
   const syncDebounceRef = useRef<number | null>(null);
@@ -72,12 +77,19 @@ const App = () => {
   const handleCloudSync = useCallback(async (silent = false) => {
     if (!navigator.onLine) return;
     if (!silent) setIsSyncing(true);
+    setLastSyncStatus('syncing');
     try {
       const merged = await StorageService.syncWithCloud(GLOBAL_SYNC_KEY, dataRef.current);
       setData(merged);
       dataRef.current = merged;
       await StorageService.saveLocal(merged);
-    } catch (e) {} finally { if (!silent) setIsSyncing(false); }
+      setLastSyncStatus('success');
+    } catch (e) {
+      console.warn("Sync failed (Silent mode):", e);
+      setLastSyncStatus('error');
+    } finally { 
+      if (!silent) setIsSyncing(false); 
+    }
   }, []);
 
   const atomicUpdate = useCallback(async (updater: (prev: AppData) => AppData, immediateSync = false) => {
@@ -85,8 +97,11 @@ const App = () => {
     dataRef.current = nextData;
     setData(nextData);
     await StorageService.saveLocal(nextData);
-    if (immediateSync) await handleCloudSync(true);
-    else {
+    
+    if (immediateSync) {
+      // Sync lập tức không chờ đợi
+      handleCloudSync(true);
+    } else {
       if (syncDebounceRef.current) clearTimeout(syncDebounceRef.current);
       syncDebounceRef.current = window.setTimeout(() => handleCloudSync(true), SYNC_DEBOUNCE_MS);
     }
@@ -97,8 +112,20 @@ const App = () => {
       setData(loaded);
       dataRef.current = loaded;
       setIsDataLoaded(true);
-      if (navigator.onLine) handleCloudSync(true);
+      handleCloudSync(true);
     });
+
+    const pollId = setInterval(() => {
+      handleCloudSync(true);
+    }, POLLING_INTERVAL);
+
+    const handleOnline = () => handleCloudSync(true);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      clearInterval(pollId);
+      window.removeEventListener('online', handleOnline);
+    };
   }, [handleCloudSync]);
 
   useEffect(() => {
@@ -244,17 +271,27 @@ const App = () => {
                 <span className="text-[14px] font-black uppercase dark:text-white truncate tracking-tighter leading-none">{currentBranch?.name || '---'}</span>
                 {allowedBranches.length > 1 && <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
               </div>
-              <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{currentUser.role}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{currentUser.role}</p>
+                <div className="flex items-center gap-1">
+                   {lastSyncStatus === 'syncing' ? (
+                     <RefreshCw className="w-2.5 h-2.5 text-brand-500 animate-spin" />
+                   ) : lastSyncStatus === 'success' ? (
+                     <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-sm" />
+                   ) : (
+                     <div className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
+                   )}
+                   <span className="text-[7px] font-black text-slate-400 uppercase tracking-tighter">Live Sync</span>
+                </div>
+              </div>
            </button>
         </div>
         <div className="flex items-center gap-2">
+           <button onClick={() => handleCloudSync()} className={`w-10 h-10 rounded-xl bg-white/50 border border-slate-100 flex items-center justify-center active-scale transition-all shadow-sm ${isSyncing ? 'text-brand-600' : 'text-slate-500'}`}>
+             <Zap className={`w-4.5 h-4.5 ${isSyncing ? 'animate-pulse' : ''}`} />
+           </button>
            <button onClick={() => setIsDark(!isDark)} className="w-10 h-10 text-slate-500 rounded-xl bg-white/50 border border-slate-100 flex items-center justify-center active-scale transition-all shadow-sm">
              {isDark ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
-           </button>
-           <button onClick={() => setLang(lang === 'vi' ? 'de' : 'vi')} className="h-10 px-3 rounded-xl bg-white/80 border border-slate-200 flex items-center gap-2 active-scale transition-all shadow-sm">
-             <div className="w-5 h-5 rounded-full overflow-hidden shrink-0 border border-slate-100">
-                <img src={`https://flagcdn.com/w40/${lang === 'vi' ? 'vn' : 'de'}.png`} className="w-full h-full object-cover scale-150" />
-             </div>
            </button>
            <button onClick={() => setConfirmModal({ show: true, title: t('logout'), message: t('confirm_logout'), onConfirm: handleLogout })} className="w-10 h-10 text-rose-500 rounded-xl bg-white border border-slate-100 flex items-center justify-center active-scale transition-all shadow-sm"><LogOut className="w-4 h-4" /></button>
         </div>
@@ -297,13 +334,13 @@ const App = () => {
             currentBranchId={currentBranchId} 
             allowedBranches={allowedBranches} 
             reportSettings={data.reportSettings!} 
-            onEditTransaction={u => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}), true)}
+            onEditTransaction={tx => setEditingTx(tx)}
             expenseCategories={data.expenseCategories.filter(c => c.branchId === currentBranchId).map(c => c.name)}
             currentUsername={currentUser.username}
           />
         )}
-        {activeTab === 'income' && <IncomeManager transactions={data.transactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={id => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}), true)} onEditTransaction={u => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}), true)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranch?.name} lang={lang} currentUsername={currentUser.username} />}
-        {activeTab === 'expense' && <ExpenseManager transactions={data.transactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={id => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}), true)} onEditTransaction={u => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === u.id ? u : t)}), true)} expenseCategories={data.expenseCategories.filter(c => c.branchId === currentBranchId).map(c => c.name)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranch?.name} lang={lang} currentUsername={currentUser.username} />}
+        {activeTab === 'income' && <IncomeManager transactions={data.transactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={id => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}), true)} onEditTransaction={tx => setEditingTx(tx)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranch?.name} lang={lang} currentUsername={currentUser.username} />}
+        {activeTab === 'expense' && <ExpenseManager transactions={data.transactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={id => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}), true)} onEditTransaction={tx => setEditingTx(tx)} expenseCategories={data.expenseCategories.filter(c => c.branchId === currentBranchId).map(c => c.name)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranch?.name} lang={lang} currentUsername={currentUser.username} />}
         {activeTab === 'settings' && (
           <div className="space-y-6">
              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
@@ -380,6 +417,20 @@ const App = () => {
           ))}
         </nav>
       </div>
+
+      {editingTx && (
+        <EditTransactionModal 
+          transaction={editingTx}
+          expenseCategories={data.expenseCategories.filter(c => c.branchId === currentBranchId).map(c => c.name)}
+          onClose={() => setEditingTx(null)}
+          onSave={(updated) => {
+            atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === updated.id ? updated : t)}), true);
+            setEditingTx(null);
+          }}
+          lang={lang}
+          currentUsername={currentUser.username}
+        />
+      )}
 
       {confirmModal && confirmModal.show && (
         <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-300">

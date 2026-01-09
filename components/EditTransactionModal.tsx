@@ -4,8 +4,9 @@ import { Transaction, TransactionType, HistoryEntry, Language, ExpenseSource, fo
 import { useTranslation } from '../i18n';
 import { 
   X, Save, ChevronLeft, ChevronRight, Calendar, 
-  Banknote, MessageSquare, Plus, Trash2, CreditCard, 
-  Store, Wallet, AlertCircle, ChevronDown, CheckCircle2 
+  Banknote, Plus, Trash2, CreditCard, 
+  Store, Wallet, AlertCircle, ChevronDown, CheckCircle2,
+  History, Receipt, UserCheck, Truck
 } from 'lucide-react';
 
 interface EditTransactionModalProps {
@@ -35,15 +36,12 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const [expenseSource, setExpenseSource] = useState<ExpenseSource>(transaction.expenseSource || ExpenseSource.SHOP_CASH);
   const [isPaid, setIsPaid] = useState<boolean>(transaction.isPaid !== false);
   const [debtorName, setDebtorName] = useState<string>(transaction.debtorName || '');
+  
+  const [payExtraInput, setPayExtraInput] = useState('');
 
-  const [kasseTotalInput, setKasseTotalInput] = useState(() => {
-    if (transaction.type === TransactionType.INCOME && transaction.incomeBreakdown) {
-       return (transaction.amount - (transaction.incomeBreakdown.delivery || 0)).toString();
-    }
-    return '0';
-  });
-  const [cardTotalInput, setCardTotalInput] = useState(transaction.incomeBreakdown?.card.toString() || '0');
-  const [appInput, setAppInput] = useState(transaction.incomeBreakdown?.delivery?.toString() || '0');
+  // PHÂN LOẠI: Nợ NCC (chưa trả tiền) hay Tiền ứng NV (đã trả tiền)
+  const isStaffAdvance = category === 'Nợ / Tiền ứng';
+  const isDebtMode = transaction.isPaid === false || isStaffAdvance;
 
   const validateAndSetAmount = (val: string, setter: (v: string) => void) => {
     const sanitized = val.replace(',', '.');
@@ -56,15 +54,33 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
     return isNaN(n) ? 0 : n;
   };
 
-  const addNote = () => setNotes([...notes, '']);
-  const updateNote = (i: number, v: string) => {
-    const n = [...notes]; n[i] = v; setNotes(n);
-  };
-  const removeNote = (i: number) => setNotes(notes.filter((_, idx) => idx !== i));
-
   const handleSave = () => {
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const dateDisplay = now.toLocaleDateString('vi-VN');
+    
+    const totalAmount = parseLocaleNumber(expenseAmount);
+    const extraPay = parseLocaleNumber(payExtraInput);
+    const prevPaid = parseLocaleNumber(paidAmountInput);
+    
+    let updatedNotes = [...notes].filter(n => n.trim() !== '');
+
+    // Logic ghi chú đối soát
+    if (isDebtMode && extraPay > 0) {
+      const newTotalPaid = prevPaid + extraPay;
+      const remaining = totalAmount - newTotalPaid;
+      
+      let label = "";
+      if (isStaffAdvance) {
+        label = `[HOÀN ỨNG ${dateDisplay}] Thu hồi: ${formatCurrency(extraPay, lang)}. Đã trả lại: ${formatCurrency(newTotalPaid, lang)}/${formatCurrency(totalAmount, lang)}.`;
+      } else {
+        label = `[TRẢ NỢ ${dateDisplay}] Thanh toán thêm: ${formatCurrency(extraPay, lang)}. Tổng đã trả: ${formatCurrency(newTotalPaid, lang)}/${formatCurrency(totalAmount, lang)}.`;
+      }
+      updatedNotes = [label, ...updatedNotes];
+    }
+    
     const historyEntry: HistoryEntry = {
-      timestamp: new Date().toISOString(),
+      timestamp: nowIso,
       amount: transaction.amount,
       category: transaction.category,
       notes: transaction.notes,
@@ -75,170 +91,181 @@ const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       paidAmount: transaction.paidAmount
     };
     
-    const finalNotes = notes.filter(n => n.trim() !== '');
-
     const updated: Transaction = {
       ...transaction, 
-      notes: finalNotes, 
+      notes: updatedNotes, 
       date, 
       category,
       lastEditorName: currentUsername,
       history: [...(transaction.history || []), historyEntry],
-      updatedAt: new Date().toISOString()
+      updatedAt: nowIso,
     };
 
-    if (transaction.type === TransactionType.INCOME) {
-      const kasseTotal = parseLocaleNumber(kasseTotalInput);
-      const cardTotal = parseLocaleNumber(cardTotalInput);
-      const app = parseLocaleNumber(appInput);
-      const actualCash = (kasseTotal + app - cardTotal);
-      updated.amount = kasseTotal + app;
-      updated.incomeBreakdown = { cash: actualCash, card: cardTotal, delivery: app };
+    if (transaction.type === TransactionType.EXPENSE) {
+      if (isDebtMode) {
+        const newPaidAmount = isPaid ? totalAmount : (prevPaid + extraPay);
+        updated.amount = totalAmount;
+        updated.paidAmount = Math.min(newPaidAmount, totalAmount);
+        updated.isPaid = isPaid || (updated.paidAmount >= totalAmount);
+      } else {
+        updated.amount = totalAmount;
+        updated.paidAmount = totalAmount;
+        updated.isPaid = true;
+      }
+      updated.expenseSource = expenseSource;
+      updated.debtorName = debtorName;
     } else {
-      const totalAmount = parseLocaleNumber(expenseAmount);
-      const paidAmt = parseLocaleNumber(paidAmountInput);
-      
-      updated.amount = totalAmount;
-      updated.paidAmount = paidAmt;
-      updated.isPaid = isPaid || (paidAmt >= totalAmount);
-      updated.expenseSource = updated.isPaid ? expenseSource : undefined;
-      updated.debtorName = updated.isPaid && !isPaid ? undefined : debtorName;
+      // Cho Income, nếu cần sửa
+      const breakdown = transaction.incomeBreakdown;
+      if (breakdown) {
+         // Re-calculate total based on components if they exist, or just keep as is
+      }
     }
 
     onSave(updated);
   };
 
+  const remaining = Math.max(0, parseLocaleNumber(expenseAmount) - parseLocaleNumber(paidAmountInput));
+
   return (
-    <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4 animate-in fade-in duration-300">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-ios relative z-[2001] overflow-hidden flex flex-col max-h-[90vh] animate-ios">
+      <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl w-full max-w-lg rounded-[2.5rem] shadow-premium relative z-[5001] overflow-hidden flex flex-col max-h-[90vh] animate-ios">
         <div className="px-6 py-4 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/30">
           <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-xl ${transaction.type === TransactionType.INCOME ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
-               {transaction.type === TransactionType.INCOME ? <Banknote className="w-5 h-5" /> : <CreditCard className="w-5 h-5" />}
+            <div className={`p-2 rounded-xl shadow-sm ${isStaffAdvance ? 'bg-indigo-50 text-indigo-600' : (isDebtMode ? 'bg-rose-50 text-rose-600' : 'bg-brand-50 text-brand-600')}`}>
+               {isStaffAdvance ? <UserCheck className="w-5 h-5" /> : (isDebtMode ? <Truck className="w-5 h-5" /> : <Receipt className="w-5 h-5" />)}
             </div>
             <div>
-              <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tighter text-xs">{t('edit_title')}</h3>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mt-1">{transaction.type === TransactionType.INCOME ? t('income') : t('expense')}</p>
+              <h3 className="font-black text-slate-800 dark:text-white uppercase tracking-tighter text-xs">
+                {isStaffAdvance ? 'Đối soát hoàn ứng' : (isDebtMode ? 'Thanh toán công nợ' : 'Chỉnh sửa chi phí')}
+              </h3>
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mt-1">
+                {isStaffAdvance ? 'Nhân viên mượn/ứng tiền' : (isDebtMode ? 'Nợ nhà cung cấp/Mua hàng' : 'Hóa đơn đã trả xong')}
+              </p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full text-slate-500"><X className="w-5 h-5" /></button>
         </div>
         
-        <div className="p-6 overflow-y-auto no-scrollbar space-y-5">
-          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950/50 p-1 rounded-2xl border dark:border-slate-800">
+        <div className="p-6 overflow-y-auto no-scrollbar space-y-6 pb-10">
+          {/* Lựa chọn ngày */}
+          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950/50 p-1 rounded-2xl border dark:border-slate-800 shadow-sm">
             <button type="button" onClick={() => {
               const d = new Date(date); d.setDate(d.getDate() - 1); setDate(d.toISOString().split('T')[0]);
-            }} className="p-2.5 bg-white dark:bg-slate-800 rounded-xl shadow-sm text-slate-400"><ChevronLeft className="w-4 h-4" /></button>
+            }} className="p-2.5 bg-white dark:bg-slate-800 rounded-xl shadow-sm text-slate-400 active-scale"><ChevronLeft className="w-4 h-4" /></button>
             <div className="flex-1 text-center relative flex flex-col items-center">
                <span className="text-[10px] font-black dark:text-white uppercase flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-brand-500" /> {date.split('-').reverse().join('/')}</span>
                <input type="date" value={date} onChange={e => setDate(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
             </div>
             <button type="button" onClick={() => {
               const d = new Date(date); d.setDate(d.getDate() + 1); setDate(d.toISOString().split('T')[0]);
-            }} className="p-2.5 bg-white dark:bg-slate-800 rounded-xl shadow-sm text-slate-400"><ChevronRight className="w-4 h-4" /></button>
+            }} className="p-2.5 bg-white dark:bg-slate-800 rounded-xl shadow-sm text-slate-400 active-scale"><ChevronRight className="w-4 h-4" /></button>
           </div>
 
-          {transaction.type === TransactionType.INCOME ? (
-            <div className="space-y-4">
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 px-1"><Banknote className="w-3 h-3 text-emerald-500" /> {t('kasse_total')}</label>
-                  <input type="text" inputMode="decimal" value={kasseTotalInput} onChange={e => validateAndSetAmount(e.target.value, setKasseTotalInput)} className="w-full px-4 py-4 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-black text-xl text-center outline-none" />
-                </div>
+          {/* Giao diện số tiền */}
+          <div className="space-y-4">
+            {isDebtMode ? (
+              <div className="animate-ios space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                   <div className="space-y-1.5">
-                     <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 px-1"><CreditCard className="w-3 h-3 text-indigo-500" /> {t('card_total')}</label>
-                     <input type="text" inputMode="decimal" value={cardTotalInput} onChange={e => validateAndSetAmount(e.target.value, setCardTotalInput)} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-black text-sm text-center outline-none" />
-                   </div>
-                   <div className="space-y-1.5">
-                     <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">{t('app_total')}</label>
-                     <input type="text" inputMode="decimal" value={appInput} onChange={e => validateAndSetAmount(e.target.value, setAppInput)} className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl font-black text-sm text-center outline-none" />
-                   </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-5">
-              <div className="space-y-1.5">
-                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">{t('amount')} (€)</label>
-                <input type="text" inputMode="decimal" value={expenseAmount} onChange={e => validateAndSetAmount(e.target.value, setExpenseAmount)} className="w-full py-4 bg-rose-500/5 border-2 border-rose-100 dark:border-rose-900 rounded-2xl font-black text-2xl text-rose-600 text-center outline-none" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl">
-                <button type="button" onClick={() => setIsPaid(true)} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${isPaid ? 'bg-white dark:bg-slate-800 text-brand-600 shadow-sm' : 'text-slate-400'}`}>{t('paid')}</button>
-                <button type="button" onClick={() => setIsPaid(false)} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${!isPaid ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400'}`}>{t('unpaid')}</button>
-              </div>
-
-              {!isPaid && (
-                 <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/30 space-y-3 animate-ios">
-                    <div className="flex justify-between items-center">
-                       <label className="text-[9px] font-black text-amber-600 uppercase tracking-widest">{t('paid_amount')} (€)</label>
-                       <button onClick={() => setPaidAmountInput(expenseAmount)} className="text-[8px] font-black text-emerald-600 uppercase hover:underline">{t('full_pay')}</button>
+                  <div className="space-y-1.5">
+                    <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">{isStaffAdvance ? 'SỐ TIỀN ĐÃ ỨNG' : 'TỔNG NỢ GỐC'} (€)</label>
+                    <input type="text" inputMode="decimal" value={expenseAmount} onChange={e => validateAndSetAmount(e.target.value, setExpenseAmount)} className={`w-full py-4 bg-slate-50 dark:bg-slate-800 border-2 rounded-xl font-black text-lg text-center outline-none ${isStaffAdvance ? 'text-indigo-600 border-indigo-100' : 'text-rose-600 border-rose-100'}`} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">{isStaffAdvance ? 'ĐÃ TRẢ LẠI' : 'ĐÃ THANH TOÁN'} (€)</label>
+                    <div className="w-full py-4 bg-slate-100 dark:bg-slate-900 border dark:border-slate-800 rounded-xl font-black text-lg text-emerald-600 text-center opacity-60 shadow-inner">
+                      {paidAmountInput}
                     </div>
-                    <input type="text" inputMode="decimal" value={paidAmountInput} onChange={e => validateAndSetAmount(e.target.value, setPaidAmountInput)} className="w-full px-4 py-3 bg-white dark:bg-slate-950 border border-amber-200 dark:border-amber-800 rounded-xl font-black text-lg outline-none text-emerald-600" />
-                    <div className="flex justify-between text-[8px] font-black uppercase text-amber-500 px-1 pt-1">
-                       <span>{t('remaining_debt')}:</span>
-                       <span>{formatCurrency(Math.max(0, parseLocaleNumber(expenseAmount) - parseLocaleNumber(paidAmountInput)), lang)}</span>
-                    </div>
-                 </div>
-              )}
-
-              {isPaid ? (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: ExpenseSource.SHOP_CASH, label: t('src_shop_cash'), icon: Store },
-                      { id: ExpenseSource.WALLET, label: t('src_wallet'), icon: Wallet },
-                      { id: ExpenseSource.CARD, label: t('src_card'), icon: CreditCard }
-                    ].map((s) => (
-                      <button key={s.id} type="button" onClick={() => setExpenseSource(s.id)} className={`py-2.5 rounded-xl border-2 transition-all flex flex-col items-center gap-1 active-scale ${expenseSource === s.id ? `bg-brand-600 border-brand-600 text-white shadow-vivid` : 'bg-white dark:bg-slate-950 border-slate-100 dark:border-slate-800 text-slate-500'}`}>
-                        <s.icon className="w-3.5 h-3.5" />
-                        <span className="text-[8px] font-black uppercase leading-none">{s.label}</span>
-                      </button>
-                    ))}
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                   <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">{t('vendor_name')}</label>
-                   <input type="text" value={debtorName} onChange={e => setDebtorName(e.target.value)} placeholder="..." className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border dark:border-slate-800 rounded-xl font-bold text-xs outline-none" />
-                </div>
-              )}
 
+                {remaining > 0 && (
+                  <div className={`p-5 rounded-[2.2rem] border-2 shadow-sm ${isStaffAdvance ? 'bg-indigo-50 border-indigo-100 dark:bg-indigo-950/20' : 'bg-rose-50 border-rose-100 dark:bg-rose-950/20'}`}>
+                    <div className="flex justify-between items-center mb-3 px-1">
+                        <span className={`text-[9px] font-black uppercase tracking-widest ${isStaffAdvance ? 'text-indigo-600' : 'text-rose-600'}`}>{isStaffAdvance ? 'NHÂN VIÊN TRẢ LẠI (€)' : 'THANH TOÁN THÊM (€)'}</span>
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">CÒN DƯ: {formatCurrency(remaining, lang)}</span>
+                    </div>
+                    <input 
+                        type="text" 
+                        inputMode="decimal" 
+                        value={payExtraInput} 
+                        onChange={e => validateAndSetAmount(e.target.value, setPayExtraInput)} 
+                        placeholder="0.00" 
+                        className={`w-full py-5 bg-white dark:bg-slate-950 border-2 rounded-2xl font-black text-center text-3xl outline-none focus:ring-8 transition-all ${isStaffAdvance ? 'text-indigo-600 border-indigo-200 focus:ring-indigo-500/10' : 'text-rose-600 border-rose-200 focus:ring-rose-500/10'}`} 
+                    />
+                    <p className="text-[8px] font-bold text-center mt-3 text-slate-400 uppercase tracking-widest italic leading-relaxed">
+                       {isStaffAdvance ? 'Tiền thu hồi sẽ tự động CỘNG VÀO ví tổng' : 'Tiền trả thêm sẽ tự động TRỪ ĐI từ ví tổng'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2 text-center py-4">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{t('amount')} (€)</label>
+                <input type="text" inputMode="decimal" value={expenseAmount} onChange={e => validateAndSetAmount(e.target.value, setExpenseAmount)} className="w-full py-6 bg-slate-50 dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-800 rounded-[2.5rem] font-black text-5xl text-rose-600 text-center outline-none focus:border-brand-500 transition-all shadow-inner" />
+              </div>
+            )}
+          </div>
+
+          {/* Hạng mục & Nguồn */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">{t('category')}</label>
               <div className="relative">
-                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1 mb-1 block">{t('category')}</label>
-                <select value={category} onChange={e => setCategory(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50 dark:bg-slate-950 border dark:border-slate-800 rounded-xl font-black text-[10px] uppercase appearance-none outline-none">
+                <select value={category} onChange={e => setCategory(e.target.value)} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-black text-[11px] uppercase outline-none appearance-none">
                   {expenseCategories.map(c => <option key={c} value={c}>{translateCategory(c)}</option>)}
                 </select>
-                <ChevronDown className="absolute right-5 top-1/2 mt-1 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
             </div>
-          )}
-          
-          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">{t('source')}</label>
+              <div className="relative">
+                <select value={expenseSource} onChange={e => setExpenseSource(e.target.value as any)} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-black text-[11px] uppercase outline-none appearance-none">
+                  <option value={ExpenseSource.SHOP_CASH}>{t('src_shop_cash')}</option>
+                  <option value={ExpenseSource.WALLET}>{t('src_wallet')}</option>
+                  <option value={ExpenseSource.CARD}>{t('src_card')}</option>
+                </select>
+                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+          </div>
+
+          {/* Đối tác */}
+          <div className="space-y-1.5">
+            <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1">{isStaffAdvance ? 'TÊN NHÂN VIÊN' : 'TÊN CHỦ NỢ / NCC'}</label>
+            <input type="text" value={debtorName} onChange={e => setDebtorName(e.target.value)} className="w-full p-4.5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-sm outline-none focus:border-brand-500" placeholder="..." />
+          </div>
+
+          {/* Nhật ký & Ghi chú */}
+          <div className="space-y-4">
              <div className="flex justify-between items-center px-1">
-                <div className="flex items-center gap-2">
-                   <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
-                   <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">{t('note')}</span>
-                </div>
-                <button type="button" onClick={addNote} className="p-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 rounded-lg active-scale">
-                   <Plus className="w-3.5 h-3.5" />
-                </button>
+                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><History className="w-3.5 h-3.5" /> Nhật ký & Ghi chú</label>
+                <button type="button" onClick={() => setNotes([...notes, ''])} className="text-[8px] font-black text-brand-600 uppercase flex items-center gap-1 bg-brand-50 dark:bg-brand-900/30 px-3 py-1.5 rounded-xl border border-brand-100 dark:border-brand-800"><Plus className="w-3 h-3" /> Thêm ghi chú</button>
              </div>
              <div className="space-y-2">
                {notes.map((n, i) => (
                  <div key={i} className="relative group animate-ios">
-                    <textarea value={n} onChange={e => updateNote(i, e.target.value)} className="w-full p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border dark:border-slate-700 outline-none text-[11px] font-bold dark:text-white h-16 resize-none" placeholder="..." />
-                    <button onClick={() => removeNote(i)} className="absolute top-1.5 right-1.5 p-1 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></button>
+                    <textarea 
+                      value={n} 
+                      readOnly={n.includes('[HOÀN ỨNG') || n.includes('[TRẢ NỢ')}
+                      onChange={e => { const updated = [...notes]; updated[i] = e.target.value; setNotes(updated); }} 
+                      className={`w-full p-4 rounded-2xl border-2 text-[12px] font-bold dark:text-white pr-10 resize-none ${n.includes('[') ? 'bg-indigo-50/30 border-indigo-100 text-indigo-600 italic' : 'bg-slate-50/50 dark:bg-slate-950/30 border-slate-100 dark:border-slate-800 focus:border-brand-500'}`}
+                    />
+                    {!n.includes('[') && (
+                      <button onClick={() => setNotes(notes.filter((_, idx) => idx !== i))} className="absolute right-3 top-3 p-1.5 text-slate-300 hover:text-rose-500 transition-all"><Trash2 className="w-4 h-4" /></button>
+                    )}
                  </div>
                ))}
              </div>
           </div>
-
-          <button onClick={handleSave} className="w-full h-14 bg-brand-600 text-white rounded-[1.5rem] font-black uppercase text-[10px] tracking-widest shadow-vivid active-scale transition-all flex items-center justify-center gap-2">
-            <Save className="w-4 h-4" /> {t('save_changes_btn')}
-          </button>
+          
+          <div className="pt-4 relative z-20">
+            <button onClick={handleSave} className="w-full h-18 bg-brand-600 text-white rounded-[2rem] font-black uppercase text-sm tracking-widest shadow-vivid active-scale transition-all flex items-center justify-center gap-3">
+              <Save className="w-6 h-6" /> CẬP NHẬT DỮ LIỆU
+            </button>
+          </div>
         </div>
       </div>
     </div>
