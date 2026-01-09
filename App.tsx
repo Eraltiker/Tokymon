@@ -21,13 +21,14 @@ import {
   MapPin, Users,
   ChevronDown, Cloud, FileSpreadsheet, LayoutGrid, 
   ArrowRight, Store, Info, CheckCircle2, User as UserIcon, X,
-  History, Sparkles, Lock, ShieldCheck, Mail, RefreshCw, Zap
+  History, Sparkles, Lock, ShieldCheck, Mail, RefreshCw, Zap,
+  Languages
 } from 'lucide-react';
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
 const GLOBAL_SYNC_KEY = 'NZQkBLdrxvnEEMUw928weK';
-const SYNC_DEBOUNCE_MS = 1500; // Rút ngắn còn 1.5s để đồng bộ nhanh hơn
-const POLLING_INTERVAL = 8000; // Tăng tần suất kiểm tra lên mỗi 8s
+const SYNC_DEBOUNCE_MS = 1000; // Giảm xuống 1s
+const POLLING_INTERVAL = 8000; 
 
 const App = () => {
   const validateSessionOnStartup = () => {
@@ -74,21 +75,22 @@ const App = () => {
 
   const isAdmin = currentUser?.role === UserRole.SUPER_ADMIN || currentUser?.role === UserRole.ADMIN;
 
-  const handleCloudSync = useCallback(async (silent = false) => {
+  const handleCloudSync = useCallback(async (mode: 'poll' | 'push' = 'poll') => {
     if (!navigator.onLine) return;
-    if (!silent) setIsSyncing(true);
+    if (mode === 'push') setIsSyncing(true);
     setLastSyncStatus('syncing');
     try {
-      const merged = await StorageService.syncWithCloud(GLOBAL_SYNC_KEY, dataRef.current);
-      setData(merged);
-      dataRef.current = merged;
-      await StorageService.saveLocal(merged);
+      const merged = await StorageService.syncWithCloud(GLOBAL_SYNC_KEY, dataRef.current, mode);
+      if (merged !== dataRef.current) {
+        setData(merged);
+        dataRef.current = merged;
+        await StorageService.saveLocal(merged);
+      }
       setLastSyncStatus('success');
     } catch (e) {
-      console.warn("Sync failed (Silent mode):", e);
       setLastSyncStatus('error');
     } finally { 
-      if (!silent) setIsSyncing(false); 
+      setIsSyncing(false); 
     }
   }, []);
 
@@ -99,11 +101,10 @@ const App = () => {
     await StorageService.saveLocal(nextData);
     
     if (immediateSync) {
-      // Sync lập tức không chờ đợi
-      handleCloudSync(true);
+      handleCloudSync('push');
     } else {
       if (syncDebounceRef.current) clearTimeout(syncDebounceRef.current);
-      syncDebounceRef.current = window.setTimeout(() => handleCloudSync(true), SYNC_DEBOUNCE_MS);
+      syncDebounceRef.current = window.setTimeout(() => handleCloudSync('push'), SYNC_DEBOUNCE_MS);
     }
   }, [handleCloudSync]);
 
@@ -112,20 +113,12 @@ const App = () => {
       setData(loaded);
       dataRef.current = loaded;
       setIsDataLoaded(true);
-      handleCloudSync(true);
+      handleCloudSync('poll');
     });
 
-    const pollId = setInterval(() => {
-      handleCloudSync(true);
-    }, POLLING_INTERVAL);
-
-    const handleOnline = () => handleCloudSync(true);
-    window.addEventListener('online', handleOnline);
-
-    return () => {
-      clearInterval(pollId);
-      window.removeEventListener('online', handleOnline);
-    };
+    const pollId = setInterval(() => handleCloudSync('poll'), POLLING_INTERVAL);
+    window.addEventListener('online', () => handleCloudSync('poll'));
+    return () => clearInterval(pollId);
   }, [handleCloudSync]);
 
   useEffect(() => {
@@ -287,8 +280,18 @@ const App = () => {
            </button>
         </div>
         <div className="flex items-center gap-2">
-           <button onClick={() => handleCloudSync()} className={`w-10 h-10 rounded-xl bg-white/50 border border-slate-100 flex items-center justify-center active-scale transition-all shadow-sm ${isSyncing ? 'text-brand-600' : 'text-slate-500'}`}>
+           <button onClick={() => handleCloudSync('poll')} className={`w-10 h-10 rounded-xl bg-white/50 border border-slate-100 flex items-center justify-center active-scale transition-all shadow-sm ${isSyncing ? 'text-brand-600' : 'text-slate-500'}`}>
              <Zap className={`w-4.5 h-4.5 ${isSyncing ? 'animate-pulse' : ''}`} />
+           </button>
+           <button 
+             onClick={() => {
+               const nextLang = lang === 'vi' ? 'de' : 'vi';
+               setLang(nextLang);
+               localStorage.setItem('tokymon_lang', nextLang);
+             }} 
+             className="w-10 h-10 text-slate-500 rounded-xl bg-white/50 border border-slate-100 flex items-center justify-center active-scale transition-all shadow-sm"
+           >
+             <Languages className="w-4.5 h-4.5" />
            </button>
            <button onClick={() => setIsDark(!isDark)} className="w-10 h-10 text-slate-500 rounded-xl bg-white/50 border border-slate-100 flex items-center justify-center active-scale transition-all shadow-sm">
              {isDark ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
@@ -339,6 +342,7 @@ const App = () => {
             currentUsername={currentUser.username}
           />
         )}
+        {/* Fix: use currentUser.username instead of undefined currentUsername */}
         {activeTab === 'income' && <IncomeManager transactions={data.transactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={id => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}), true)} onEditTransaction={tx => setEditingTx(tx)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranch?.name} lang={lang} currentUsername={currentUser.username} />}
         {activeTab === 'expense' && <ExpenseManager transactions={data.transactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={id => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}), true)} onEditTransaction={tx => setEditingTx(tx)} expenseCategories={data.expenseCategories.filter(c => c.branchId === currentBranchId).map(c => c.name)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranch?.name} lang={lang} currentUsername={currentUser.username} />}
         {activeTab === 'settings' && (
@@ -434,7 +438,7 @@ const App = () => {
 
       {confirmModal && confirmModal.show && (
         <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl animate-ios">
+          <div className="bg-white dark:bg-slate-900 w-full max-sm rounded-[2.5rem] p-8 shadow-2xl animate-ios">
             <h3 className="text-xl font-black dark:text-white uppercase mb-2">{confirmModal.title}</h3>
             <p className="text-sm font-bold text-slate-500 mb-8">{confirmModal.message}</p>
             <div className="flex gap-3">
