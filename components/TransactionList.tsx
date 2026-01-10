@@ -165,12 +165,12 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                                             <CreditCard className="w-2.5 h-2.5" /> Thẻ
                                           </span>
                                         ) : null}
-                                        {tx.incomeBreakdown?.delivery ? (
+                                        {(tx.incomeBreakdown?.delivery ?? 0) > 0 ? (
                                           <span className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 border border-indigo-100 dark:border-indigo-900/30 text-[8px] font-black uppercase flex items-center gap-1">
                                             <Smartphone className="w-2.5 h-2.5" /> App
                                           </span>
                                         ) : null}
-                                        {!tx.incomeBreakdown?.card && !tx.incomeBreakdown?.delivery ? (
+                                        {!tx.incomeBreakdown?.card && !(tx.incomeBreakdown?.delivery ?? 0) ? (
                                           <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 border border-emerald-100 dark:border-emerald-900/30 text-[8px] font-black uppercase">Tiền mặt</span>
                                         ) : null}
                                      </div>
@@ -191,7 +191,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                              {isIncome && tx.incomeBreakdown ? (
                                <div className="flex flex-col gap-0.5 items-end mt-1">
                                   {tx.incomeBreakdown.card > 0 && <span className="text-[7px] font-black text-rose-500 uppercase">Thẻ: {formatCurrency(tx.incomeBreakdown.card, lang)}</span>}
-                                  {tx.incomeBreakdown.delivery > 0 && <span className="text-[7px] font-black text-indigo-500 uppercase">App: {formatCurrency(tx.incomeBreakdown.delivery, lang)}</span>}
+                                  {(tx.incomeBreakdown.delivery ?? 0) > 0 && <span className="text-[7px] font-black text-indigo-500 uppercase">App: {formatCurrency(tx.incomeBreakdown.delivery ?? 0, lang)}</span>}
                                </div>
                              ) : isPending && (isDebt || isAdvance) && (
                                <div className="text-[8px] font-black text-rose-500 uppercase mt-1">
