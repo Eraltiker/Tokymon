@@ -7,7 +7,7 @@ import {
   ArrowDownCircle, Edit3, Search, 
   CalendarDays, Filter, X, Info, 
   User as UserIcon, MessageSquare, ShieldCheck,
-  Store, Wallet, CreditCard, AlertCircle, ChevronDown, UserCheck, Truck
+  Store, Wallet, CreditCard, AlertCircle, ChevronDown, UserCheck, Truck, Smartphone
 } from 'lucide-react';
 
 interface TransactionListProps {
@@ -24,7 +24,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
   const [showFilters, setShowFilters] = useState(false);
   const isViewer = userRole === UserRole.VIEWER;
 
-  // --- STATES BỘ LỌC NÂNG CAO ---
+  // --- STATES BỘ LỌC ---
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -34,11 +34,6 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [selectedSource, setSelectedSource] = useState<'ALL' | ExpenseSource>('ALL');
   const [paidStatus, setPaidStatus] = useState<'ALL' | 'PAID' | 'DEBT'>('ALL');
-
-  const availableCategories = useMemo(() => {
-    const cats = new Set(transactions.map(tx => tx.category));
-    return Array.from(cats).sort();
-  }, [transactions]);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(tx => {
@@ -123,7 +118,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                  <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-3 bg-slate-50 dark:bg-slate-900 rounded-xl text-[10px] font-black border border-slate-100 dark:border-slate-800 outline-none dark:text-white" />
                </div>
              </div>
-             <button onClick={resetFilters} className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-black uppercase tracking-widest rounded-2xl border border-slate-200 dark:border-slate-700 active-scale shadow-sm transition-all hover:bg-slate-200">
+             <button onClick={resetFilters} className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-black uppercase tracking-widest rounded-2xl border border-slate-200 dark:border-slate-700 active-scale shadow-sm transition-all">
                 {t('reset_filter')}
              </button>
           </div>
@@ -141,6 +136,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
 
              <div className="divide-y divide-slate-50 dark:divide-slate-800/50">
                 {txs.map(tx => {
+                   const isIncome = tx.type === TransactionType.INCOME;
                    const isDebt = tx.isPaid === false;
                    const isAdvance = tx.category === 'Nợ / Tiền ứng';
                    const isPending = (tx.amount > (tx.paidAmount || 0));
@@ -149,18 +145,36 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                     <div key={tx.id} className="px-6 py-4 flex flex-col gap-2 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors relative group">
                        <div className="flex justify-between items-start gap-4">
                           <div className="flex gap-3 min-w-0">
-                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${tx.type === TransactionType.INCOME ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900/30' : (isDebt ? 'bg-rose-50 text-rose-600 border-rose-100' : (isAdvance ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-slate-50 text-slate-400 border-slate-100'))}`}>
-                                {tx.type === TransactionType.INCOME ? <ArrowUpCircle className="w-6 h-6" /> : (isAdvance ? <UserCheck className="w-6 h-6" /> : (isDebt ? <Truck className="w-6 h-6" /> : <ArrowDownCircle className="w-6 h-6" />))}
+                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${isIncome ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900/30' : (isDebt ? 'bg-rose-50 text-rose-600 border-rose-100' : (isAdvance ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-slate-50 text-slate-400 border-slate-100'))}`}>
+                                {isIncome ? <ArrowUpCircle className="w-6 h-6" /> : (isAdvance ? <UserCheck className="w-6 h-6" /> : (isDebt ? <Truck className="w-6 h-6" /> : <ArrowDownCircle className="w-6 h-6" />))}
                              </div>
                              <div className="min-w-0 flex flex-col justify-center">
                                 <h4 className="text-[11px] font-black dark:text-white uppercase tracking-tight leading-none mb-1.5 truncate">
-                                   {tx.debtorName || translateCategory(tx.category)}
+                                   {isIncome ? 'BÁO CÁO DOANH THU' : (tx.debtorName || translateCategory(tx.category))}
                                 </h4>
                                 <div className="flex flex-wrap items-center gap-2">
-                                   <div className={`px-2 py-0.5 rounded-md flex items-center gap-1 text-[8px] font-black uppercase border ${isDebt && isPending ? 'bg-rose-500 text-white border-rose-600' : (isAdvance && isPending ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700')}`}>
-                                      {isDebt && isPending ? <Truck className="w-2.5 h-2.5" /> : (isAdvance && isPending ? <UserCheck className="w-2.5 h-2.5" /> : getSourceIcon(tx.expenseSource))}
-                                      {isDebt && isPending ? 'NỢ NCC' : (isAdvance && isPending ? 'TIỀN ỨNG' : translateSource(tx.expenseSource))}
-                                   </div>
+                                   {!isIncome ? (
+                                     <div className={`px-2 py-0.5 rounded-md flex items-center gap-1 text-[8px] font-black uppercase border ${isDebt && isPending ? 'bg-rose-500 text-white border-rose-600' : (isAdvance && isPending ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700')}`}>
+                                        {isDebt && isPending ? <Truck className="w-2.5 h-2.5" /> : (isAdvance && isPending ? <UserCheck className="w-2.5 h-2.5" /> : getSourceIcon(tx.expenseSource))}
+                                        {isDebt && isPending ? 'NỢ NCC' : (isAdvance && isPending ? 'TIỀN ỨNG' : translateSource(tx.expenseSource))}
+                                     </div>
+                                   ) : (
+                                     <div className="flex gap-1.5">
+                                        {tx.incomeBreakdown?.card ? (
+                                          <span className="px-2 py-0.5 bg-rose-50 dark:bg-rose-950/30 text-rose-600 border border-rose-100 dark:border-rose-900/30 text-[8px] font-black uppercase flex items-center gap-1">
+                                            <CreditCard className="w-2.5 h-2.5" /> Thẻ
+                                          </span>
+                                        ) : null}
+                                        {tx.incomeBreakdown?.delivery ? (
+                                          <span className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 border border-indigo-100 dark:border-indigo-900/30 text-[8px] font-black uppercase flex items-center gap-1">
+                                            <Smartphone className="w-2.5 h-2.5" /> App
+                                          </span>
+                                        ) : null}
+                                        {!tx.incomeBreakdown?.card && !tx.incomeBreakdown?.delivery ? (
+                                          <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 border border-emerald-100 dark:border-emerald-900/30 text-[8px] font-black uppercase">Tiền mặt</span>
+                                        ) : null}
+                                     </div>
+                                   )}
                                    {tx.authorName && (
                                      <div className="flex items-center gap-1 px-2 py-0.5 bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 rounded-md border border-brand-100 dark:border-brand-800 text-[8px] font-black uppercase">
                                         <UserIcon className="w-2.5 h-2.5" /> {tx.authorName}
@@ -171,12 +185,17 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                           </div>
 
                           <div className="text-right shrink-0 flex flex-col justify-center">
-                             <p className={`text-sm font-black tracking-tighter ${tx.type === TransactionType.INCOME ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                {tx.type === TransactionType.INCOME ? '+' : '-'}{formatCurrency(tx.amount, lang)}
+                             <p className={`text-sm font-black tracking-tighter ${isIncome ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                {isIncome ? '+' : '-'}{formatCurrency(tx.amount, lang)}
                              </p>
-                             {isPending && (isDebt || isAdvance) && (
+                             {isIncome && tx.incomeBreakdown ? (
+                               <div className="flex flex-col gap-0.5 items-end mt-1">
+                                  {tx.incomeBreakdown.card > 0 && <span className="text-[7px] font-black text-rose-500 uppercase">Thẻ: {formatCurrency(tx.incomeBreakdown.card, lang)}</span>}
+                                  {tx.incomeBreakdown.delivery > 0 && <span className="text-[7px] font-black text-indigo-500 uppercase">App: {formatCurrency(tx.incomeBreakdown.delivery, lang)}</span>}
+                               </div>
+                             ) : isPending && (isDebt || isAdvance) && (
                                <div className="text-[8px] font-black text-rose-500 uppercase mt-1">
-                                 Còn nợ: {formatCurrency(tx.amount - (tx.paidAmount || 0), lang)}
+                                 Cần {isAdvance ? 'thu' : 'trả'}: {formatCurrency(tx.amount - (tx.paidAmount || 0), lang)}
                                </div>
                              )}
                           </div>

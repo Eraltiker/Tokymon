@@ -26,9 +26,9 @@ import {
 } from 'lucide-react';
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
-const GLOBAL_SYNC_KEY = 'NZQkBLdrxvnEEMUw928weK';
-const SYNC_DEBOUNCE_MS = 1000; // Giảm xuống 1s
-const POLLING_INTERVAL = 8000; 
+const GLOBAL_SYNC_KEY = 'NZQkBLdrxvnEEMUw928weK'; 
+const SYNC_DEBOUNCE_MS = 20000; // Tăng lên 20s để gom dữ liệu triệt để
+const POLLING_INTERVAL = 180000; // Tăng lên 3 phút (180s) để giảm tải server
 
 const App = () => {
   const validateSessionOnStartup = () => {
@@ -76,19 +76,28 @@ const App = () => {
   const isAdmin = currentUser?.role === UserRole.SUPER_ADMIN || currentUser?.role === UserRole.ADMIN;
 
   const handleCloudSync = useCallback(async (mode: 'poll' | 'push' = 'poll') => {
-    if (!navigator.onLine) return;
-    if (mode === 'push') setIsSyncing(true);
+    if (document.visibilityState === 'hidden' && mode === 'poll') return;
+    if (!navigator.onLine) {
+      setLastSyncStatus('error');
+      return;
+    }
+    
+    setIsSyncing(true);
     setLastSyncStatus('syncing');
+    
     try {
       const merged = await StorageService.syncWithCloud(GLOBAL_SYNC_KEY, dataRef.current, mode);
-      if (merged !== dataRef.current) {
+      
+      const isDataChanged = JSON.stringify(merged) !== JSON.stringify(dataRef.current);
+      if (isDataChanged) {
         setData(merged);
         dataRef.current = merged;
         await StorageService.saveLocal(merged);
       }
       setLastSyncStatus('success');
-    } catch (e) {
+    } catch (e: any) {
       setLastSyncStatus('error');
+      console.warn("Sync failed, retrying later.");
     } finally { 
       setIsSyncing(false); 
     }
@@ -116,9 +125,23 @@ const App = () => {
       handleCloudSync('poll');
     });
 
-    const pollId = setInterval(() => handleCloudSync('poll'), POLLING_INTERVAL);
-    window.addEventListener('online', () => handleCloudSync('poll'));
-    return () => clearInterval(pollId);
+    const pollId = setInterval(() => {
+      if (!isSyncing && navigator.onLine) handleCloudSync('poll');
+    }, POLLING_INTERVAL);
+    
+    const handleOnline = () => {
+      setLastSyncStatus('syncing');
+      handleCloudSync('poll');
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', () => setLastSyncStatus('error'));
+    
+    return () => {
+      clearInterval(pollId);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', () => setLastSyncStatus('error'));
+      if (syncDebounceRef.current) clearTimeout(syncDebounceRef.current);
+    };
   }, [handleCloudSync]);
 
   useEffect(() => {
@@ -272,15 +295,22 @@ const App = () => {
                    ) : lastSyncStatus === 'success' ? (
                      <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-sm" />
                    ) : (
-                     <div className="w-1.5 h-1.5 bg-rose-500 rounded-full" />
+                     <div className="w-1.5 h-1.5 bg-amber-500 rounded-full shadow-sm" />
                    )}
-                   <span className="text-[7px] font-black text-slate-400 uppercase tracking-tighter">Live Sync</span>
+                   <span className={`text-[7px] font-black uppercase tracking-tighter ${lastSyncStatus === 'error' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
+                     {lastSyncStatus === 'error' ? (navigator.onLine ? 'Sync Idle' : 'Offline') : 'Live Sync'}
+                   </span>
                 </div>
               </div>
            </button>
         </div>
         <div className="flex items-center gap-2">
-           <button onClick={() => handleCloudSync('poll')} className={`w-10 h-10 rounded-xl bg-white/50 border border-slate-100 flex items-center justify-center active-scale transition-all shadow-sm ${isSyncing ? 'text-brand-600' : 'text-slate-500'}`}>
+           <button 
+             onClick={() => handleCloudSync('push')} 
+             disabled={isSyncing} 
+             className={`w-10 h-10 rounded-xl bg-white/50 border border-slate-100 flex items-center justify-center active-scale transition-all shadow-sm ${isSyncing ? 'text-brand-600' : 'text-slate-500'}`}
+             title="Manual Sync"
+           >
              <Zap className={`w-4.5 h-4.5 ${isSyncing ? 'animate-pulse' : ''}`} />
            </button>
            <button 
@@ -342,9 +372,8 @@ const App = () => {
             currentUsername={currentUser.username}
           />
         )}
-        {/* Fix: use currentUser.username instead of undefined currentUsername */}
-        {activeTab === 'income' && <IncomeManager transactions={data.transactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={id => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}), true)} onEditTransaction={tx => setEditingTx(tx)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranch?.name} lang={lang} currentUsername={currentUser.username} />}
-        {activeTab === 'expense' && <ExpenseManager transactions={data.transactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={id => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString()} : t)}), true)} onEditTransaction={tx => setEditingTx(tx)} expenseCategories={data.expenseCategories.filter(c => c.branchId === currentBranchId).map(c => c.name)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranch?.name} lang={lang} currentUsername={currentUser.username} />}
+        {activeTab === 'income' && <IncomeManager transactions={data.transactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={id => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString()} : t)}), true)} onEditTransaction={tx => setEditingTx(tx)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranch?.name} lang={lang} currentUsername={currentUser.username} />}
+        {activeTab === 'expense' && <ExpenseManager transactions={data.transactions} onAddTransaction={tx => atomicUpdate(p => ({...p, transactions: [tx, ...p.transactions]}), true)} onDeleteTransaction={id => atomicUpdate(p => ({...p, transactions: p.transactions.map(t => t.id === id ? {...t, deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString()} : t)}), true)} onEditTransaction={tx => setEditingTx(tx)} expenseCategories={data.expenseCategories.filter(c => c.branchId === currentBranchId).map(c => c.name)} branchId={currentBranchId} initialBalances={{cash: 0, card: 0}} userRole={currentUser.role} branchName={currentBranch?.name} lang={lang} currentUsername={currentUser.username} />}
         {activeTab === 'settings' && (
           <div className="space-y-6">
              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
