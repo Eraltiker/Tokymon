@@ -4,7 +4,6 @@ import { Language } from "../types";
 
 /**
  * Phân tích dữ liệu tài chính bằng Gemini 3 Flash
- * Tính năng này ổn định vì chỉ xử lý dữ liệu văn bản nhẹ.
  */
 export const analyzeFinances = async (stats: any, lang: Language = 'vi'): Promise<string> => {
   const { totalIn, totalOut, profit, margin, totalDebt } = stats;
@@ -17,7 +16,8 @@ export const analyzeFinances = async (stats: any, lang: Language = 'vi'): Promis
     Provide 3 concise strategic remarks. Use markdown. Focus on profitability and cash flow.`;
 
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Khởi tạo instance mới mỗi khi gọi để đảm bảo an toàn context
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt
