@@ -28,10 +28,9 @@ import {
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
 const GLOBAL_SYNC_KEY = 'NZQkBLdrxvnEEMUw928weK'; 
-const SYNC_DEBOUNCE_MS = 5000; // Tăng lên 5s để gộp nhiều thay đổi vào 1 request
-const POLLING_INTERVAL = 60000; // Tăng lên 60s (1 phút) để tránh Rate Limit Cloud
+const SYNC_DEBOUNCE_MS = 5000; 
+const POLLING_INTERVAL = 60000; 
 
-// Kênh đồng bộ nội bộ giữa các Tab (Không tốn request Cloud)
 const syncChannel = new BroadcastChannel('tokymon_sync_channel');
 
 const App = () => {
@@ -80,7 +79,6 @@ const App = () => {
   const isAdmin = currentUser?.role === UserRole.SUPER_ADMIN || currentUser?.role === UserRole.ADMIN;
 
   const handleCloudSync = useCallback(async (mode: 'poll' | 'push' = 'poll') => {
-    // Chỉ poll khi tab đang hiển thị
     if (document.visibilityState !== 'visible' && mode === 'poll') return;
     if (!navigator.onLine) {
       setLastSyncStatus('error');
@@ -98,7 +96,6 @@ const App = () => {
         setData(merged);
         dataRef.current = merged;
         await StorageService.saveLocal(merged);
-        // Thông báo tab khác
         if (mode === 'poll') {
           syncChannel.postMessage({ type: 'DATA_UPDATED', payload: merged });
         }
@@ -120,7 +117,6 @@ const App = () => {
     setData(nextData);
     await StorageService.saveLocal(nextData);
     
-    // Luôn ưu tiên đồng bộ Local giữa các Tab (Không tốn request Cloud)
     syncChannel.postMessage({ type: 'DATA_UPDATED', payload: nextData });
     
     if (immediateSync) {
@@ -146,7 +142,7 @@ const App = () => {
     StorageService.loadLocal().then(loaded => {
       setData(loaded);
       dataRef.current = loaded;
-      handleCloudSync('poll'); // Deep poll on startup
+      handleCloudSync('poll'); 
     });
 
     const pollId = setInterval(() => {
@@ -334,7 +330,7 @@ const App = () => {
               </div>
               <div className="flex items-center gap-1.5">
                 <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{currentUser.role}</p>
-                <div className="flex items-center gap-1 cursor-pointer" onClick={() => isAdmin && { setActiveTab('settings'), setSettingsSubTab('sync') }}>
+                <div className="flex items-center gap-1 cursor-pointer" onClick={() => { if (isAdmin) { setActiveTab('settings'); setSettingsSubTab('sync'); } }}>
                    {lastSyncStatus === 'syncing' ? (
                      <RefreshCw className="w-2.5 h-2.5 text-brand-500 animate-spin" />
                    ) : lastSyncStatus === 'success' ? (

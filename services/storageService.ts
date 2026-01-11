@@ -1,8 +1,9 @@
 
 import { AppData, SCHEMA_VERSION, INITIAL_EXPENSE_CATEGORIES, Category, Transaction, Branch, User, RecurringTransaction, ReportSettings, UserRole } from '../types';
 
-// Danh sách các key có thể chứa dữ liệu trong bucket
-const POSSIBLE_KEYS = ['app_data', 'tokymon_v1', 'main'];
+// DANH SÁCH CÁC KEY CŨ ĐÃ TỪNG CHỨA DỮ LIỆU - KHÔNG ĐƯỢC BỎ SÓT
+const POSSIBLE_KEYS = ['tokymon_v1', 'main', 'app_data'];
+const PRIMARY_KEY = 'app_data';
 
 export class StorageService {
   static getEmptyData(): AppData {
@@ -50,13 +51,13 @@ export class StorageService {
 
   /**
    * Đồng bộ với Cloud (KVDB.io)
-   * Thử nghiệm nhiều Key khác nhau để tìm dữ liệu cũ
+   * ĐÃ SỬA LỖI: Quét tất cả POSSIBLE_KEYS để không mất dữ liệu cũ.
    */
   static async syncWithCloud(syncKey: string, localData: AppData, mode: 'poll' | 'push'): Promise<AppData> {
-    // Nếu là PUSH, luôn đẩy vào key mặc định 'app_data'
+    // Nếu PUSH, chúng ta đẩy lên PRIMARY_KEY để hợp nhất dần về một mối
     if (mode === 'push') {
-      const url = `https://kvdb.io/${syncKey}/app_data?t=${Date.now()}`;
-      console.log("[Storage] Đang đẩy dữ liệu lên Cloud (app_data)...");
+      const url = `https://kvdb.io/${syncKey}/${PRIMARY_KEY}`;
+      console.log(`[Storage] Đang lưu dữ liệu vào key chính: ${PRIMARY_KEY}...`);
       const payload = { ...localData, lastSync: new Date().toISOString() };
       const response = await fetch(url, {
         method: 'POST',
@@ -66,82 +67,49 @@ export class StorageService {
       return payload;
     }
 
-    // Nếu là POLL, thử tìm kiếm dữ liệu ở các key khả thi
-    console.log("[Storage] Bắt đầu tìm kiếm dữ liệu trên Cloud...");
-    
+    // Nếu POLL, quét TẤT CẢ các key có thể chứa dữ liệu
+    console.log("[Storage] Đang truy tìm dữ liệu cũ trên các key:", POSSIBLE_KEYS);
+    let currentMergedData = { ...localData };
+
     for (const key of POSSIBLE_KEYS) {
-      const url = `https://kvdb.io/${syncKey}/${key}?t=${Date.now()}`;
       try {
-        console.log(`[Storage] Đang kiểm tra Key: ${key}...`);
+        const url = `https://kvdb.io/${syncKey}/${key}?t=${Date.now()}`;
         const response = await fetch(url);
-        
-        if (response.status === 404) continue;
         if (!response.ok) continue;
 
         const text = await response.text();
-        if (!text || text === "null" || text.trim() === "" || text.trim() === "[]") {
-          console.log(`[Storage] Key ${key} trống hoặc rỗng.`);
-          continue;
-        }
+        if (!text || text === "null" || text.trim() === "" || text.trim() === "[]") continue;
 
         const remoteData: AppData = JSON.parse(text);
-        
-        // Kiểm tra xem dữ liệu có thực sự chứa transactions hoặc branches không
-        const hasContent = (remoteData.transactions && remoteData.transactions.length > 0) || 
-                           (remoteData.branches && remoteData.branches.length > 0);
-        
-        if (hasContent) {
-          console.log(`[Storage] Đã tìm thấy dữ liệu hợp lệ tại Key: ${key}`);
-          return this.mergeAppData(localData, remoteData);
-        } else {
-          console.log(`[Storage] Key ${key} tồn tại nhưng không chứa dữ liệu giao dịch.`);
-        }
+        console.log(`[Storage] Đã tìm thấy dữ liệu tại key: ${key}. Đang thực hiện gộp...`);
+        currentMergedData = this.mergeAppData(currentMergedData, remoteData);
       } catch (e) {
-        console.warn(`[Storage] Lỗi khi đọc Key ${key}, bỏ qua...`);
+        console.warn(`[Storage] Không thể đọc key ${key}:`, e);
       }
     }
 
-    // Nếu duyệt hết các key mà không thấy gì
-    console.warn("[Storage] Không tìm thấy dữ liệu cũ trên bất kỳ Key nào.");
-    
-    // Nếu local có dữ liệu, tự động đẩy lên app_data lần đầu
-    if (localData.transactions.length > 0 || localData.branches.length > 0) {
-      console.log("[Storage] Tự động khởi tạo app_data từ dữ liệu Local...");
-      return await this.syncWithCloud(syncKey, localData, 'push');
-    }
-
-    return localData;
+    return currentMergedData;
   }
 
   private static mergeAppData(local: AppData, remote: AppData): AppData {
-    // Nếu máy hiện tại trống (Local chưa có gì), lấy 100% từ Cloud
-    const isLocalEmpty = (local.transactions.length === 0 && local.branches.length === 0);
-    if (isLocalEmpty) {
-      console.log("[Storage] Phát hiện thiết bị mới. Đang nạp toàn bộ dữ liệu từ Cloud.");
-      return {
-        ...remote,
-        lastSync: remote.lastSync || new Date().toISOString()
-      };
-    }
-
-    // Nếu cả hai đều có dữ liệu, gộp an toàn
+    // Gộp tất cả các mảng dữ liệu quan trọng, ưu tiên bản ghi có updatedAt mới nhất
     const mergedTransactions = this.safeMergeArrays(local.transactions || [], remote.transactions || []);
     const mergedBranches = this.safeMergeArrays(local.branches || [], remote.branches || []);
     const mergedUsers = this.safeMergeArrays(local.users || [], remote.users || []);
     const mergedCategories = this.safeMergeArrays(local.expenseCategories || [], remote.expenseCategories || []);
     const mergedRecurring = this.safeMergeArrays(local.recurringExpenses || [], remote.recurringExpenses || []);
 
-    // Bảo vệ admin
+    // Đảm bảo admin luôn tồn tại
     if (!mergedUsers.some(u => u.username === 'admin')) {
       mergedUsers.push(this.getEmptyData().users[0]);
     }
 
-    const rTime = new Date(remote.lastSync || 0).getTime() || 0;
-    const lTime = new Date(local.lastSync || 0).getTime() || 0;
+    const rTime = new Date(remote.lastSync || 0).getTime();
+    const lTime = new Date(local.lastSync || 0).getTime();
     const finalSync = rTime > lTime ? remote.lastSync : local.lastSync;
 
     return {
-      ...remote,
+      ...remote, // Giữ các settings từ remote nếu có
       transactions: mergedTransactions,
       branches: mergedBranches,
       users: mergedUsers,
@@ -153,15 +121,18 @@ export class StorageService {
 
   static safeMergeArrays<T extends { id: string; updatedAt: string }>(local: T[], remote: T[]): T[] {
     const map = new Map<string, T>();
+    // Nạp local vào map trước
     local.forEach(item => { if (item && item.id) map.set(item.id, item); });
+    
+    // Duyệt remote, nếu id đã có thì so sánh thời gian cập nhật
     remote.forEach(remoteItem => {
       if (!remoteItem || !remoteItem.id) return;
       const localItem = map.get(remoteItem.id);
       if (!localItem) {
         map.set(remoteItem.id, remoteItem);
       } else {
-        const rTime = new Date(remoteItem.updatedAt || 0).getTime() || 0;
-        const lTime = new Date(localItem.updatedAt || 0).getTime() || 0;
+        const rTime = new Date(remoteItem.updatedAt || 0).getTime();
+        const lTime = new Date(localItem.updatedAt || 0).getTime();
         if (rTime >= lTime) map.set(remoteItem.id, remoteItem);
       }
     });

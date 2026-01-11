@@ -25,7 +25,6 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
   const [showFilters, setShowFilters] = useState(false);
   const isViewer = userRole === UserRole.VIEWER;
 
-  // --- STATES BỘ LỌC ---
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -38,7 +37,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
     return transactions.filter(tx => {
       if (tx.deletedAt) return false;
       
-      const notesString = (tx.notes || []).join(' ').toLowerCase();
+      const notesString = Array.isArray(tx.notes) ? tx.notes.join(' ').toLowerCase() : '';
       const matchesSearch = searchQuery === '' || 
         tx.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
         notesString.includes(searchQuery.toLowerCase()) ||
@@ -132,18 +131,17 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                    const isIncome = tx.type === TransactionType.INCOME;
                    const isDebt = tx.isPaid === false;
                    const isAdvance = tx.category === 'Nợ / Tiền ứng';
-                   const hasNotes = tx.notes && tx.notes.length > 0;
+                   const validNotes = Array.isArray(tx.notes) ? tx.notes.filter(n => n && n.trim() !== "") : [];
+                   const hasNotes = validNotes.length > 0;
 
                    return (
                     <div key={tx.id} className="px-6 py-5 flex flex-col gap-3 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors relative group border-l-4 border-transparent hover:border-brand-500">
                        <div className="flex justify-between items-start gap-4">
                           <div className="flex gap-4 min-w-0">
-                             {/* Icon Trạng Thái */}
                              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border-2 ${isIncome ? 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/30' : (isDebt ? 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-950/20 dark:border-rose-900/30' : 'bg-slate-50 text-slate-400 border-slate-100 dark:bg-slate-800 dark:border-slate-700')}`}>
                                 {isIncome ? <ArrowUpCircle className="w-7 h-7" /> : <ArrowDownCircle className="w-7 h-7" />}
                              </div>
 
-                             {/* Thông tin chính */}
                              <div className="min-w-0 flex flex-col">
                                 <h4 className="text-[12px] font-black dark:text-white uppercase tracking-tight leading-none mb-2 truncate">
                                    {isIncome ? 'QUYẾT TOÁN DOANH THU' : (tx.debtorName || translateCategory(tx.category))}
@@ -167,10 +165,9 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                                    )}
                                 </div>
 
-                                {/* HIỂN THỊ GHI CHÚ (NOTES) */}
                                 {hasNotes && (
                                   <div className="space-y-1 mt-1 p-2 bg-slate-50 dark:bg-slate-950/40 rounded-xl border border-slate-100 dark:border-slate-800">
-                                    {tx.notes.map((note, idx) => (
+                                    {validNotes.map((note, idx) => (
                                       <div key={idx} className="flex items-start gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-tight italic">
                                         <MessageSquare className="w-3 h-3 mt-0.5 shrink-0 text-brand-400" />
                                         <span>{note}</span>
@@ -179,7 +176,6 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                                   </div>
                                 )}
 
-                                {/* Chi tiết Doanh thu (nếu là INCOME) */}
                                 {isIncome && tx.incomeBreakdown && (
                                   <div className="flex flex-wrap gap-3 mt-2">
                                      <div className="flex items-center gap-1 text-[9px] font-black text-emerald-600 uppercase">
@@ -196,7 +192,6 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
                              </div>
                           </div>
 
-                          {/* Số tiền & Hành động */}
                           <div className="flex flex-col items-end shrink-0 gap-3">
                              <div className="text-right">
                                 <p className={`text-[15px] font-black tracking-tighter ${isIncome ? 'text-emerald-600' : 'text-rose-600'}`}>
@@ -233,7 +228,6 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onDelet
           <div className="py-32 text-center opacity-30 flex flex-col items-center gap-4">
              <Info className="w-10 h-10" />
              <p className="text-xs font-black uppercase tracking-widest">{t('no_data')}</p>
-             {isFilterActive && <p className="text-[9px] font-bold uppercase">Thử xóa bộ lọc để xem các chi phí ẩn</p>}
           </div>
         )}
       </div>
