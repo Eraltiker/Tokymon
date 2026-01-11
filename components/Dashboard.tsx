@@ -116,13 +116,11 @@ const Dashboard: React.FC<DashboardProps> = ({
 
     activeTxs.forEach(tx => {
       if (tx.type === TransactionType.INCOME) {
+        // Cash = (Amount - Card) -> Lưu ý App đã được tính vào Cash theo logic Tokymon
         const cashFlow = (tx.amount - (tx.incomeBreakdown?.card || 0));
         totalCashFromIncome += cashFlow;
         totalCardFromIncome += (tx.incomeBreakdown?.card || 0);
       } else {
-        // LOGIC MỚI CHO TIỀN ỨNG:
-        // Nếu là Nợ/Tiền ứng: Tiền thực tế nằm ngoài ví = (Số tiền ứng - Số tiền đã trả lại)
-        // Nếu nhân viên trả lại tiền (paidAmount tăng), netExpense giảm -> Ví tự cộng lại
         let actualPaid = 0;
         if (tx.category === 'Nợ / Tiền ứng') {
            actualPaid = tx.amount - (tx.paidAmount || 0);
@@ -163,7 +161,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     const month = viewDate.getMonth();
     const q = Math.ceil((month + 1) / 3);
 
-    let totalRev = 0, totalExp = 0, cardSales = 0, appSales = 0;
+    let totalRev = 0, totalZBon = 0, totalExp = 0, cardSales = 0, appSales = 0;
     const catMap: Record<string, number> = {};
     const dailyData: Record<string, any> = {};
 
@@ -172,14 +170,22 @@ const Dashboard: React.FC<DashboardProps> = ({
       const isTxInPeriod = reportPeriod === 'MONTH' ? (txDate.getFullYear() === year && txDate.getMonth() === month) : reportPeriod === 'QUARTER' ? (txDate.getFullYear() === year && Math.ceil((txDate.getMonth() + 1) / 3) === q) : (txDate.getFullYear() === year);
 
       if (isTxInPeriod && tx.type === TransactionType.INCOME) {
-        if (!dailyData[tx.date]) dailyData[tx.date] = { total: 0, card: 0, app: 0, shopOut: 0, expenses: [] };
+        if (!dailyData[tx.date]) dailyData[tx.date] = { total: 0, zbon: 0, card: 0, app: 0, shopOut: 0, expenses: [] };
+        
+        const delivery = tx.incomeBreakdown?.delivery || 0;
+        const zbonValue = tx.amount - delivery;
+
         totalRev += tx.amount;
+        totalZBon += zbonValue;
+        
         dailyData[tx.date].total += tx.amount;
+        dailyData[tx.date].zbon += zbonValue;
+        
         if (tx.incomeBreakdown) {
           cardSales += tx.incomeBreakdown.card || 0;
-          appSales += tx.incomeBreakdown.delivery || 0;
+          appSales += delivery;
           dailyData[tx.date].card += tx.incomeBreakdown.card || 0;
-          dailyData[tx.date].app += tx.incomeBreakdown.delivery || 0;
+          dailyData[tx.date].app += delivery;
         }
       }
 
@@ -188,7 +194,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           const pDate = new Date(dateStr);
           const inPeriod = reportPeriod === 'MONTH' ? (pDate.getFullYear() === year && pDate.getMonth() === month) : reportPeriod === 'QUARTER' ? (pDate.getFullYear() === year && Math.ceil((pDate.getMonth() + 1) / 3) === q) : (pDate.getFullYear() === year);
           if (inPeriod) {
-            if (!dailyData[dateStr]) dailyData[dateStr] = { total: 0, card: 0, app: 0, shopOut: 0, expenses: [] };
+            if (!dailyData[dateStr]) dailyData[dateStr] = { total: 0, zbon: 0, card: 0, app: 0, shopOut: 0, expenses: [] };
             totalExp += amt;
             catMap[tx.category] = (catMap[tx.category] || 0) + amt;
             if (tx.expenseSource === ExpenseSource.SHOP_CASH) dailyData[dateStr].shopOut += amt;
@@ -196,29 +202,23 @@ const Dashboard: React.FC<DashboardProps> = ({
           }
         };
 
-        // Logic "Trừ thẳng vào số liệu nằm ở chi phí"
         if (tx.category === 'Nợ / Tiền ứng') {
           const netExpense = tx.amount - (tx.paidAmount || 0);
           processExpense(netExpense, tx.date);
         } else {
-          if (tx.isPaid !== false) {
-            processExpense(tx.amount, tx.date);
-          } else {
-            // Đối với nợ NCC: Chỉ tính phần đã trả vào chi phí thực tế đã xuất
-            processExpense(tx.paidAmount || 0, tx.date);
-          }
+          processExpense(tx.isPaid !== false ? tx.amount : (tx.paidAmount || 0), tx.date);
         }
       }
     });
 
     const chartData = Object.entries(dailyData).map(([date, d]: any) => ({
       label: reportPeriod === 'MONTH' ? date.split('-')[2] : `T${new Date(date).getMonth() + 1}`,
-      revenue: d.total,
-      cash: d.total - d.card - d.shopOut
+      revenue: d.zbon, // Biểu đồ hiển thị theo Z-Bon cho sát thực tế quán
+      cash: d.zbon - d.card - d.shopOut + d.app
     })).sort((a, b) => a.label.localeCompare(b.label));
 
     return {
-      totalRev, totalExp, profit: totalRev - totalExp, 
+      totalRev, totalZBon, totalExp, profit: totalRev - totalExp, 
       cardSales, appSales,
       chartData,
       pieData: Object.entries(catMap).map(([name, value]) => ({ name: translateCategory(name), value })).sort((a, b) => b.value - a.value),
@@ -280,7 +280,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       {activeTab === 'OVERVIEW' && (
         <div className="space-y-6 animate-ios">
-          {/* Period Selector */}
           <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-4 rounded-[2.5rem] border dark:border-slate-800 shadow-sm">
             <div className="flex p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl border dark:border-slate-800 w-full md:w-fit">
               {(['MONTH', 'QUARTER', 'YEAR'] as ReportPeriod[]).map(p => (
@@ -294,22 +293,21 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
 
-          {/* Key Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
              <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 p-5 rounded-[2.2rem] text-white shadow-vivid col-span-2 md:col-span-1">
-                <p className="text-[8px] font-black uppercase tracking-widest opacity-70 mb-1">Dòng tiền thuần</p>
+                <p className="text-[8px] font-black uppercase tracking-widest opacity-70 mb-1">Dòng tiền thuần (Lợi nhuận)</p>
                 <h3 className="text-xl sm:text-2xl font-black tracking-tighter leading-none">{formatCurrency(stats.profit, lang)}</h3>
              </div>
              <div className="bg-white dark:bg-slate-900 p-5 rounded-[2.2rem] border dark:border-slate-800 shadow-ios text-center">
-                <p className="text-[8px] font-black text-rose-500 uppercase tracking-widest mb-1 leading-none">{t('card_total')}</p>
+                <p className="text-[8px] font-black text-rose-500 uppercase tracking-widest mb-1 leading-none">Tổng Thẻ (Digital)</p>
                 <h3 className="text-xl sm:text-2xl font-black text-rose-600 tracking-tighter leading-none">
                   {formatCurrency(stats.cardSales, lang)}
                 </h3>
              </div>
-             <div className="bg-white dark:bg-slate-900 p-5 rounded-[2.2rem] border dark:border-slate-800 shadow-ios text-center">
-                <p className="text-[8px] font-black text-indigo-500 uppercase tracking-widest mb-1 leading-none">Doanh Thu Gốc</p>
-                <h3 className="text-xl sm:text-2xl font-black text-indigo-600 dark:text-indigo-400 tracking-tighter leading-none">
-                  {formatCurrency(stats.totalRev, lang)}
+             <div className="bg-white dark:bg-slate-900 p-5 rounded-[2.2rem] border dark:border-slate-800 shadow-ios text-center ring-2 ring-emerald-500/20">
+                <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mb-1 leading-none">TỔNG KASSE (Z-BON)</p>
+                <h3 className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tighter leading-none">
+                  {formatCurrency(stats.totalZBon, lang)}
                 </h3>
              </div>
              <div className="bg-white dark:bg-slate-900 p-5 rounded-[2.2rem] border dark:border-slate-800 shadow-ios">
@@ -317,8 +315,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <h3 className="text-xl sm:text-2xl font-black text-slate-600 dark:text-slate-300 tracking-tighter leading-none">{formatCurrency(stats.totalExp, lang)}</h3>
              </div>
              <div className="bg-white dark:bg-slate-900 p-5 rounded-[2.2rem] border dark:border-slate-800 shadow-ios">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Tỉ suất</p>
-                <h3 className={`text-xl sm:text-2xl font-black tracking-tighter leading-none text-emerald-500`}>{(stats.totalRev > 0 ? (stats.profit / stats.totalRev) * 100 : 0).toFixed(1)}%</h3>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Doanh Thu Tổng</p>
+                <h3 className="text-xl sm:text-2xl font-black text-indigo-500 tracking-tighter leading-none">{formatCurrency(stats.totalRev, lang)}</h3>
              </div>
           </div>
 
@@ -363,7 +361,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
              <div className="lg:col-span-8 bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-[3rem] border dark:border-slate-800 shadow-ios">
-                <h4 className="text-sm font-black uppercase tracking-tighter dark:text-white mb-10">Phân tích hiệu suất tiền mặt</h4>
+                <h4 className="text-sm font-black uppercase tracking-tighter dark:text-white mb-10">Phân tích Z-Bon (Daily Counter)</h4>
                 <div className="h-[300px]">
                    <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={stats.chartData}>
@@ -374,8 +372,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                             contentStyle={{borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', fontWeight: 800, fontSize: '10px'}}
                             formatter={(val: number) => [formatCurrency(val, lang)]}
                          />
-                         <Bar dataKey="revenue" fill="#e2e8f0" radius={[8, 8, 0, 0]} barSize={15} />
-                         <Area type="monotone" dataKey="cash" stroke="#6366f1" strokeWidth={3} fill="#6366f1" fillOpacity={0.1} />
+                         <Bar dataKey="revenue" fill="#6366f1" radius={[8, 8, 0, 0]} barSize={15} />
+                         <Area type="monotone" dataKey="cash" stroke="#10b981" strokeWidth={3} fill="#10b981" fillOpacity={0.1} />
                       </ComposedChart>
                    </ResponsiveContainer>
                 </div>
@@ -415,8 +413,12 @@ const Dashboard: React.FC<DashboardProps> = ({
       {activeTab === 'DAILY' && (
         <div className="space-y-6 animate-ios">
           {stats.dailyAudit.map(([date, d]: any) => {
-            const expectedCashInHand = (d.total) - d.card;
+            // Tiền mặt tại quầy = ZBon - Card
+            // Tiền mặt thực tế trong túi = (ZBon - Card) + App (theo logic user muốn)
+            const cashFromCounter = d.zbon - d.card;
+            const expectedCashInHand = cashFromCounter + d.app;
             const netHandover = expectedCashInHand - d.shopOut;
+            
             return (
               <div key={date} className="bg-white dark:bg-slate-900 rounded-[2.5rem] border dark:border-slate-800 shadow-ios overflow-hidden flex flex-col group transition-all w-full">
                  <div className="px-6 py-5 bg-slate-900 text-white flex justify-between items-center">
@@ -434,11 +436,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                        <div className="space-y-4">
                           <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2"><Receipt className="w-4 h-4" /> Chi tiết nguồn thu</h5>
                           <div className="space-y-3.5 p-5 bg-slate-50 dark:bg-slate-950/50 rounded-2xl border dark:border-slate-800">
-                             <div className="flex justify-between items-center text-[11px] font-bold text-slate-500 uppercase"><span>Doanh thu quầy:</span><span className="dark:text-white font-black">{formatCurrency(d.total - d.app, lang)}</span></div>
-                             <div className="flex justify-between items-center text-indigo-500 text-[11px] font-black uppercase"><span>Doanh thu App:</span><span>+{formatCurrency(d.app, lang)}</span></div>
-                             <div className="flex justify-between items-center text-rose-500 text-[11px] font-black uppercase"><span>Đã quẹt thẻ (-):</span><span>-{formatCurrency(d.card, lang)}</span></div>
+                             <div className="flex justify-between items-center text-[11px] font-bold text-slate-500 uppercase"><span>Tổng Kasse (Z-Bon):</span><span className="dark:text-white font-black">{formatCurrency(d.zbon, lang)}</span></div>
+                             <div className="flex justify-between items-center text-rose-500 text-[11px] font-black uppercase"><span>Trừ quẹt thẻ (-):</span><span>-{formatCurrency(d.card, lang)}</span></div>
+                             <div className="flex justify-between items-center text-indigo-500 text-[11px] font-black uppercase"><span>Cộng tiền App (+):</span><span>+{formatCurrency(d.app, lang)}</span></div>
                              <div className="pt-3 border-t-2 border-dashed dark:border-slate-800 flex justify-between items-center">
-                                <span className="text-[10px] font-black uppercase text-slate-400">Tiền mặt bàn giao dự kiến:</span>
+                                <span className="text-[10px] font-black uppercase text-slate-400">Tiền mặt dự kiến (trước chi):</span>
                                 <span className="text-xl font-black text-indigo-600 dark:text-indigo-400">{formatCurrency(expectedCashInHand, lang)}</span>
                              </div>
                           </div>
