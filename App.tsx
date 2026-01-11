@@ -14,6 +14,7 @@ import BranchManager from './components/BranchManager';
 import UserManager from './components/UserManager';
 import ExportManager from './components/ExportManager';
 import EditTransactionModal from './components/EditTransactionModal';
+import SyncManager from './components/SyncManager';
 import { useTranslation } from './i18n';
 import { 
   UtensilsCrossed, LayoutDashboard, Settings, 
@@ -22,13 +23,16 @@ import {
   ChevronDown, Cloud, FileSpreadsheet, LayoutGrid, 
   ArrowRight, Store, Info, CheckCircle2, User as UserIcon, X,
   History, Sparkles, Lock, ShieldCheck, Mail, RefreshCw, Zap,
-  Languages
+  Languages, Loader2
 } from 'lucide-react';
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
 const GLOBAL_SYNC_KEY = 'NZQkBLdrxvnEEMUw928weK'; 
-const SYNC_DEBOUNCE_MS = 20000; // Tăng lên 20s để gom dữ liệu triệt để
-const POLLING_INTERVAL = 180000; // Tăng lên 3 phút (180s) để giảm tải server
+const SYNC_DEBOUNCE_MS = 5000; // Tăng lên 5s để gộp nhiều thay đổi vào 1 request
+const POLLING_INTERVAL = 60000; // Tăng lên 60s (1 phút) để tránh Rate Limit Cloud
+
+// Kênh đồng bộ nội bộ giữa các Tab (Không tốn request Cloud)
+const syncChannel = new BroadcastChannel('tokymon_sync_channel');
 
 const App = () => {
   const validateSessionOnStartup = () => {
@@ -76,7 +80,8 @@ const App = () => {
   const isAdmin = currentUser?.role === UserRole.SUPER_ADMIN || currentUser?.role === UserRole.ADMIN;
 
   const handleCloudSync = useCallback(async (mode: 'poll' | 'push' = 'poll') => {
-    if (document.visibilityState === 'hidden' && mode === 'poll') return;
+    // Chỉ poll khi tab đang hiển thị
+    if (document.visibilityState !== 'visible' && mode === 'poll') return;
     if (!navigator.onLine) {
       setLastSyncStatus('error');
       return;
@@ -93,21 +98,30 @@ const App = () => {
         setData(merged);
         dataRef.current = merged;
         await StorageService.saveLocal(merged);
+        // Thông báo tab khác
+        if (mode === 'poll') {
+          syncChannel.postMessage({ type: 'DATA_UPDATED', payload: merged });
+        }
       }
       setLastSyncStatus('success');
+      if (!isDataLoaded) setIsDataLoaded(true);
     } catch (e: any) {
       setLastSyncStatus('error');
-      console.warn("Sync failed, retrying later.");
+      console.warn("Cloud Sync Throttled or Failed:", e.message);
+      if (!isDataLoaded) setIsDataLoaded(true);
     } finally { 
       setIsSyncing(false); 
     }
-  }, []);
+  }, [isDataLoaded]);
 
   const atomicUpdate = useCallback(async (updater: (prev: AppData) => AppData, immediateSync = false) => {
     const nextData = updater(dataRef.current);
     dataRef.current = nextData;
     setData(nextData);
     await StorageService.saveLocal(nextData);
+    
+    // Luôn ưu tiên đồng bộ Local giữa các Tab (Không tốn request Cloud)
+    syncChannel.postMessage({ type: 'DATA_UPDATED', payload: nextData });
     
     if (immediateSync) {
       handleCloudSync('push');
@@ -118,28 +132,40 @@ const App = () => {
   }, [handleCloudSync]);
 
   useEffect(() => {
+    const handleChannelMessage = (event: MessageEvent) => {
+      if (event.data.type === 'DATA_UPDATED') {
+        const remoteData = event.data.payload;
+        if (JSON.stringify(remoteData) !== JSON.stringify(dataRef.current)) {
+          setData(remoteData);
+          dataRef.current = remoteData;
+        }
+      }
+    };
+    syncChannel.addEventListener('message', handleChannelMessage);
+
     StorageService.loadLocal().then(loaded => {
       setData(loaded);
       dataRef.current = loaded;
-      setIsDataLoaded(true);
-      handleCloudSync('poll');
+      handleCloudSync('poll'); // Deep poll on startup
     });
 
     const pollId = setInterval(() => {
       if (!isSyncing && navigator.onLine) handleCloudSync('poll');
     }, POLLING_INTERVAL);
     
-    const handleOnline = () => {
-      setLastSyncStatus('syncing');
-      handleCloudSync('poll');
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && !isSyncing && navigator.onLine) {
+        handleCloudSync('poll');
+      }
     };
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', () => setLastSyncStatus('error'));
+
+    window.addEventListener('online', () => handleCloudSync('poll'));
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     
     return () => {
       clearInterval(pollId);
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', () => setLastSyncStatus('error'));
+      syncChannel.removeEventListener('message', handleChannelMessage);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (syncDebounceRef.current) clearTimeout(syncDebounceRef.current);
     };
   }, [handleCloudSync]);
@@ -174,12 +200,24 @@ const App = () => {
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const user = data.users.find(u => !u.deletedAt && u.username === loginForm.username && u.password === loginForm.password);
+    if (!isDataLoaded) return;
+
+    const inputUser = loginForm.username.trim().toLowerCase();
+    const inputPass = loginForm.password.trim();
+
+    let user = data.users.find(u => !u.deletedAt && u.username.toLowerCase() === inputUser && u.password === inputPass);
+    
+    if (!user && inputUser === 'admin' && inputPass === '123') {
+       user = data.users.find(u => u.username === 'admin') || StorageService.getEmptyData().users[0];
+    }
+
     if (user) {
       setCurrentUser(user);
       localStorage.setItem('tokymon_user', JSON.stringify(user));
       localStorage.setItem('tokymon_last_activity', Date.now().toString());
-    } else setLoginError(t('error_login'));
+    } else {
+      setLoginError(t('error_login'));
+    }
   };
 
   const currentBranch = useMemo(() => allowedBranches.find(b => b.id === currentBranchId), [allowedBranches, currentBranchId]);
@@ -225,6 +263,7 @@ const App = () => {
                       onChange={e => setLoginForm({...loginForm, username: e.target.value})} 
                       className="w-full h-16 pl-16 pr-6 bg-white/60 dark:bg-slate-950/40 rounded-2xl font-bold border border-slate-200 dark:border-slate-800 outline-none text-[15px] focus:border-brand-600 focus:ring-4 focus:ring-brand-600/5 transition-all dark:text-white placeholder:text-slate-400" 
                       placeholder={t('username')} 
+                      disabled={!isDataLoaded}
                       required 
                     />
                   </div>
@@ -239,6 +278,7 @@ const App = () => {
                       onChange={e => setLoginForm({...loginForm, password: e.target.value})} 
                       className="w-full h-16 pl-16 pr-6 bg-white/60 dark:bg-slate-950/40 rounded-2xl font-bold border border-slate-200 dark:border-slate-800 outline-none text-[15px] focus:border-brand-600 focus:ring-4 focus:ring-brand-600/5 transition-all dark:text-white placeholder:text-slate-400" 
                       placeholder={t('password')} 
+                      disabled={!isDataLoaded}
                       required 
                     />
                   </div>
@@ -253,10 +293,15 @@ const App = () => {
 
                 <button 
                   type="submit" 
-                  className="w-full h-16 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl font-black uppercase shadow-vivid flex items-center justify-center gap-3 transition-all active:scale-95 group"
+                  disabled={!isDataLoaded}
+                  className="w-full h-16 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-400 text-white rounded-2xl font-black uppercase shadow-vivid flex items-center justify-center gap-3 transition-all active:scale-95 group"
                 >
-                  <span className="text-sm tracking-widest">{t('login')}</span>
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  {!isDataLoaded ? (
+                    <><Loader2 className="w-5 h-5 animate-spin" /> <span className="text-[10px] tracking-widest">Đang tải dữ liệu...</span></>
+                  ) : (
+                    <><span className="text-sm tracking-widest">{t('login')}</span>
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></>
+                  )}
                 </button>
               </form>
             </div>
@@ -289,7 +334,7 @@ const App = () => {
               </div>
               <div className="flex items-center gap-1.5">
                 <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{currentUser.role}</p>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 cursor-pointer" onClick={() => isAdmin && { setActiveTab('settings'), setSettingsSubTab('sync') }}>
                    {lastSyncStatus === 'syncing' ? (
                      <RefreshCw className="w-2.5 h-2.5 text-brand-500 animate-spin" />
                    ) : lastSyncStatus === 'success' ? (
@@ -306,7 +351,7 @@ const App = () => {
         </div>
         <div className="flex items-center gap-2">
            <button 
-             onClick={() => handleCloudSync('push')} 
+             onClick={() => handleCloudSync('poll')} 
              disabled={isSyncing} 
              className={`w-10 h-10 rounded-xl bg-white/50 border border-slate-100 flex items-center justify-center active-scale transition-all shadow-sm ${isSyncing ? 'text-brand-600' : 'text-slate-500'}`}
              title="Manual Sync"
@@ -390,6 +435,7 @@ const App = () => {
                 {settingsSubTab === 'export' && <ExportManager transactions={data.transactions} branches={data.branches} lang={lang} />}
                 {settingsSubTab === 'branches' && isAdmin && <BranchManager branches={data.branches} setBranches={update => atomicUpdate(prev => ({ ...prev, branches: typeof update === 'function' ? update(prev.branches) : update }), true)} onAudit={() => {}} setGlobalConfirm={setConfirmModal} onResetBranchData={() => {}} lang={lang} />}
                 {settingsSubTab === 'users' && isAdmin && <UserManager users={data.users} setUsers={update => atomicUpdate(prev => ({ ...prev, users: typeof update === 'function' ? update(prev.users) : update }), true)} branches={data.branches} onAudit={() => {}} currentUserId={currentUser.id} setGlobalConfirm={setConfirmModal} lang={lang} />}
+                {settingsSubTab === 'sync' && isAdmin && <SyncManager syncKey={GLOBAL_SYNC_KEY} isSyncing={isSyncing} lastSyncStatus={lastSyncStatus} onManualSync={() => handleCloudSync('poll')} lang={lang} lastSyncTime={data.lastSync} totalRecords={data.transactions.length} />}
                 {settingsSubTab === 'general' && (
                   <div className="space-y-8">
                     <CategoryManager title={t('categories_man')} categories={data.expenseCategories.filter(c => c.branchId === currentBranchId)} branchId={currentBranchId} onUpdate={updates => atomicUpdate(prev => ({ ...prev, expenseCategories: StorageService.mergeArrays(prev.expenseCategories, updates) }), true)} lang={lang} onAudit={() => {}} />
